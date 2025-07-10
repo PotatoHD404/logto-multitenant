@@ -41,12 +41,20 @@ export const verifyBearerTokenFromRequest = async (
 
   const getKeysAndIssuer = async (): Promise<[JWK[], string[]]> => {
     const { publicJwks, issuer } = envSet.oidc;
+    
+    devConsole.warn('DEBUG: envSet.tenantId:', envSet.tenantId);
+    devConsole.warn('DEBUG: adminTenantId:', adminTenantId);
+    devConsole.warn('DEBUG: publicJwks length:', publicJwks.length);
+    devConsole.warn('DEBUG: issuer:', issuer);
 
     if (envSet.tenantId === adminTenantId) {
+      devConsole.warn('DEBUG: Using admin tenant keys only');
       return [publicJwks, [issuer]];
     }
 
     const adminSet = await getAdminTenantTokenValidationSet();
+    devConsole.warn('DEBUG: adminSet keys length:', adminSet.keys.length);
+    devConsole.warn('DEBUG: adminSet issuer:', adminSet.issuer);
 
     return [
       [...publicJwks, ...adminSet.keys],
@@ -55,11 +63,19 @@ export const verifyBearerTokenFromRequest = async (
   };
 
   try {
+    const bearerToken = extractBearerTokenFromHeaders(request.headers);
+    devConsole.warn('DEBUG: Bearer token length:', bearerToken.length);
+    devConsole.warn('DEBUG: Bearer token first 50 chars:', bearerToken.substring(0, 50));
+    
     const [keys, issuer] = await getKeysAndIssuer();
+    devConsole.warn('DEBUG: Total keys for verification:', keys.length);
+    devConsole.warn('DEBUG: Issuers for verification:', issuer);
+    devConsole.warn('DEBUG: Audience for verification:', audience);
+    
     const {
       payload: { sub, client_id: clientId, scope = '' },
     } = await jwtVerify(
-      extractBearerTokenFromHeaders(request.headers),
+      bearerToken,
       createLocalJWKSet({ keys }),
       {
         issuer,
@@ -71,6 +87,10 @@ export const verifyBearerTokenFromRequest = async (
 
     return { sub, clientId, scopes: z.string().parse(scope).split(' ') };
   } catch (error: unknown) {
+    devConsole.warn('DEBUG: JWT verification failed with error:', error);
+    devConsole.warn('DEBUG: Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    devConsole.warn('DEBUG: Error message:', error instanceof Error ? error.message : String(error));
+    
     if (error instanceof RequestError) {
       throw error;
     }

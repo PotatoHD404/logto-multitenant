@@ -1,8 +1,8 @@
-import { defaultTenantId, TenantTag } from '@logto/schemas';
+import { defaultTenantId, TenantTag, ossConsolePath } from '@logto/schemas';
 import { conditionalArray, noop } from '@silverhand/essentials';
 import type { ReactNode } from 'react';
 import { useCallback, useMemo, createContext, useState } from 'react';
-import { useMatch, useNavigate } from 'react-router-dom';
+import { useMatch, useNavigate, useLocation } from 'react-router-dom';
 
 import { type TenantResponse } from '@/cloud/types/router';
 import { defaultTenantResponse } from '@/consts';
@@ -33,10 +33,15 @@ export enum GlobalRoute {
   HandleSocial = '/handle-social',
 }
 
-const reservedRoutes: Readonly<string[]> = Object.freeze([
+/**
+ * The reserved routes that don't require a tenant ID.
+ */
+const reservedRoutes = [
   ...Object.values(GlobalAnonymousRoute),
   ...Object.values(GlobalRoute),
-]);
+  // OSS-specific pre-tenant routes
+  ...(!isCloud ? [`${ossConsolePath}/welcome`, `${ossConsolePath}/callback`] : []),
+];
 
 /**
  * The reserved tenant ID wildcard for the last-visited tenant. Useful when specifying a console URL in
@@ -103,28 +108,37 @@ function TenantsProvider({ children }: Props) {
   const [tenants, setTenants] = useState(initialTenants);
   /** @see {@link initialTenants} */
   const [isInitComplete, setIsInitComplete] = useState(!isCloud);
-  const match = useMatch('/:tenantId/*');
+  
+  // Match different routing patterns based on environment
+  const cloudMatch = useMatch('/:tenantId/*');
+  const ossMatch = useMatch(`${ossConsolePath}/:tenantId/*`);
+  const match = isCloud ? cloudMatch : ossMatch;
+  
   const navigate = useNavigate();
+  const location = useLocation();
   const currentTenantId = useMemo(() => {
-    if (!isCloud) {
-      return defaultTenantId;
+    // Check if we're on a reserved route (pre-tenant routes)
+    if (reservedRoutes.some(
+      (route) => location.pathname === route || location.pathname.startsWith(route + '/')
+    )) {
+      return isCloud ? '' : defaultTenantId;
     }
 
-    if (
-      !match ||
-      reservedRoutes.some(
-        (route) => match.pathname === route || match.pathname.startsWith(route + '/')
-      )
-    ) {
-      return '';
+    // Check if we have a tenant match
+    if (!match) {
+      return isCloud ? '' : defaultTenantId;
     }
 
-    return match.params.tenantId ?? '';
-  }, [match]);
+    return match.params.tenantId ?? (isCloud ? '' : defaultTenantId);
+  }, [match, location.pathname]);
 
   const navigateTenant = useCallback(
     (tenantId: string) => {
-      navigate(`/${tenantId}`);
+      if (isCloud) {
+        navigate(`/${tenantId}`);
+      } else {
+        navigate(`${ossConsolePath}/${tenantId}`);
+      }
     },
     [navigate]
   );

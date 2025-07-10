@@ -1,32 +1,18 @@
 import { TenantRole } from '@logto/schemas';
-import { conditional } from '@silverhand/essentials';
-import { useContext, useEffect, useMemo, useState } from 'react';
-import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { useContext, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { Trans, useTranslation } from 'react-i18next';
 import ReactModal from 'react-modal';
 
 import { useAuthedCloudApi } from '@/cloud/hooks/use-cloud-api';
-import AddOnNoticeFooter from '@/components/AddOnNoticeFooter';
-import { addOnPricingExplanationLink } from '@/consts/external-links';
-import { latestProPlanId, tenantMembersAddOnUnitPrice } from '@/consts/subscriptions';
-import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
-import { TenantsContext } from '@/contexts/TenantsProvider';
+import { isCloud } from '@/consts/env';
+import Button from '@/ds-components/Button';
 import FormField from '@/ds-components/FormField';
 import ModalLayout from '@/ds-components/ModalLayout';
-import Select, { type Option } from '@/ds-components/Select';
-import TextLink from '@/ds-components/TextLink';
-import { useConfirmModal } from '@/hooks/use-confirm-modal';
-import useUserPreferences from '@/hooks/use-user-preferences';
+import TextInput from '@/ds-components/TextInput';
+import { TenantsContext } from '@/contexts/TenantsProvider';
+import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
+import useApi from '@/hooks/use-api';
 import modalStyles from '@/scss/modal.module.scss';
-import { isPaidPlan } from '@/utils/subscription';
-
-import InviteEmailsInput from '../InviteEmailsInput';
-import useEmailInputUtils from '../InviteEmailsInput/hooks';
-import styles from '../index.module.scss';
-import { type InviteMemberForm } from '../types';
-
-import Footer from './Footer';
 
 type Props = {
   readonly isOpen: boolean;
@@ -34,177 +20,95 @@ type Props = {
 };
 
 function InviteMemberModal({ isOpen, onClose }: Props) {
-  const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
-  const { currentTenantId } = useContext(TenantsContext);
-
-  const [isLoading, setIsLoading] = useState(false);
   const cloudApi = useAuthedCloudApi();
-  const { parseEmailOptions } = useEmailInputUtils();
-  const { show } = useConfirmModal();
-  const {
-    currentSubscription: { planId, isEnterprisePlan },
-    mutateSubscriptionQuotaAndUsages,
-    hasReachedSubscriptionQuotaLimit,
-  } = useContext(SubscriptionDataContext);
-  const {
-    data: { tenantMembersUpsellNoticeAcknowledged },
-    update,
-  } = useUserPreferences();
-  const isPaidTenant = isPaidPlan(planId, isEnterprisePlan);
+  const localApi = useApi();
+  const { currentTenantId } = useContext(TenantsContext);
+  const { mutateSubscriptionQuotaAndUsages } = useContext(SubscriptionDataContext);
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
 
-  const formMethods = useForm<InviteMemberForm>({
-    defaultValues: {
-      emails: [],
-      role: TenantRole.Collaborator,
-    },
-  });
+  const handleClose = (isSuccessful = false) => {
+    setEmail('');
+    onClose(isSuccessful);
+  };
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    watch,
-    formState: { errors },
-  } = formMethods;
+  const onSubmit = async () => {
+    if (!email.trim()) {
+      toast.error('Email is required');
+      return;
+    }
 
-  useEffect(() => {
-    return () => {
-      reset();
-    };
-  }, [isOpen, reset]);
-
-  const roleOptions: Array<Option<TenantRole>> = useMemo(
-    () => [
-      { value: TenantRole.Admin, title: t('tenant_members.admin') },
-      { value: TenantRole.Collaborator, title: t('tenant_members.collaborator') },
-    ],
-    [t]
-  );
-
-  const hasTenantMembersReachedLimit = hasReachedSubscriptionQuotaLimit('tenantMembersLimit');
-
-  const onSubmit = handleSubmit(async ({ emails, role }) => {
-    if (role === TenantRole.Admin) {
-      const [result] = await show({
-        ModalContent: () => (
-          <Trans components={{ ul: <ul className={styles.list} />, li: <li /> }}>
-            {t('tenant_members.assign_admin_confirm')}
-          </Trans>
-        ),
-        confirmButtonText: 'general.confirm',
-      });
-
-      if (!result) {
-        return;
-      }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      toast.error('Please enter a valid email address');
+      return;
     }
 
     setIsLoading(true);
-    if (emails.length > 0) {
-      try {
+    try {
+      if (isCloud) {
         await cloudApi.post('/api/tenants/:tenantId/invitations', {
           params: { tenantId: currentTenantId },
-          body: { invitee: emails.map(({ value }) => value), roleName: role },
+          body: { invitee: [email.trim()], roleName: TenantRole.Collaborator },
         });
-        mutateSubscriptionQuotaAndUsages();
-        toast.success(t('tenant_members.messages.invitation_sent'));
-        onClose(true);
-      } finally {
-        setIsLoading(false);
+      } else {
+        await localApi.post(`api/tenants/${currentTenantId}/invitations`, {
+          json: { emails: [email.trim()], role: TenantRole.Collaborator },
+        });
       }
+      
+      if (isCloud) {
+        mutateSubscriptionQuotaAndUsages();
+      }
+      
+      toast.success('Invitation sent successfully');
+      handleClose(true);
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      toast.error('Failed to send invitation');
+    } finally {
+      setIsLoading(false);
     }
-  });
+  };
 
   return (
     <ReactModal
       isOpen={isOpen}
       className={modalStyles.content}
       overlayClassName={modalStyles.overlay}
-      onRequestClose={() => {
-        onClose();
-      }}
+      onRequestClose={() => handleClose(false)}
     >
       <ModalLayout
-        size="large"
         title="tenant_members.invite_modal.title"
-        paywall={conditional(!isPaidTenant && latestProPlanId)}
-        hasAddOnTag={isPaidTenant && hasTenantMembersReachedLimit}
         subtitle="tenant_members.invite_modal.subtitle"
+        onClose={() => handleClose(false)}
         footer={
-          conditional(
-            hasTenantMembersReachedLimit &&
-              // Just in case the enterprise plan has reached the resource limit, we still need to show charge notice.
-              isPaidTenant &&
-              !tenantMembersUpsellNoticeAcknowledged && (
-                <AddOnNoticeFooter
-                  isLoading={isLoading}
-                  buttonTitle="tenant_members.invite_members"
-                  onClick={async () => {
-                    void update({ tenantMembersUpsellNoticeAcknowledged: true });
-                    await onSubmit();
-                  }}
-                >
-                  <Trans
-                    components={{
-                      span: <span className={styles.strong} />,
-                      a: <TextLink to={addOnPricingExplanationLink} />,
-                    }}
-                  >
-                    {t('upsell.add_on.footer.tenant_members', {
-                      price: tenantMembersAddOnUnitPrice,
-                    })}
-                  </Trans>
-                </AddOnNoticeFooter>
-              )
-          ) ?? (
-            <Footer
-              newInvitationCount={watch('emails').length}
-              isLoading={isLoading}
-              onSubmit={onSubmit}
-            />
-          )
+          <Button type="primary" title="tenant_members.invite_members" isLoading={isLoading} onClick={onSubmit} />
         }
-        onClose={onClose}
       >
-        <FormProvider {...formMethods}>
-          <FormField isRequired title="tenant_members.invite_modal.to">
-            <Controller
-              name="emails"
-              control={control}
-              rules={{
-                validate: (value): string | true => {
-                  if (value.length === 0) {
-                    return t('tenant_members.errors.email_required');
-                  }
-                  const { errorMessage } = parseEmailOptions(value);
-                  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-                  return errorMessage || true;
-                },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <InviteEmailsInput
-                  values={value}
-                  error={errors.emails?.message}
-                  placeholder={t('tenant_members.invite_modal.email_input_placeholder')}
-                  parseEmailOptions={parseEmailOptions}
-                  onChange={onChange}
-                />
-              )}
-            />
-          </FormField>
-          <FormField title="tenant_members.roles">
-            <Controller
-              name="role"
-              control={control}
-              render={({ field: { onChange, value } }) => (
-                <Select options={roleOptions} value={value} onChange={onChange} />
-              )}
-            />
-          </FormField>
-        </FormProvider>
+        <FormField title="tenant_members.invite_modal.to">
+          <TextInput
+            value={email}
+            placeholder="tenant_members.invite_modal.email_input_placeholder"
+            onChange={({ currentTarget: { value } }) => setEmail(value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                void onSubmit();
+              }
+            }}
+          />
+        </FormField>
+        <FormField title="tenant_members.invite_modal.added_as">
+          <TextInput
+            value="Collaborator"
+            readOnly
+            placeholder="Role will be set to Collaborator"
+          />
+        </FormField>
       </ModalLayout>
     </ReactModal>
   );
 }
 
-export default InviteMemberModal;
+export default InviteMemberModal; 

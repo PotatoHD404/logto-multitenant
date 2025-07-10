@@ -16,6 +16,7 @@ import { saveRedirect } from '@/utils/storage';
  * - If the user has been revoked scopes, it will clear the cached access token and renew one with shrunk scopes.
  *
  * Note: This hook should only be used once in the ConsoleContent component.
+ * Note: This hook only operates in cloud environments - it's a no-op in local OSS.
  */
 const useTenantScopeListener = () => {
   const { currentTenantId, removeTenant, navigateTenant } = useContext(TenantsContext);
@@ -25,6 +26,11 @@ const useTenantScopeListener = () => {
   const { scopes, isLoading } = useCurrentTenantScopes();
 
   useEffect(() => {
+    // Only run in cloud environments
+    if (!isCloud) {
+      return;
+    }
+
     (async () => {
       const organizationId = getTenantOrganizationId(currentTenantId);
       const claims = await getOrganizationTokenClaims(organizationId);
@@ -33,20 +39,30 @@ const useTenantScopeListener = () => {
   }, [currentTenantId, getOrganizationTokenClaims]);
 
   useEffect(() => {
-    if (isCloud && !isLoading && scopes?.length === 0) {
+    // Only run in cloud environments and add additional safety checks
+    if (!isCloud || isLoading || !scopes) {
+      return;
+    }
+
+    // Additional safety: only log out if we have actually fetched scopes and they're empty
+    // This prevents logout during initial loading or in error states
+    if (scopes.length === 0) {
       // User has no access to the current tenant. Navigate to root and it will return to the
       // last visited tenant, or fallback to the page where the user can create a new tenant.
       removeTenant(currentTenantId);
       navigateTenant('');
     }
-  }, [currentTenantId, isLoading, navigateTenant, removeTenant, scopes?.length]);
+  }, [currentTenantId, isLoading, navigateTenant, removeTenant, scopes]);
 
   useEffect(() => {
-    if (!isCloud || isLoading || tokenClaims === undefined) {
+    // Only run in cloud environments
+    if (!isCloud || isLoading || tokenClaims === undefined || !scopes) {
       return;
     }
-    const hasScopesGranted = scopes?.some((scope) => !tokenClaims.includes(scope));
-    const hasScopesRevoked = tokenClaims.some((claim) => !scopes?.includes(claim));
+    
+    const hasScopesGranted = scopes.some((scope) => !tokenClaims.includes(scope));
+    const hasScopesRevoked = tokenClaims.some((claim) => !scopes.includes(claim));
+    
     if (hasScopesGranted) {
       (async () => {
         // User has been newly granted scopes. Need to re-consent to obtain the additional scopes.

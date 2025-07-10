@@ -54,6 +54,12 @@ export default function koaSpaProxy<StateT, ContextT extends IRouterParamContext
     if (!prefix && mountedApps.some((app) => app !== prefix && requestPath.startsWith(`/${app}`))) {
       return next();
     }
+    
+    // Skip API-related paths that should be handled by the main API server
+    if (requestPath.startsWith('/my-account') || requestPath.startsWith('/verifications')) {
+      return next();
+    }
+    
     const { customUiAssets } = await queries.signInExperiences.findDefaultSignInExperience();
     // If user has uploaded custom UI assets, serve them instead of native experience UI
     if (customUiAssets && packagePath === 'experience') {

@@ -79,5 +79,13 @@ export const extractBearerTokenFromHeaders = ({ authorization }: IncomingHttpHea
     )
   );
 
-  return authorization.slice(bearerTokenIdentifier.length + 1);
+  const token = authorization.slice(bearerTokenIdentifier.length + 1);
+  
+  // Check if token is empty after extracting
+  assertThat(
+    token && token.trim().length > 0,
+    new RequestError({ code: 'auth.authorization_header_missing', status: 401 })
+  );
+
+  return token;
 };

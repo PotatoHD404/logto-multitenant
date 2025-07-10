@@ -46,12 +46,12 @@ const buildConfig = (mode: string): UserConfig => ({
   define: {
     'import.meta.env.IS_CLOUD': JSON.stringify(process.env.IS_CLOUD),
     'import.meta.env.ADMIN_ENDPOINT': JSON.stringify(process.env.ADMIN_ENDPOINT),
+    'import.meta.env.ADMIN_PORT': JSON.stringify(process.env.ADMIN_PORT),
     'import.meta.env.DEV_FEATURES_ENABLED': JSON.stringify(process.env.DEV_FEATURES_ENABLED),
     'import.meta.env.INTEGRATION_TEST': JSON.stringify(process.env.INTEGRATION_TEST),
     'import.meta.env.CONSOLE_EMBEDDED_PRICING_URL': JSON.stringify(
       process.env.CONSOLE_EMBEDDED_PRICING_URL
     ),
-    'import.meta.env.INKEEP_API_KEY': JSON.stringify(process.env.INKEEP_API_KEY),
     // `@withtyped/client` needs this to be defined. We can optimize this later.
     'process.env': {},
   },

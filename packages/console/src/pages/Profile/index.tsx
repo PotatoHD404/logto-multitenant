@@ -17,6 +17,7 @@ import type { RequestError } from '@/hooks/use-api';
 import { useStaticApi } from '@/hooks/use-api';
 import { profile } from '@/hooks/use-console-routes/routes/profile';
 import useCurrentUser from '@/hooks/use-current-user';
+import useMfaProfileSettings from '@/hooks/use-mfa-profile-settings';
 import { usePlausiblePageview } from '@/hooks/use-plausible-pageview';
 import useSwrFetcher from '@/hooks/use-swr-fetcher';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
@@ -26,6 +27,7 @@ import pageLayout from '@/scss/page-layout.module.scss';
 import BasicUserInfoSection from './components/BasicUserInfoSection';
 import CardContent from './components/CardContent';
 import LinkAccountSection from './components/LinkAccountSection';
+import MfaSection from './components/MfaSection';
 import NotSet from './components/NotSet';
 import Skeleton from './components/Skeleton';
 import DeleteAccountModal from './containers/DeleteAccountModal';
@@ -46,6 +48,7 @@ function Profile() {
   const isLoadingConnectors = !connectors && !fetchConnectorsError;
   const { user, reload, isLoading: isLoadingUser } = useCurrentUser();
   const { isLoading: isUserAssetServiceLoading } = useUserAssetsService();
+  const { isMfaAvailableForUser, isLoading: isMfaSettingsLoading } = useMfaProfileSettings();
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
 
   // Avoid unnecessary re-renders in child components
@@ -58,7 +61,7 @@ function Profile() {
     setShowDeleteAccountModal(false);
   }, []);
 
-  const showLoadingSkeleton = isLoadingUser || isLoadingConnectors || isUserAssetServiceLoading;
+  const showLoadingSkeleton = isLoadingUser || isLoadingConnectors || isUserAssetServiceLoading || isMfaSettingsLoading;
 
   return (
     <AppBoundary>
@@ -77,6 +80,8 @@ function Profile() {
                 {isCloud && (
                   <LinkAccountSection user={user} connectors={connectors} onUpdate={reload} />
                 )}
+                {/* MFA Section - only show when MFA is available for the user */}
+                {isMfaAvailableForUser && <MfaSection />}
                 <FormCard title="profile.password.title">
                   <CardContent
                     title="profile.password.password_setting"

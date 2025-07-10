@@ -2,19 +2,22 @@ import { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuthedCloudApi } from '@/cloud/hooks/use-cloud-api';
+import { isCloud } from '@/consts/env';
 import FormCard from '@/components/FormCard';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import Button from '@/ds-components/Button';
 import FormField from '@/ds-components/FormField';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import useCurrentUser from '@/hooks/use-current-user';
+import useApi from '@/hooks/use-api';
 
 import styles from './index.module.scss';
 
 function LeaveCard() {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { show: showModal } = useConfirmModal();
-  const api = useAuthedCloudApi();
+  const cloudApi = useAuthedCloudApi();
+  const localApi = useApi();
   const { currentTenantId, removeTenant, navigateTenant } = useContext(TenantsContext);
   const { user } = useCurrentUser();
   const [isLoading, setIsLoading] = useState(false);
@@ -32,9 +35,14 @@ function LeaveCard() {
 
     setIsLoading(true);
     try {
-      await api.delete(`/api/tenants/:tenantId/members/:userId`, {
-        params: { tenantId: currentTenantId, userId: user.id },
-      });
+      if (isCloud) {
+        await cloudApi.delete(`/api/tenants/:tenantId/members/:userId`, {
+          params: { tenantId: currentTenantId, userId: user.id },
+        });
+      } else {
+        // For local OSS, use the local tenant member API
+        await localApi.delete(`api/tenants/${currentTenantId}/members/${user.id}`);
+      }
       removeTenant(currentTenantId);
       navigateTenant('');
     } finally {

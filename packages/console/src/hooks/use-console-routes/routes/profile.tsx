@@ -11,10 +11,23 @@ const VerificationCodeModal = safeLazy(
 const VerifyPasswordModal = safeLazy(
   async () => import('@/pages/Profile/containers/VerifyPasswordModal')
 );
+const SetupTotpModal = safeLazy(
+  async () => import('@/pages/Profile/containers/SetupTotpModal')
+);
+const SetupWebAuthnModal = safeLazy(
+  async () => import('@/pages/Profile/containers/SetupWebAuthnModal')
+);
+const SetupBackupCodeModal = safeLazy(
+  async () => import('@/pages/Profile/containers/SetupBackupCodeModal')
+);
 
 export const profile: RouteObject[] = [
   { path: 'verify-password', element: <VerifyPasswordModal /> },
   { path: 'change-password', element: <ChangePasswordModal /> },
   { path: 'link-email', element: <LinkEmailModal /> },
   { path: 'verification-code', element: <VerificationCodeModal /> },
+  // MFA setup routes
+  { path: 'setup-mfa/totp', element: <SetupTotpModal /> },
+  { path: 'setup-mfa/webauthn', element: <SetupWebAuthnModal /> },
+  { path: 'setup-mfa/backup_code', element: <SetupBackupCodeModal /> },
 ];

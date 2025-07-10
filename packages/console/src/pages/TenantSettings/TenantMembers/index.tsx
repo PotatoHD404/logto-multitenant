@@ -14,7 +14,7 @@ import Spacer from '@/ds-components/Spacer';
 import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
 
-import InviteMemberModal from './InviteMemberModal';
+// import InviteMemberModal from './InviteMemberModal';
 import styles from './index.module.scss';
 
 function TenantMembers() {
@@ -67,21 +67,7 @@ function TenantMembers() {
         </div>
       )}
       <Outlet />
-      {canInviteMember && (
-        <InviteMemberModal
-          isOpen={showInviteModal}
-          onClose={(isSuccessful) => {
-            setShowInviteModal(false);
-            if (isSuccessful) {
-              if (isInvitationTab) {
-                void mutateInvitations();
-              } else {
-                navigate('invitations');
-              }
-            }
-          }}
-        />
-      )}
+      {/* Invite modal temporarily disabled */}
     </div>
   );
 }

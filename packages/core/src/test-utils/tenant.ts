@@ -33,7 +33,8 @@ export class MockQueries extends Queries {
           return createMockQueryResult([]);
         },
       }),
-      new MockWellKnownCache()
+      new MockWellKnownCache(),
+      'mock_tenant_id'
     );
 
     if (!queriesOverride) {
@@ -41,7 +42,11 @@ export class MockQueries extends Queries {
     }
 
     const overrideKey = <Key extends keyof Queries>(key: Key) => {
-      this[key] = { ...this[key], ...queriesOverride[key] };
+      const override = queriesOverride[key];
+      if (override && typeof override === 'object') {
+        // eslint-disable-next-line @silverhand/fp/no-mutating-assign
+        this[key] = Object.assign(this[key], override);
+      }
     };
 
     // eslint-disable-next-line no-restricted-syntax

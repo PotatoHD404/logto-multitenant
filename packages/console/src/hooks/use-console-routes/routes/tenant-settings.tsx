@@ -4,6 +4,7 @@ import { Navigate, type RouteObject } from 'react-router-dom';
 import { safeLazy } from 'react-safe-lazy';
 
 import { TenantSettingsTabs } from '@/consts';
+import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
 import NotFound from '@/pages/NotFound';
@@ -16,17 +17,15 @@ const TenantDomainSettings = safeLazy(
   async () => import('@/pages/TenantSettings/TenantDomainSettings')
 );
 const TenantMembers = safeLazy(async () => import('@/pages/TenantSettings/TenantMembers'));
-const Invitations = safeLazy(
-  async () => import('@/pages/TenantSettings/TenantMembers/Invitations')
-);
 const Members = safeLazy(async () => import('@/pages/TenantSettings/TenantMembers/Members'));
+const Invitations = safeLazy(async () => import('@/pages/TenantSettings/TenantMembers/Invitations'));
 const BillingHistory = safeLazy(async () => import('@/pages/TenantSettings/BillingHistory'));
 const Subscription = safeLazy(async () => import('@/pages/TenantSettings/Subscription'));
 
 export const useTenantSettings = () => {
   const { isDevTenant } = useContext(TenantsContext);
   const {
-    access: { canInviteMember, canManageTenant },
+    access: { canManageTenant, canInviteMember },
   } = useCurrentTenantScopes();
 
   const tenantSettings: RouteObject = useMemo(
@@ -39,29 +38,30 @@ export const useTenantSettings = () => {
           element: (
             <Navigate
               replace
-              to={canManageTenant ? TenantSettingsTabs.Settings : TenantSettingsTabs.Members}
+              to={TenantSettingsTabs.Settings}
             />
           ),
         },
         { path: TenantSettingsTabs.Settings, element: <TenantBasicSettings /> },
         {
-          path: `${TenantSettingsTabs.Members}/*`,
+          path: TenantSettingsTabs.Members,
           element: <TenantMembers />,
-          children: [
-            { path: '*', element: <NotFound /> },
+          children: condArray(
             { index: true, element: <Members /> },
-            ...condArray(canInviteMember && [{ path: 'invitations', element: <Invitations /> }]),
-          ],
+            canInviteMember && { path: 'invitations', element: <Invitations /> },
+            { path: '*', element: <NotFound /> }
+          ),
         },
         { path: TenantSettingsTabs.Domains, element: <TenantDomainSettings /> },
-        !isDevTenant &&
+        isCloud &&
+          !isDevTenant &&
           canManageTenant && [
             { path: TenantSettingsTabs.Subscription, element: <Subscription /> },
             { path: TenantSettingsTabs.BillingHistory, element: <BillingHistory /> },
           ]
       ),
     }),
-    [canInviteMember, canManageTenant, isDevTenant]
+    [canManageTenant, canInviteMember, isDevTenant]
   );
 
   return tenantSettings;

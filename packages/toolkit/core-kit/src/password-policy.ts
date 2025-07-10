@@ -306,18 +306,44 @@ export class PasswordPolicyChecker {
       return getPwnPasswordsForTest().includes(password);
     }
 
-    const hash = await this.subtle.digest('SHA-1', new TextEncoder().encode(password));
-    const hashHex = Array.from(new Uint8Array(hash))
-      .map((binary) => binary.toString(16).padStart(2, '0'))
-      .join('');
-    const hashPrefix = hashHex.slice(0, 5);
-    const hashSuffix = hashHex.slice(5);
-    const response = await fetch(`https://api.pwnedpasswords.com/range/${hashPrefix}`);
-    const text = await response.text();
-    const hashes = text.split('\n');
-    const found = hashes.some((hex) => hex.toLowerCase().startsWith(hashSuffix));
+    try {
+      const hash = await this.subtle.digest('SHA-1', new TextEncoder().encode(password));
+      const hashHex = Array.from(new Uint8Array(hash))
+        .map((binary) => binary.toString(16).padStart(2, '0'))
+        .join('');
+      const hashPrefix = hashHex.slice(0, 5);
+      const hashSuffix = hashHex.slice(5);
+      
+      // Add 1-second timeout with graceful degradation
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.warn('Password pwned check timed out after 1 second');
+        controller.abort();
+      }, 1000);
+            
+      const response = await fetch(`https://api.pwnedpasswords.com/range/${hashPrefix}`, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Logto-Password-Checker/1.0'
+        }
+      });
+      
+      if (!response.ok) {
+        clearTimeout(timeoutId);
+        return false;
+      }
+      
+      const text = await response.text();
+      clearTimeout(timeoutId);
+      const hashes = text.split('\n');
+      const found = hashes.some((hex) => hex.toLowerCase().startsWith(hashSuffix));
 
-    return found;
+      return found;
+    } catch (error) {
+      // If the API call fails or times out, treat the password as not pwned
+      // to avoid blocking registration
+      return false;
+    }
   }
 
   /**

@@ -2,6 +2,7 @@ import { useContext } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import { logtoCloud, TenantSettingsTabs } from '@/consts';
+import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import CardTitle from '@/ds-components/CardTitle';
 import DynamicT from '@/ds-components/DynamicT';
@@ -30,13 +31,13 @@ function TenantSettings() {
         <TabNavItem href={`/tenant-settings/${TenantSettingsTabs.Settings}`}>
           <DynamicT forKey="tenants.tabs.settings" />
         </TabNavItem>
-        <TabNavItem href={`/tenant-settings/${TenantSettingsTabs.Domains}`}>
-          <DynamicT forKey="tenants.tabs.domains" />
-        </TabNavItem>
         <TabNavItem href={`/tenant-settings/${TenantSettingsTabs.Members}`}>
           <DynamicT forKey="tenants.tabs.members" />
         </TabNavItem>
-        {!isDevTenant && canManageTenant && (
+        <TabNavItem href={`/tenant-settings/${TenantSettingsTabs.Domains}`}>
+          <DynamicT forKey="tenants.tabs.domains" />
+        </TabNavItem>
+        {isCloud && !isDevTenant && canManageTenant && (
           <>
             <TabNavItem href={`/tenant-settings/${TenantSettingsTabs.Subscription}`}>
               <DynamicT forKey="tenants.tabs.subscription" />

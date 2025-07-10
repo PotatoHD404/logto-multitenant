@@ -8,6 +8,7 @@ import { GlobalRoute } from '@/contexts/TenantsProvider';
 
 import useApi, { useStaticApi, type RequestError } from './use-api';
 import useSwrFetcher from './use-swr-fetcher';
+import useTenantPathname from './use-tenant-pathname';
 
 /**
  * Hook to check if the user assets service (file uploading) is ready.
@@ -19,15 +20,24 @@ import useSwrFetcher from './use-swr-fetcher';
  * the component is unmounted.
  */
 const useUserAssetsService = () => {
+  // For cloud profile pages, use the ME API with admin tenant endpoint
   const adminApi = useStaticApi({
     prefixUrl: adminTenantEndpoint,
     resourceIndicator: meApi.indicator,
   });
+  // For all other cases, use the regular management API
   const api = useApi();
   const { pathname } = useLocation();
-  const isProfilePage =
-    pathname === GlobalRoute.Profile || pathname.startsWith(GlobalRoute.Profile + '/');
-  const shouldUseAdminApi = isCloud && isProfilePage;
+  const { match } = useTenantPathname();
+  
+  // Check if we're on a profile page
+  // For Cloud: use tenant-aware matching
+  // For OSS: check if path starts with /console/profile
+  const isCloudProfilePage = isCloud && match(GlobalRoute.Profile);
+  const isOssProfilePage = !isCloud && pathname.startsWith('/console/profile');
+  const isProfilePage = isCloudProfilePage || isOssProfilePage;
+  
+  const shouldUseAdminApi = isProfilePage;
 
   const fetcher = useSwrFetcher<UserAssetsServiceStatus>(shouldUseAdminApi ? adminApi : api);
   const { data, error } = useSWRImmutable<UserAssetsServiceStatus, RequestError>(

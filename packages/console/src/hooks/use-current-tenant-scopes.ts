@@ -20,6 +20,7 @@ const useCurrentTenantScopes = () => {
     isLoading,
     mutate,
   } = useSWR<string[], RequestError>(
+    // Only fetch scopes for cloud environments
     isCloud && userId && `api/tenants/${currentTenantId}/members/${userId}/scopes`,
     async () => {
       const scopes = await cloudApi.get('/api/tenants/:tenantId/members/:userId/scopes', {
@@ -31,18 +32,20 @@ const useCurrentTenantScopes = () => {
 
   const access = useMemo(
     () => ({
-      canInviteMember: Boolean(scopes?.includes(TenantScope.InviteMember)),
-      canRemoveMember: Boolean(scopes?.includes(TenantScope.RemoveMember)),
-      canUpdateMemberRole: Boolean(scopes?.includes(TenantScope.UpdateMemberRole)),
-      canManageTenant: Boolean(scopes?.includes(TenantScope.ManageTenant)),
+      canInviteMember: Boolean(scopes?.includes(TenantScope.InviteMember)) || !isCloud,
+      canRemoveMember: Boolean(scopes?.includes(TenantScope.RemoveMember)) || !isCloud,
+      canUpdateMemberRole: Boolean(scopes?.includes(TenantScope.UpdateMemberRole)) || !isCloud,
+      canManageTenant: Boolean(scopes?.includes(TenantScope.ManageTenant)) || !isCloud,
     }),
-    [scopes]
+    [scopes, isCloud]
   );
 
   return useMemo(
     () => ({
-      isLoading,
-      scopes,
+      // In local OSS, never show loading state and always have full access
+      isLoading: isCloud ? isLoading : false,
+      // In local OSS, return a dummy scopes array to prevent logout behavior
+      scopes: isCloud ? scopes : ['manage_tenant'],
       access,
       mutate,
     }),

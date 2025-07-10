@@ -2,7 +2,6 @@ import { Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 
 import DelayedSuspenseFallback from '@/components/DelayedSuspenseFallback';
-import { isDevFeaturesEnabled } from '@/consts/env';
 import ProtectedRoutes from '@/containers/ProtectedRoutes';
 import { GlobalAnonymousRoute, GlobalRoute } from '@/contexts/TenantsProvider';
 import { OnboardingApp } from '@/onboarding';
@@ -26,15 +25,11 @@ function AppRoutes() {
         <Routes>
           <Route path={GlobalAnonymousRoute.Callback} element={<Callback />} />
           <Route path={GlobalAnonymousRoute.SocialDemoCallback} element={<SocialDemoCallback />} />
-          {isDevFeaturesEnabled && (
-            <>
-              <Route
-                path={GlobalAnonymousRoute.OneTimeTokenLanding}
-                element={<OneTimeTokenLanding />}
-              />
-              <Route path={GlobalAnonymousRoute.AuthStatus} element={<AuthStatus />} />
-            </>
-          )}
+          <Route
+            path={GlobalAnonymousRoute.OneTimeTokenLanding}
+            element={<OneTimeTokenLanding />}
+          />
+          <Route path={GlobalAnonymousRoute.AuthStatus} element={<AuthStatus />} />
           <Route element={<ProtectedRoutes />}>
             <Route
               path={`${GlobalRoute.AcceptInvitation}/:invitationId`}

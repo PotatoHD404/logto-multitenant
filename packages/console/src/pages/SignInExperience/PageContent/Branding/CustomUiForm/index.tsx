@@ -3,7 +3,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { Trans, useTranslation } from 'react-i18next';
 
 import InlineUpsell from '@/components/InlineUpsell';
-import { isCloud } from '@/consts/env';
+
 import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import Card from '@/ds-components/Card';
@@ -67,7 +67,6 @@ function CustomUiForm() {
           )}
         />
       </FormField>
-      {isCloud && (
         <FormField
           title="sign_in_exp.custom_ui.bring_your_ui_title"
           description={
@@ -109,7 +108,6 @@ function CustomUiForm() {
             />
           )}
         </FormField>
-      )}
     </Card>
   );
 }

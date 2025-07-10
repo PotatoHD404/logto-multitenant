@@ -80,12 +80,13 @@ function UserInfo() {
           className={classNames(styles.dropdownItem, isLoading && styles.loading)}
           icon={<Profile className={styles.icon} />}
           onClick={() => {
-            // In OSS version, there will be a `/console` context path in the URL.
-            const profileRouteWithConsoleContext = getUrl('/profile');
-
-            // Open the profile page in a new tab. In Logto Cloud, the profile page is not nested in the tenant independent,
-            // whereas in OSS version, it is under the `/console` context path.
-            window.open(isCloud ? '/profile' : profileRouteWithConsoleContext, '_blank');
+            if (isCloud) {
+              // In Logto Cloud, the profile page is tenant-independent
+              window.open('/profile', '_blank');
+            } else {
+              // In OSS version, admin profile is at /console/profile (tenant-independent)
+              window.open('/console/profile', '_blank');
+            }
           }}
         >
           {t('menu.profile')}

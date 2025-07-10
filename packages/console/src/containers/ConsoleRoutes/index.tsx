@@ -5,7 +5,7 @@ import { safeLazy } from 'react-safe-lazy';
 import { SWRConfig } from 'swr';
 
 import AppLoading from '@/components/AppLoading';
-import { isCloud, isDevFeaturesEnabled } from '@/consts/env';
+import { isCloud } from '@/consts/env';
 import AppBoundary from '@/containers/AppBoundary';
 import AppContent, { RedirectToFirstItem } from '@/containers/AppContent';
 import ConsoleContent from '@/containers/ConsoleContent';
@@ -43,29 +43,58 @@ export function ConsoleRoutes() {
          * navigate to the root path in frontend. In this case, we redirect it to the OSS
          * console path to trigger the console routes.
          */}
-        {!isCloud && <Route path="/" element={<Navigate to={ossConsolePath} />} />}
-        <Route path="/:tenantId" element={<Layout />}>
-          <Route path="callback" element={<Callback />} />
-          <Route path="welcome" element={<Welcome />} />
-          {isDevFeaturesEnabled && (
+        {!isCloud && <Route path="/" element={<Navigate to={`${ossConsolePath}/welcome`} />} />}
+        
+        {/* OSS console routing */}
+        {!isCloud && (
+          <Route path={ossConsolePath} element={<Layout />}>
+            {/* Default route for /console redirects to welcome */}
+            <Route index element={<Navigate to="welcome" replace />} />
+            
+            {/* Pre-tenant routes - no tenant ID required */}
+            <Route path="welcome" element={<Welcome />} />
+            <Route path="callback" element={<Callback />} />
             <Route path="__internal__/import-error" element={<__Internal__ImportError />} />
-          )}
-          <Route element={<ProtectedRoutes />}>
-            <Route path={dropLeadingSlash(GlobalRoute.Profile) + '/*'} element={<Profile />} />
-            <Route element={<TenantAccess />}>
-              {isCloud && (
+            
+            {/* Protected routes that don't require tenant context */}
+            <Route element={<ProtectedRoutes />}>
+              {/* Admin profile route - tenant-independent, uses admin tenant API */}
+              <Route path={dropLeadingSlash(GlobalRoute.Profile) + '/*'} element={<Profile />} />
+            </Route>
+            
+            {/* Tenant-specific routes - require tenant ID */}
+            <Route path=":tenantId" element={<ProtectedRoutes />}>
+              <Route element={<TenantAccess />}>
+                <Route element={<AppContent />}>
+                  <Route index element={<RedirectToFirstItem />} />
+                  <Route path="*" element={<ConsoleContent />} />
+                </Route>
+              </Route>
+            </Route>
+          </Route>
+        )}
+        
+        {/* Cloud routing: /:tenantId */}
+        {isCloud && (
+          <Route path="/:tenantId" element={<Layout />}>
+            <Route path="callback" element={<Callback />} />
+            <Route path="welcome" element={<Welcome />} />
+            <Route path="__internal__/import-error" element={<__Internal__ImportError />} />
+            <Route element={<ProtectedRoutes />}>
+              <Route path={dropLeadingSlash(GlobalRoute.Profile) + '/*'} element={<Profile />} />
+              <Route element={<TenantAccess />}>
                 <Route
                   path={dropLeadingSlash(GlobalRoute.CheckoutSuccessCallback)}
                   element={<CheckoutSuccessCallback />}
                 />
-              )}
-              <Route element={<AppContent />}>
-                <Route index element={<RedirectToFirstItem />} />
-                <Route path="*" element={<ConsoleContent />} />
+                <Route element={<AppContent />}>
+                  <Route index element={<RedirectToFirstItem />} />
+                  <Route path="*" element={<ConsoleContent />} />
+                </Route>
               </Route>
             </Route>
           </Route>
-        </Route>
+        )}
       </Routes>
     </Suspense>
   );

@@ -53,15 +53,29 @@ export default function customUiAssetsRoutes<T extends ManagementApiRouter>(
 
       const { experienceZipsProviderConfig } = SystemContext.shared;
       assertThat(
-        experienceZipsProviderConfig?.provider === 'AzureStorage',
+        experienceZipsProviderConfig,
         'storage.not_configured'
       );
-      const { connectionString, container } = experienceZipsProviderConfig;
 
-      const { uploadFile, downloadFile, isFileExisted } = buildAzureStorage(
-        connectionString,
-        container
-      );
+      // Support multiple storage providers for local deployments
+      let uploadFile: any, downloadFile: any, isFileExisted: any;
+      
+      if (experienceZipsProviderConfig.provider === 'AzureStorage') {
+        const { connectionString, container } = experienceZipsProviderConfig;
+        const azureStorage = buildAzureStorage(connectionString, container);
+        uploadFile = azureStorage.uploadFile;
+        downloadFile = azureStorage.downloadFile;
+        isFileExisted = azureStorage.isFileExisted;
+      } else {
+        // For other storage providers, we currently only support upload
+        // For local deployments, users can configure S3 or Google Storage
+        throw new RequestError({
+          code: 'storage.upload_error',
+          status: 500,
+        }, {
+          details: 'Custom UI assets with automatic unzipping is currently only supported with Azure Storage. Please configure Azure Storage or use a different deployment method.',
+        });
+      }
 
       const customUiAssetId = generateStandardId(8);
       const objectKey = `${tenantId}/${customUiAssetId}/assets.zip`;

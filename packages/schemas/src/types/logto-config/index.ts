@@ -89,6 +89,9 @@ export type JwtCustomizerConfigs = z.infer<typeof jwtCustomizerConfigsGuard>;
 export const adminConsoleDataGuard = z.object({
   signInExperienceCustomized: z.boolean(),
   organizationCreated: z.boolean(),
+  tenantManagementEnabled: z.boolean().optional(),
+  tenantSettingsConfigured: z.boolean().optional(),
+  tenantCreationEnabled: z.boolean().optional(),
   developmentTenantMigrationNotification: z
     .object({
       isPaidTenant: z.boolean(),

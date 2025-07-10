@@ -11,7 +11,7 @@ import {
 import { defaultRegionName } from '@/components/Region';
 import { LogtoSkuType } from '@/types/skus';
 
-import { adminEndpoint, isCloud } from './env';
+import { adminEndpoint, adminPort, isCloud } from './env';
 
 const { tenantId, indicator } = defaultManagementApi.resource;
 
@@ -24,7 +24,7 @@ const defaultSubscriptionPlanId = ReservedPlanId.Development;
 export const defaultTenantResponse: TenantResponse = {
   id: tenantId,
   name: `tenant_${tenantId}`,
-  tag: TenantTag.Development,
+  tag: isCloud ? TenantTag.Development : TenantTag.Production,
   indicator,
   subscription: {
     status: 'active',
@@ -142,14 +142,22 @@ export const defaultSubscriptionUsage: NewSubscriptionCountBasedUsage = {
 };
 
 const getAdminTenantEndpoint = () => {
-  // Allow endpoint override for dev or testing
+  // Allow endpoint override for dev or testing via ADMIN_ENDPOINT env var
   if (adminEndpoint) {
     return new URL(adminEndpoint);
   }
 
-  return new URL(
-    isCloud ? window.location.origin.replace('cloud.', 'auth.') : window.location.origin
-  );
+  // For OSS, follow the same pattern as the backend's GlobalValues.adminUrlSet
+  // The backend's UrlSet checks ADMIN_ENDPOINT first, then constructs localhost with ADMIN_PORT or default port
+  if (!isCloud) {
+    const currentUrl = new URL(window.location.origin);
+    // Use ADMIN_PORT if set, otherwise fall back to the same default as backend (3002)
+    const port = adminPort ? Number(adminPort) : 3002;
+    return new URL(`${currentUrl.protocol}//${currentUrl.hostname}:${port}`);
+  }
+
+  // For cloud, use the auth subdomain
+  return new URL(window.location.origin.replace('cloud.', 'auth.'));
 };
 
 export const adminTenantEndpoint = getAdminTenantEndpoint();

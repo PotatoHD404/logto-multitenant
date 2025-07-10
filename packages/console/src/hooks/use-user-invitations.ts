@@ -5,6 +5,7 @@ import useSWR from 'swr';
 
 import { useCloudApi } from '@/cloud/hooks/use-cloud-api';
 import { type InvitationListResponse } from '@/cloud/types/router';
+import { isCloud } from '@/consts/env';
 
 import { type RequestError } from './use-api';
 
@@ -22,7 +23,7 @@ const useUserInvitations = (
 } => {
   const cloudApi = useCloudApi({ hideErrorToast: true });
   const { data, isLoading, error } = useSWR<InvitationListResponse, RequestError>(
-    `/api/invitations}`,
+    isCloud ? `/api/invitations}` : null,
     async () => cloudApi.get('/api/invitations')
   );
 
@@ -33,9 +34,9 @@ const useUserInvitations = (
   );
 
   return {
-    data: filteredResult,
-    error,
-    isLoading,
+    data: isCloud ? filteredResult : [],
+    error: isCloud ? error : undefined,
+    isLoading: isCloud ? isLoading : false,
   };
 };
 

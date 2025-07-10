@@ -1,6 +1,7 @@
 import { useFormContext } from 'react-hook-form';
 
 import FormCard from '@/components/FormCard';
+import { isCloud } from '@/consts/env';
 import CopyToClipboard from '@/ds-components/CopyToClipboard';
 import FormField from '@/ds-components/FormField';
 import TextInput from '@/ds-components/TextInput';
@@ -37,12 +38,18 @@ function ProfileForm({ currentTenantId }: Props) {
           error={Boolean(errors.profile?.name)}
         />
       </FormField>
-      <FormField title="tenants.settings.tenant_region">
-        <TenantRegion />
-      </FormField>
-      <FormField title="tenants.settings.tenant_type">
-        <TenantEnvironment tag={getValues('profile.tag')} />
-      </FormField>
+      {/* Only show region field for cloud deployments */}
+      {isCloud && (
+        <FormField title="tenants.settings.tenant_region">
+          <TenantRegion />
+        </FormField>
+      )}
+      {/* Only show tenant type field for cloud deployments */}
+      {isCloud && (
+        <FormField title="tenants.settings.tenant_type">
+          <TenantEnvironment tag={getValues('profile.tag')} />
+        </FormField>
+      )}
     </FormCard>
   );
 }

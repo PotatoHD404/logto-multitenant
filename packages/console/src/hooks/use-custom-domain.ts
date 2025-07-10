@@ -11,7 +11,7 @@ import { type RequestError } from './use-api';
 
 const useCustomDomain = (autoSync = false) => {
   const { data, error, mutate } = useSWR<Domain[], RequestError>(
-    isCloud && 'api/domains',
+    'api/domains',
     conditional(
       autoSync && {
         refreshInterval: customDomainSyncInterval * 1000,

@@ -82,7 +82,7 @@ export default class Tenant implements TenantContext {
     public readonly envSet: EnvSet,
     public readonly id: string,
     public readonly wellKnownCache: WellKnownCache,
-    public readonly queries = new Queries(envSet.pool, wellKnownCache),
+    public readonly queries = new Queries(envSet.pool, wellKnownCache, id),
     public readonly logtoConfigs = createLogtoConfigLibrary(queries),
     public readonly cloudConnection = createCloudConnectionLibrary(logtoConfigs),
     public readonly connectors = createConnectorLibrary(queries, cloudConnection),
@@ -154,7 +154,7 @@ export default class Tenant implements TenantContext {
     // Mount APIs
     app.use(mount('/api', initApis(tenantContext)));
 
-    const { isMultiTenancy } = EnvSet.values;
+    const { isPathBasedMultiTenancy, adminUrlSet, isCloud, isMultiTenancy } = EnvSet.values;
 
     // Mount admin tenant APIs and app
     if (id === adminTenantId) {
@@ -219,14 +219,38 @@ export default class Tenant implements TenantContext {
     this.app = app;
     this.provider = provider;
 
-    const { isPathBasedMultiTenancy, adminUrlSet } = EnvSet.values;
-
-    this.run =
-      isPathBasedMultiTenancy &&
-      // If admin URL Set is specified, consider that URL first
-      !(adminUrlSet.deduplicated().length > 0 && this.id === adminTenantId)
-        ? mount('/' + this.id, this.app)
-        : mount(this.app);
+    // For local OSS, implement hybrid mounting to support both custom domain and path-based routing
+    if (!isCloud && isMultiTenancy && this.id !== adminTenantId) {
+      // Mount without path prefix for custom domain requests
+      const directMount = mount(this.app);
+      
+      // Mount with path prefix for path-based requests
+      const pathMount = mount('/' + this.id, this.app);
+      
+      // Create a hybrid middleware that handles both cases
+      this.run = async (ctx, next) => {
+        // Check if this is a custom domain request by examining the URL
+        // If the URL doesn't contain the tenant ID in the path, treat it as custom domain
+        const pathSegments = ctx.URL.pathname.split('/').filter(Boolean);
+        const isCustomDomainRequest = pathSegments.length === 0 || pathSegments[0] !== this.id;
+        
+        if (isCustomDomainRequest) {
+          // Use direct mount for custom domain requests
+          return directMount(ctx, next);
+        } else {
+          // Use path-based mount for path-based requests
+          return pathMount(ctx, next);
+        }
+      };
+    } else {
+      // Use original mounting logic for cloud and admin tenant
+      this.run =
+        isPathBasedMultiTenancy &&
+        // If admin URL Set is specified, consider that URL first
+        !(adminUrlSet.deduplicated().length > 0 && this.id === adminTenantId)
+          ? mount('/' + this.id, this.app)
+          : mount(this.app);
+    }
   }
 
   public requestStart() {

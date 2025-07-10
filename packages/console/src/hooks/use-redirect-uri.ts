@@ -1,9 +1,10 @@
 import { ossConsolePath } from '@logto/schemas';
 import { conditionalArray, joinPath } from '@silverhand/essentials';
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { useHref } from 'react-router-dom';
 
 import { isCloud } from '@/consts/env';
+import { TenantsContext } from '@/contexts/TenantsProvider';
 
 /**
  * The hook that returns the absolute URL for the sign-in or sign-out callback.
@@ -11,10 +12,24 @@ import { isCloud } from '@/consts/env';
  * the basename of react-router if it's set.
  */
 const useRedirectUri = (flow: 'signIn' | 'signOut' = 'signIn') => {
+  const { currentTenantId } = useContext(TenantsContext);
+  
   const path = useHref(
-    joinPath(...conditionalArray(!isCloud && ossConsolePath, flow === 'signIn' ? '/callback' : '/'))
+    joinPath(
+      ...conditionalArray(
+        !isCloud && ossConsolePath,
+        // For signIn callback, always use /callback (pre-tenant flow)
+        // For signOut, include tenant ID if available (post-tenant flow)
+        !isCloud && flow === 'signOut' && currentTenantId,
+        flow === 'signIn' ? 'callback' : ''
+      )
+    )
   );
-  const url = useMemo(() => new URL(path, window.location.origin), [path]);
+  
+  // For OSS sign-in callback, ensure we always use /console/callback regardless of current route
+  const finalPath = !isCloud && flow === 'signIn' ? `${ossConsolePath}/callback` : path;
+  
+  const url = useMemo(() => new URL(finalPath, window.location.origin), [finalPath]);
 
   return url;
 };

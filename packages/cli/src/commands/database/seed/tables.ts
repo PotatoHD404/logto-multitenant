@@ -149,7 +149,7 @@ export const seedTables = async (
   latestTimestamp: number,
   isCloud: boolean
 ) => {
-  await createTenant(connection, defaultTenantId);
+  await createTenant(connection, defaultTenantId, isCloud);
   await seedOidcConfigs(connection, defaultTenantId);
   await seedAdminData(connection, defaultManagementApi);
 
@@ -161,7 +161,7 @@ export const seedTables = async (
    */
   await seedPreConfiguredManagementApiAccessRole(connection, defaultTenantId);
 
-  await createTenant(connection, adminTenantId);
+  await createTenant(connection, adminTenantId, isCloud);
   await seedOidcConfigs(connection, adminTenantId);
   await seedAdminData(connection, createAdminDataInAdminTenant(defaultTenantId));
   const adminAdminData = createAdminDataInAdminTenant(adminTenantId);

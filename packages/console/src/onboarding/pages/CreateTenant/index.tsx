@@ -13,14 +13,10 @@ import ActionBar from '@/components/ActionBar';
 import { GtagConversionId, reportConversion } from '@/components/Conversion/utils';
 import { type CreateTenantData } from '@/components/CreateTenantModal/types';
 import PageMeta from '@/components/PageMeta';
-import Region, { defaultRegionName } from '@/components/Region';
-import { availableRegions } from '@/consts';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import Button from '@/ds-components/Button';
-import DangerousRaw from '@/ds-components/DangerousRaw';
 import FormField from '@/ds-components/FormField';
 import OverlayScrollbar from '@/ds-components/OverlayScrollbar';
-import RadioGroup, { Radio } from '@/ds-components/RadioGroup';
 import TextInput from '@/ds-components/TextInput';
 import useCurrentUser from '@/hooks/use-current-user';
 import useTheme from '@/hooks/use-theme';
@@ -34,7 +30,7 @@ type CreateTenantForm = Omit<CreateTenantData, 'tag'> & { collaboratorEmails: In
 
 function CreateTenant() {
   const methods = useForm<CreateTenantForm>({
-    defaultValues: { name: 'My project', regionName: defaultRegionName, collaboratorEmails: [] },
+    defaultValues: { name: 'My project', collaboratorEmails: [] },
   });
   const {
     control,
@@ -66,14 +62,14 @@ function CreateTenant() {
   const { user } = useCurrentUser();
 
   const onCreateClick = handleSubmit(
-    trySubmitSafe(async ({ name, regionName, collaboratorEmails }: CreateTenantForm) => {
+    trySubmitSafe(async ({ name, collaboratorEmails }: CreateTenantForm) => {
       reportConversion({
         gtagId: GtagConversionId.SignUp,
         redditType: 'SignUp',
         transactionId: user?.id,
       });
       const newTenant = await cloudApi.post('/api/tenants', {
-        body: { name: name || 'My project', regionName },
+        body: { name: name || 'My project' },
       });
       prependTenant(newTenant);
       toast.success(t('tenants.create_modal.tenant_created'));
@@ -121,32 +117,6 @@ function CreateTenant() {
                 disabled={isSubmitting}
                 {...register('name')}
                 error={Boolean(errors.name)}
-              />
-            </FormField>
-            <FormField
-              title="tenants.settings.tenant_region"
-              tip={t('tenants.settings.tenant_region_description')}
-            >
-              <Controller
-                control={control}
-                name="regionName"
-                rules={{ required: true }}
-                render={({ field: { onChange, value, name } }) => (
-                  <RadioGroup type="small" name={name} value={value} onChange={onChange}>
-                    {availableRegions.map((region) => (
-                      <Radio
-                        key={region}
-                        title={
-                          <DangerousRaw>
-                            <Region regionName={region} />
-                          </DangerousRaw>
-                        }
-                        value={region}
-                        isDisabled={isSubmitting}
-                      />
-                    ))}
-                  </RadioGroup>
-                )}
               />
             </FormField>
             <FormField title="cloud.create_tenant.invite_collaborators">

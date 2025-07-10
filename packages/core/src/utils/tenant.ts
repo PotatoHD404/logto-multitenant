@@ -96,6 +96,7 @@ export const getTenantId = async (
       developmentTenantId,
       urlSet,
       adminUrlSet,
+      isCloud,
     },
     sharedPool,
   } = EnvSet;
@@ -115,6 +116,30 @@ export const getTenantId = async (
     return [defaultTenantId, false];
   }
 
+  // For local OSS, implement hybrid routing:
+  // 1. First try custom domain matching
+  // 2. If no custom domain found, fall back to path-based routing
+  if (!isCloud) {
+    // Always try custom domain first in local OSS
+    const customDomainTenantId = await getTenantIdFromCustomDomain(url, pool);
+
+    if (customDomainTenantId) {
+      return [customDomainTenantId, true];
+    }
+
+    // If no custom domain found, fall back to path-based routing for non-admin tenants
+    // This allows URLs like /tenant/tenant-id/... to work
+    const pathBasedTenantId = matchPathBasedTenantId(urlSet, url);
+    
+    if (pathBasedTenantId) {
+      return [pathBasedTenantId, false];
+    }
+
+    // If neither custom domain nor path-based matching worked, return undefined
+    return [undefined, false];
+  }
+
+  // For cloud environments, use the original logic
   if (isPathBasedMultiTenancy) {
     return [matchPathBasedTenantId(urlSet, url), false];
   }

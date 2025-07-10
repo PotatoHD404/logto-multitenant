@@ -44,7 +44,7 @@ const domain = {
   default: {
     default_domain: 'Default domain',
     default_domain_description:
-      'Logto offers a pre-configured default domain, ready to use without any additional setup. This default domain serves as a backup option even if you enabled a custom domain.',
+      'Logto offers a pre-configured default domain, ready to use without any additional setup. This default domain serves as a backup option even if you enabled a custom domain. In multi-tenant deployments, tenant-specific endpoints are created by appending the tenant ID to the base domain (e.g., "your-domain.com/tenant-id").',
     default_domain_field: 'Logto default domain',
   },
   custom_endpoint_note:

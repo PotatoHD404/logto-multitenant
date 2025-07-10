@@ -1,0 +1,135 @@
+@use '@/scss/underscore' as _;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(4);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font: var(--font-title-2);
+  color: var(--color-text);
+}
+
+.inviteButton {
+  display: flex;
+  align-items: center;
+  gap: _.unit(1);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-layer-1);
+  border-radius: _.unit(2);
+}
+
+.tableHeader {
+  background: var(--color-layer-2);
+  
+  th {
+    padding: _.unit(3) _.unit(4);
+    text-align: left;
+    font: var(--font-body-2);
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+.tableRow {
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--color-border);
+  }
+  
+  td {
+    padding: _.unit(3) _.unit(4);
+    font: var(--font-body-2);
+    color: var(--color-text);
+  }
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: _.unit(1) _.unit(2);
+  border-radius: _.unit(1);
+  font: var(--font-body-3);
+  text-transform: uppercase;
+  
+  &.pending {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+  }
+  
+  &.accepted {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+  }
+  
+  &.expired {
+    background: var(--color-error-bg);
+    color: var(--color-error);
+  }
+}
+
+.actionButtons {
+  display: flex;
+  gap: _.unit(2);
+}
+
+.actionButton {
+  padding: _.unit(1) _.unit(2);
+  border: 1px solid var(--color-border);
+  border-radius: _.unit(1);
+  background: var(--color-layer-1);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: var(--color-layer-2);
+  }
+  
+  &.danger {
+    border-color: var(--color-error);
+    color: var(--color-error);
+    
+    &:hover {
+      background: var(--color-error-bg);
+    }
+  }
+}
+
+.emptyState {
+  text-align: center;
+  padding: _.unit(8);
+  color: var(--color-text-secondary);
+  
+  .emptyIcon {
+    margin-bottom: _.unit(3);
+    font-size: 48px;
+    opacity: 0.3;
+  }
+  
+  .emptyText {
+    font: var(--font-body-2);
+    margin-bottom: _.unit(2);
+  }
+  
+  .emptySubtext {
+    font: var(--font-body-3);
+    color: var(--color-text-secondary);
+  }
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: _.unit(4);
+} 

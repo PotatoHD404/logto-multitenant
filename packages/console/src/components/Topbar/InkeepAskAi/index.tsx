@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import AskAiIconDark from '@/assets/icons/logto-ai-bot-dark.svg?react';
 import AskAiIcon from '@/assets/icons/logto-ai-bot.svg?react';
+import { inkeepApiKey } from '@/consts/env';
 import useInkeepConfigs from '@/hooks/use-inkeep-configs';
 import useTheme from '@/hooks/use-theme';
 import { onKeyDownHandler } from '@/utils/a11y';
@@ -27,6 +28,11 @@ function InkeepAskAi({ className }: Props) {
   const Icon = iconMap[theme];
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
+
+  // Don't render if API key is not configured (e.g., in local deployments)
+  if (!inkeepApiKey) {
+    return null;
+  }
 
   return (
     <>

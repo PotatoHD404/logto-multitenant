@@ -1,6 +1,5 @@
 import { Theme, TenantTag } from '@logto/schemas';
-import { useState } from 'react';
-import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Modal from 'react-modal';
@@ -9,21 +8,17 @@ import CreateTenantHeaderIconDark from '@/assets/icons/create-tenant-header-dark
 import CreateTenantHeaderIcon from '@/assets/icons/create-tenant-header.svg?react';
 import { useCloudApi } from '@/cloud/hooks/use-cloud-api';
 import { type TenantResponse } from '@/cloud/types/router';
-import Region, { defaultRegionName } from '@/components/Region';
-import { availableRegions } from '@/consts';
 import Button from '@/ds-components/Button';
-import DangerousRaw from '@/ds-components/DangerousRaw';
 import FormField from '@/ds-components/FormField';
 import ModalLayout from '@/ds-components/ModalLayout';
-import RadioGroup, { Radio } from '@/ds-components/RadioGroup';
 import TextInput from '@/ds-components/TextInput';
+import { isCloud } from '@/consts/env';
+import { defaultTenantResponse } from '@/consts/tenants';
+import useApi, { useAdminApi } from '@/hooks/use-api';
 import useTheme from '@/hooks/use-theme';
 import modalStyles from '@/scss/modal.module.scss';
 import { trySubmitSafe } from '@/utils/form';
 
-import EnvTagOptionContent from './EnvTagOptionContent';
-import SelectTenantPlanModal from './SelectTenantPlanModal';
-import styles from './index.module.scss';
 import { type CreateTenantData } from './types';
 
 type Props = {
@@ -31,15 +26,13 @@ type Props = {
   readonly onClose: (tenant?: TenantResponse) => void;
 };
 
-const availableTags = [TenantTag.Development, TenantTag.Production];
-
 function CreateTenantModal({ isOpen, onClose }: Props) {
-  const [tenantData, setTenantData] = useState<CreateTenantData>();
   const theme = useTheme();
 
   const defaultValues = Object.freeze({
-    tag: TenantTag.Development,
-    regionName: defaultRegionName,
+    // For local OSS, always use Production tag (no dev/prod distinction)
+    // For cloud, keep the existing behavior with tag selection
+    tag: isCloud ? TenantTag.Development : TenantTag.Production,
   });
   const methods = useForm<CreateTenantData>({
     defaultValues,
@@ -47,30 +40,30 @@ function CreateTenantModal({ isOpen, onClose }: Props) {
 
   const {
     reset,
-    control,
     handleSubmit,
     formState: { errors, isSubmitting },
     register,
   } = methods;
 
   const cloudApi = useCloudApi();
+  const adminApi = useAdminApi();
 
-  const createTenant = async ({ name, tag, regionName }: CreateTenantData) => {
-    const newTenant = await cloudApi.post('/api/tenants', { body: { name, tag, regionName } });
-    onClose(newTenant);
+  const createTenant = async ({ name, tag }: CreateTenantData) => {
+    if (isCloud) {
+      const newTenant = await cloudApi.post('/api/tenants', { body: { name, tag } });
+      onClose(newTenant);
+    } else {
+      // For local OSS, use the admin tenant API
+      const newTenant = await adminApi.post('api/tenants', { json: { name, tag } }).json<TenantResponse>();
+      onClose(newTenant);
+    }
   };
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
 
   const onCreateClick = handleSubmit(
     trySubmitSafe(async (data: CreateTenantData) => {
-      const { tag } = data;
-      if (tag === TenantTag.Development) {
-        await createTenant(data);
-        toast.success(t('tenants.create_modal.tenant_created'));
-        return;
-      }
-
-      setTenantData(data);
+      await createTenant(data);
+      toast.success(t('tenants.create_modal.tenant_created'));
     })
   );
 
@@ -118,68 +111,7 @@ function CreateTenantModal({ isOpen, onClose }: Props) {
               disabled={isSubmitting}
             />
           </FormField>
-          <FormField
-            title="tenants.settings.tenant_region"
-            tip={t('tenants.settings.tenant_region_description')}
-          >
-            <Controller
-              control={control}
-              name="regionName"
-              rules={{ required: true }}
-              render={({ field: { onChange, value, name } }) => (
-                <RadioGroup type="small" name={name} value={value} onChange={onChange}>
-                  {availableRegions.map((region) => (
-                    <Radio
-                      key={region}
-                      title={
-                        <DangerousRaw>
-                          <Region regionName={region} />
-                        </DangerousRaw>
-                      }
-                      value={region}
-                      isDisabled={isSubmitting}
-                    />
-                  ))}
-                </RadioGroup>
-              )}
-            />
-          </FormField>
-          <FormField title="tenants.create_modal.tenant_usage_purpose">
-            <Controller
-              control={control}
-              name="tag"
-              rules={{ required: true }}
-              render={({ field: { onChange, value, name } }) => (
-                <RadioGroup
-                  type="card"
-                  className={styles.envTagRadioGroup}
-                  value={value}
-                  name={name}
-                  onChange={onChange}
-                >
-                  {availableTags.map((tag) => (
-                    <Radio key={tag} value={tag}>
-                      <EnvTagOptionContent tag={tag} />
-                    </Radio>
-                  ))}
-                </RadioGroup>
-              )}
-            />
-          </FormField>
         </FormProvider>
-        <SelectTenantPlanModal
-          tenantData={tenantData}
-          onClose={(tenant) => {
-            setTenantData(undefined);
-            if (tenant) {
-              /**
-               * Note: only close the create tenant modal when tenant is created successfully
-               */
-              onClose(tenant);
-              toast.success(t('tenants.create_modal.tenant_created'));
-            }
-          }}
-        />
       </ModalLayout>
     </Modal>
   );

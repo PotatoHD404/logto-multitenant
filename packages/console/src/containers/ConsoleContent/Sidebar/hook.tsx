@@ -147,7 +147,6 @@ export const useSidebarMenuItems = (): {
     },
     {
       title: 'tenant',
-      isHidden: !isCloud,
       items: [
         {
           Icon: Gear,

@@ -15,17 +15,48 @@ export default function koaConsoleRedirectProxy<
 
   return async (ctx, next) => {
     const hasUser = await hasActiveUsers();
+    
+    // Check for authentication more robustly
+    const hasAuthHeader = Boolean(ctx.headers.authorization?.startsWith('Bearer '));
+    const hasSessionCookie = Boolean(
+      ctx.cookies.get('logto:admin') || 
+      ctx.cookies.get('_interaction') ||
+      ctx.cookies.get('_session')
+    );
+    const isAuthenticated = hasAuthHeader || hasSessionCookie;
 
-    if ((ctx.path === '/' || ctx.path === ossConsolePath) && !hasUser) {
-      ctx.redirect(path.join(ossConsolePath, '/welcome'));
-
+    // Root path or console path handling
+    if (ctx.path === '/' || ctx.path === ossConsolePath) {
+      if (!hasUser) {
+        // No users exist, show welcome page for account creation
+        ctx.redirect(path.join(ossConsolePath, '/welcome'));
+        return;
+      }
+      
+      if (isAuthenticated) {
+        // User exists and is authenticated, redirect to console
+        ctx.redirect(path.join(ossConsolePath, '/default'));
+        return;
+      }
+      
+      // User exists but not authenticated, redirect to sign-in
+      ctx.redirect('/sign-in?app_id=admin-console');
       return;
     }
 
-    if ((ctx.path === '/' || ctx.path === path.join(ossConsolePath, '/welcome')) && hasUser) {
-      ctx.redirect(ossConsolePath);
-
-      return;
+    // Welcome page handling
+    if (ctx.path === path.join(ossConsolePath, '/welcome')) {
+      if (hasUser) {
+        if (isAuthenticated) {
+          // User exists and is authenticated, redirect to console
+          ctx.redirect(path.join(ossConsolePath, '/default'));
+          return;
+        }
+        // User exists but not authenticated, redirect to sign-in
+        ctx.redirect('/sign-in?app_id=admin-console');
+        return;
+      }
+      // No users exist, stay on welcome page
     }
 
     return next();

@@ -55,6 +55,8 @@ import statusRoutes from './status.js';
 import subjectTokenRoutes from './subject-token.js';
 import swaggerRoutes from './swagger/index.js';
 import systemRoutes from './system.js';
+import tenantRoutes from './tenant.js';
+import tenantMemberRoutes from './tenant-members.js';
 import type { AnonymousRouter, ManagementApiRouter, UserRouter } from './types.js';
 import userAssetsRoutes from './user-assets.js';
 import verificationRoutes, { verificationApiPrefix } from './verification/index.js';
@@ -116,6 +118,8 @@ const createRouters = (tenant: TenantContext) => {
   if (EnvSet.values.isDevFeaturesEnabled) {
     customProfileFieldsRoutes(managementRouter, tenant);
   }
+  tenantRoutes(managementRouter, tenant);
+  tenantMemberRoutes(managementRouter, tenant);
 
   // General anonymous router for publicly accessible APIs
   const anonymousRouter: AnonymousRouter = new Router();

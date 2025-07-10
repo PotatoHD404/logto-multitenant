@@ -6,6 +6,7 @@ import Tick from '@/assets/icons/tick.svg?react';
 import { type TenantResponse } from '@/cloud/types/router';
 import { RegionFlag } from '@/components/Region';
 import SkuName from '@/components/SkuName';
+import { isCloud } from '@/consts/env';
 import { DropdownItem } from '@/ds-components/Dropdown';
 
 import TenantStatusTag from './TenantStatusTag';
@@ -34,12 +35,15 @@ function TenantDropdownItem({ tenantData, isSelected, onClick }: Props) {
           <TenantStatusTag tenantData={tenantData} className={styles.statusTag} />
         </div>
         <div className={styles.metadata}>
-          <div className={styles.region}>
-            <RegionFlag regionName={regionName} width={12} />
-            <span>{regionName}</span>
-          </div>
-          <span>{t(`tenants.full_env_tag.${tag}`)}</span>
-          {tag !== TenantTag.Development && <SkuName skuId={planId} />}
+          {isCloud && (
+            <div className={styles.region}>
+              <RegionFlag regionName={regionName} width={12} />
+              <span>{regionName}</span>
+            </div>
+          )}
+          {isCloud && <span>{t(`tenants.full_env_tag.${tag}`)}</span>}
+          {isCloud && tag !== TenantTag.Development && <SkuName skuId={planId} />}
+          {!isCloud && <span className={styles.tenantId}>ID: {tenantData.id}</span>}
         </div>
       </div>
       <Tick className={classNames(styles.checkIcon, isSelected && styles.visible)} />

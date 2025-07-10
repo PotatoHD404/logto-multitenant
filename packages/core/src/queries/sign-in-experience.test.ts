@@ -16,8 +16,9 @@ const pool = createMockPool({
 });
 
 const { createSignInExperienceQueries } = await import('./sign-in-experience.js');
+const tenantId = 'default';
 const { findDefaultSignInExperience, updateDefaultSignInExperience } =
-  createSignInExperienceQueries(pool, new MockWellKnownCache());
+  createSignInExperienceQueries(pool, new MockWellKnownCache(), tenantId);
 
 describe('sign-in-experience query', () => {
   const id = 'default';
@@ -46,13 +47,13 @@ describe('sign-in-experience query', () => {
     const expectSql = `
       select "tenant_id", "id", "color", "branding", "language_info", "terms_of_use_url", "privacy_policy_url", "agree_to_terms_policy", "sign_in", "sign_up", "social_sign_in", "social_sign_in_connector_targets", "sign_in_mode", "custom_css", "custom_content", "custom_ui_assets", "password_policy", "mfa", "single_sign_on_enabled", "support_email", "support_website_url", "unknown_session_redirect_url", "captcha_policy", "sentinel_policy", "email_blocklist_policy"
       from "sign_in_experiences"
-      where "id"=$1
+      where "id" = $1 and "tenant_id" = $2
     `;
     /* eslint-enable sql/no-unsafe-query */
 
     mockQuery.mockImplementationOnce(async (sql, values) => {
       expectSqlAssert(sql, expectSql);
-      expect(values).toEqual([id]);
+      expect(values).toEqual([id, tenantId]);
 
       return createMockQueryResult([databaseValue]);
     });
@@ -67,14 +68,14 @@ describe('sign-in-experience query', () => {
     const expectSql = `
       update "sign_in_experiences"
       set "terms_of_use_url"=$1
-      where "id"=$2
+      where "id"=$2 and "tenant_id"=$3
       returning *
     `;
     /* eslint-enable sql/no-unsafe-query */
 
     mockQuery.mockImplementationOnce(async (sql, values) => {
       expectSqlAssert(sql, expectSql);
-      expect(values).toEqual([termsOfUseUrl, id]);
+      expect(values).toEqual([termsOfUseUrl, id, tenantId]);
 
       return createMockQueryResult([databaseValue]);
     });

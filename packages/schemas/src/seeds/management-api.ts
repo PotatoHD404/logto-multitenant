@@ -16,6 +16,18 @@ import {
 import { adminTenantId, defaultTenantId } from './tenant.js';
 
 /**
+ * Tenant management scopes for OSS deployments
+ */
+export enum TenantManagementScope {
+  /** Read tenant information */
+  Read = 'tenant:read',
+  /** Write/update tenant information */
+  Write = 'tenant:write',
+  /** Delete tenant */
+  Delete = 'tenant:delete',
+}
+
+/**
  * The Management API data for a tenant. Usually used for creating a new tenant in the admin
  * tenant.
  */
@@ -59,6 +71,28 @@ export const defaultManagementApi = Object.freeze({
       /** @deprecated You should not rely on this constant. Change to something else. */
       resourceId: defaultResourceId,
     },
+    // Tenant management scopes for OSS
+    {
+      tenantId: defaultTenantId,
+      id: generateStandardId(),
+      name: TenantManagementScope.Read,
+      description: 'Allow reading tenant information.',
+      resourceId: defaultResourceId,
+    },
+    {
+      tenantId: defaultTenantId,
+      id: generateStandardId(),
+      name: TenantManagementScope.Write,
+      description: 'Allow writing/updating tenant information.',
+      resourceId: defaultResourceId,
+    },
+    {
+      tenantId: defaultTenantId,
+      id: generateStandardId(),
+      name: TenantManagementScope.Delete,
+      description: 'Allow deleting tenant.',
+      resourceId: defaultResourceId,
+    },
   ],
   /**
    * An internal user role for Management API of the `default` tenant.
@@ -74,17 +108,15 @@ export const defaultManagementApi = Object.freeze({
   },
 }) satisfies AdminData;
 
-export function getManagementApiResourceIndicator<TenantId extends string>(
-  tenantId: TenantId
-): `https://${TenantId}.logto.app/api`;
-export function getManagementApiResourceIndicator<TenantId extends string, Path extends string>(
-  tenantId: TenantId,
-  path: Path
-): `https://${TenantId}.logto.app/${Path}`;
-
-export function getManagementApiResourceIndicator(tenantId: string, path = 'api') {
-  return `https://${tenantId}.logto.app/${path}`;
-}
+/**
+ * Get the Management API resource indicator for the given tenant ID.
+ *
+ * @param tenantId The ID of tenant.
+ * @param prefix The prefix of the resource indicator. Defaults to 'api'.
+ * @returns The resource indicator.
+ */
+export const getManagementApiResourceIndicator = (tenantId: string, prefix = 'api') =>
+  `https://${tenantId}.logto.app/${prefix}`;
 
 /**
  * The fixed Management API user role for `default` tenant in the admin tenant. It is used for
@@ -109,6 +141,28 @@ export const createAdminData = (tenantId: string) => {
         id: generateStandardId(),
         name: PredefinedScope.All,
         description: 'Default scope for Management API, allows all permissions.',
+        resourceId,
+      },
+      // Tenant management scopes for OSS
+      {
+        tenantId,
+        id: generateStandardId(),
+        name: TenantManagementScope.Read,
+        description: 'Allow reading tenant information.',
+        resourceId,
+      },
+      {
+        tenantId,
+        id: generateStandardId(),
+        name: TenantManagementScope.Write,
+        description: 'Allow writing/updating tenant information.',
+        resourceId,
+      },
+      {
+        tenantId,
+        id: generateStandardId(),
+        name: TenantManagementScope.Delete,
+        description: 'Allow deleting tenant.',
         resourceId,
       },
     ],
@@ -140,6 +194,28 @@ export const createAdminDataInAdminTenant = (tenantId: string) => {
         id: generateStandardId(),
         name: PredefinedScope.All,
         description: 'Default scope for Management API, allows all permissions.',
+        resourceId,
+      },
+      // Tenant management scopes for OSS
+      {
+        tenantId: adminTenantId,
+        id: generateStandardId(),
+        name: TenantManagementScope.Read,
+        description: 'Allow reading tenant information.',
+        resourceId,
+      },
+      {
+        tenantId: adminTenantId,
+        id: generateStandardId(),
+        name: TenantManagementScope.Write,
+        description: 'Allow writing/updating tenant information.',
+        resourceId,
+      },
+      {
+        tenantId: adminTenantId,
+        id: generateStandardId(),
+        name: TenantManagementScope.Delete,
+        description: 'Allow deleting tenant.',
         resourceId,
       },
     ],
@@ -187,3 +263,14 @@ export const createPreConfiguredManagementApiAccessRole = (tenantId: string): Cr
   name: 'Logto Management API access',
   type: RoleType.MachineToMachine,
 });
+
+export default {
+  defaultManagementApi,
+  createAdminData,
+  createAdminDataInAdminTenant,
+  createMeApiInAdminTenant,
+  createPreConfiguredManagementApiAccessRole,
+  getManagementApiResourceIndicator,
+  defaultManagementApiAdminName,
+  TenantManagementScope,
+};

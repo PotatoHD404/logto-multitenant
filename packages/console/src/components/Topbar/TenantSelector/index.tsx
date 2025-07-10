@@ -7,6 +7,7 @@ import PlusSign from '@/assets/icons/plus.svg?react';
 import { type TenantResponse } from '@/cloud/types/router';
 import CreateTenantModal from '@/components/CreateTenantModal';
 import TenantEnvTag from '@/components/TenantEnvTag';
+import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import Divider from '@/ds-components/Divider';
 import Dropdown from '@/ds-components/Dropdown';
@@ -54,7 +55,8 @@ export default function TenantSelector() {
         }}
       >
         <div className={styles.name}>{currentTenantInfo.name}</div>
-        <TenantEnvTag tag={currentTenantInfo.tag} />
+        {isCloud && <TenantEnvTag tag={currentTenantInfo.tag} />}
+        {!isCloud && <div className={styles.tenantId}>ID: {currentTenantId}</div>}
         {Boolean(pendingInvitations?.length) && <div className={styles.redDot} />}
         <KeyboardArrowDown className={styles.arrowIcon} />
       </div>

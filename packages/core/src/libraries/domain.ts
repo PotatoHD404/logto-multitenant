@@ -1,16 +1,17 @@
-import { type CloudflareData, type Domain, DomainStatus } from '@logto/schemas';
+import { type CloudflareData, DomainStatus, type Domain } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 
+import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import type Queries from '#src/tenants/Queries.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import {
-  getCustomHostname,
   createCustomHostname,
   deleteCustomHostname,
-  getFallbackOrigin,
+  getCustomHostname,
   getDomainStatusFromCloudflareData,
+  getFallbackOrigin,
 } from '#src/utils/cloudflare/index.js';
 import { isSubdomainOf } from '#src/utils/domain.js';
 import { clearCustomDomainCache } from '#src/utils/tenant.js';
@@ -34,7 +35,7 @@ export const createDomainLibrary = (queries: Queries) => {
 
     const errorMessage: string = [
       ...(verificationErrors ?? []),
-      ...(sslVerificationErrors ?? []).map(({ message }) => message),
+      ...(sslVerificationErrors ?? []).map(({ message }: { message: string }) => message),
     ]
       .filter(Boolean)
       .join('\n');
@@ -44,7 +45,14 @@ export const createDomainLibrary = (queries: Queries) => {
 
   const syncDomainStatus = async (domain: Domain): Promise<Domain> => {
     const { hostnameProviderConfig } = SystemContext.shared;
-    assertThat(hostnameProviderConfig, 'domain.not_configured');
+    
+    // For local OSS, if Cloudflare is not configured, return domain as-is
+    if (!hostnameProviderConfig) {
+      if (EnvSet.values.isCloud) {
+        assertThat(false, 'domain.not_configured');
+      }
+      return domain;
+    }
 
     assertThat(domain.cloudflareData, 'domain.cloudflare_data_missing');
 
@@ -61,7 +69,31 @@ export const createDomainLibrary = (queries: Queries) => {
 
   const addDomain = async (hostname: string): Promise<Domain> => {
     const { hostnameProviderConfig } = SystemContext.shared;
-    assertThat(hostnameProviderConfig, 'domain.not_configured');
+    
+    // For local OSS, if Cloudflare is not configured, create a domain without cloud integration
+    if (!hostnameProviderConfig) {
+      if (EnvSet.values.isCloud) {
+        assertThat(false, 'domain.not_configured');
+      }
+      
+      // Create a domain without Cloudflare integration for local OSS
+      const insertedDomain = await insertDomain({
+        domain: hostname,
+        id: generateStandardId(),
+        cloudflareData: null,
+        status: DomainStatus.Active, // Mark as active since no verification needed
+        dnsRecords: [
+          {
+            type: 'A',
+            name: hostname,
+            value: '127.0.0.1', // Local development placeholder
+          },
+        ],
+        errorMessage: null,
+      });
+      
+      return insertedDomain;
+    }
 
     const { blockedDomains } = hostnameProviderConfig;
     assertThat(
@@ -95,7 +127,18 @@ export const createDomainLibrary = (queries: Queries) => {
 
   const deleteDomain = async (id: string) => {
     const { hostnameProviderConfig } = SystemContext.shared;
-    assertThat(hostnameProviderConfig, 'domain.not_configured');
+    
+    // For local OSS, if Cloudflare is not configured, skip cloud operations
+    if (!hostnameProviderConfig) {
+      if (EnvSet.values.isCloud) {
+        assertThat(false, 'domain.not_configured');
+      }
+      
+      // Just delete from database for local OSS
+      const domain = await findDomainById(id);
+      await deleteDomainById(id);
+      return;
+    }
 
     const domain = await findDomainById(id);
 

@@ -11,6 +11,7 @@ import {
   type RequestErrorBody,
   getManagementApiResourceIndicator,
   defaultTenantId,
+  adminTenantId,
 } from '@logto/schemas';
 import { appendPath, conditionalArray } from '@silverhand/essentials';
 import ky from 'ky';
@@ -19,7 +20,7 @@ import { useCallback, useContext, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
-import { requestTimeout } from '@/consts';
+import { requestTimeout, adminTenantEndpoint } from '@/consts';
 import { isCloud } from '@/consts/env';
 import { AppDataContext } from '@/contexts/AppDataProvider';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
@@ -77,6 +78,12 @@ const useGlobalRequestErrorHandler = (toastDisabledErrorCodes?: LogtoErrorCode[]
             cancelButtonText: 'general.got_it',
           });
 
+          await signOut(postSignOutRedirectUri.href);
+          return;
+        }
+
+        // Handle JWT verification failures and other unauthorized errors
+        if (data.code === 'auth.unauthorized') {
           await signOut(postSignOutRedirectUri.href);
           return;
         }
@@ -188,14 +195,12 @@ export const useStaticApi = ({
 const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}) => {
   const { tenantEndpoint } = useContext(AppDataContext);
   const { currentTenantId } = useContext(TenantsContext);
+  
   /**
    * The config object for the Ky instance.
    *
    * - In Cloud, it uses the Management API proxy endpoint with tenant organization tokens.
-   * - In OSS, it directly uses the tenant endpoint (Management API).
-   *
-   * Since we removes all user roles for the Management API except the one for the default tenant,
-   * the OSS version should be used for the default tenant only.
+   * - In OSS, it uses the current tenant's Management API with proper tenant-specific credentials.
    */
   const config = useMemo(
     () =>
@@ -206,14 +211,17 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
           }
         : {
             prefixUrl: tenantEndpoint,
+            // For local OSS, use the current tenant's Management API resource indicator
+            // This ensures proper tenant-specific authentication
             resourceIndicator: getManagementApiResourceIndicator(currentTenantId),
           },
     [currentTenantId, tenantEndpoint]
   );
 
-  if (!isCloud && currentTenantId !== defaultTenantId) {
-    throw new Error('Only the default tenant is supported in OSS.');
-  }
+  // Removed OSS tenant restriction to enable multi-tenancy in local deployments
+  // if (!isCloud && currentTenantId !== defaultTenantId) {
+  //   throw new Error('Only the default tenant is supported in OSS.');
+  // }
 
   return useStaticApi({
     ...props,
@@ -222,3 +230,22 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
 };
 
 export default useApi;
+
+/**
+ * A hook to get a Ky instance specifically for admin tenant operations.
+ * This is used for tenant management operations in OSS deployments.
+ */
+export const useAdminApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}) => {
+  const config = useMemo(
+    () => ({
+      prefixUrl: adminTenantEndpoint,
+      resourceIndicator: getManagementApiResourceIndicator(adminTenantId),
+    }),
+    []
+  );
+
+  return useStaticApi({
+    ...props,
+    ...config,
+  });
+};

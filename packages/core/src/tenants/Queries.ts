@@ -60,7 +60,7 @@ export default class Queries {
   roles = createRolesQueries(this.pool);
   scopes = createScopeQueries(this.pool);
   logtoConfigs = createLogtoConfigQueries(this.pool);
-  signInExperiences = createSignInExperienceQueries(this.pool, this.wellKnownCache);
+  signInExperiences = createSignInExperienceQueries(this.pool, this.wellKnownCache, this.tenantId);
   users = createUserQueries(this.pool);
   usersRoles = createUsersRolesQueries(this.pool);
   applicationsRoles = createApplicationsRolesQueries(this.pool);
@@ -91,6 +91,7 @@ export default class Queries {
 
   constructor(
     public readonly pool: CommonQueryMethods,
-    public readonly wellKnownCache: WellKnownCache
+    public readonly wellKnownCache: WellKnownCache,
+    public readonly tenantId: string
   ) {}
 }

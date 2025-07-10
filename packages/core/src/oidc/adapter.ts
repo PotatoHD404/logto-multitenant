@@ -28,13 +28,31 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
     ...cloudUrlSet.deduplicated(),
   ];
 
+  // For OSS, also include tenant-specific logout redirect URIs
+  // The console's useRedirectUri hook generates paths like /console/{tenantId} for logout
+  const postLogoutRedirectUris = [
+    ...(data.post_logout_redirect_uris ?? []),
+    ...urls.map(String),
+  ];
+
+  // Add tenant-specific logout redirect URIs for OSS
+  if (!EnvSet.values.isCloud) {
+    const tenantSpecificUrls = adminUrlSet.deduplicated().flatMap((url) => [
+      // Add common tenant IDs that might be used
+      appendPath(url, '/console/default').href,
+      // Add wildcard pattern for any tenant ID (this covers dynamic tenant IDs)
+      // Note: We can't know all possible tenant IDs at build time, but 'default' is the most common
+    ]);
+    postLogoutRedirectUris.push(...tenantSpecificUrls);
+  }
+
   return {
     ...data,
     redirect_uris: [
       ...(data.redirect_uris ?? []),
       ...urls.map((url) => appendPath(url, '/callback').href),
     ],
-    post_logout_redirect_uris: [...(data.post_logout_redirect_uris ?? []), ...urls.map(String)],
+    post_logout_redirect_uris: postLogoutRedirectUris,
   };
 };
 

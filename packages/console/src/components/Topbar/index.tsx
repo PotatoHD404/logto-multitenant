@@ -9,7 +9,6 @@ import DocumentIcon from '@/assets/icons/document-nav-button.svg?react';
 import CloudLogo from '@/assets/images/cloud-logo.svg?react';
 import Logo from '@/assets/images/logo.svg?react';
 import { githubReleasesLink } from '@/consts';
-import { isCloud } from '@/consts/env';
 import DynamicT from '@/ds-components/DynamicT';
 import Spacer from '@/ds-components/Spacer';
 import TextLink from '@/ds-components/TextLink';
@@ -18,7 +17,6 @@ import useTenantPathname from '@/hooks/use-tenant-pathname';
 import { onKeyDownHandler } from '@/utils/a11y';
 
 import ContactModal from './ContactModal';
-import InkeepAskAi from './InkeepAskAi';
 import TenantSelector from './TenantSelector';
 import UserInfo from './UserInfo';
 import styles from './index.module.scss';
@@ -35,8 +33,9 @@ type Props = {
 function Topbar({ className, hideTenantSelector, hideTitle }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { navigate } = useTenantPathname();
+  const isCloud = true;
   const LogtoLogo = isCloud ? CloudLogo : Logo;
-
+  
   return (
     <div className={classNames(styles.topbar, className)}>
       <LogtoLogo
@@ -53,7 +52,6 @@ function Topbar({ className, hideTenantSelector, hideTitle }: Props) {
         </>
       )}
       <Spacer />
-      {isCloud && <InkeepAskAi className={styles.button} />}
       <DocumentButton />
       <HelpButton />
       {!isCloud && <VersionButton />}

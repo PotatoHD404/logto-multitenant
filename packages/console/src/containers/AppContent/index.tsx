@@ -1,6 +1,7 @@
 import { conditional, joinPath } from '@silverhand/essentials';
 import { useContext, useRef } from 'react';
 import { Navigate, Outlet, useParams } from 'react-router-dom';
+import { ossConsolePath } from '@logto/schemas';
 
 import { type NewSubscriptionCountBasedUsage } from '@/cloud/types/router';
 import AppLoading from '@/components/AppLoading';
@@ -87,14 +88,23 @@ export default function AppContent() {
 export function RedirectToFirstItem() {
   const { tenantId } = useParams();
   const { firstItem } = useSidebarMenuItems();
+  const { currentTenantId } = useContext(TenantsContext);
 
   if (!firstItem) {
     throw new Error('First sidebar item not found');
   }
 
-  if (!tenantId) {
+  // Use tenantId from params or currentTenantId from context
+  const effectiveTenantId = tenantId || currentTenantId;
+
+  if (!effectiveTenantId) {
     throw new Error('Tenant ID not found');
   }
 
-  return <Navigate replace to={joinPath(tenantId, getPath(firstItem.title))} />;
+  // Generate the correct path based on environment
+  const redirectPath = isCloud 
+    ? joinPath(effectiveTenantId, getPath(firstItem.title))
+    : joinPath(ossConsolePath, effectiveTenantId, getPath(firstItem.title));
+
+  return <Navigate replace to={redirectPath} />;
 }

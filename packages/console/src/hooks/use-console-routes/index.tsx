@@ -49,7 +49,7 @@ export const useConsoleRoutes = () => {
         organizationTemplate,
         organizations,
         { path: 'signing-keys', element: <SigningKeys /> },
-        isCloud && tenantSettings,
+        tenantSettings,
         customizeJwt
       ),
     [tenantSettings]

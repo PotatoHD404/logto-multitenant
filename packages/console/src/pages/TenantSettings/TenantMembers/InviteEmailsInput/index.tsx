@@ -3,7 +3,6 @@ import { generateStandardShortId } from '@logto/shared/universal';
 import { conditional, type Nullable } from '@silverhand/essentials';
 import classNames from 'classnames';
 import { useEffect, useRef, useState } from 'react';
-import { useFormContext } from 'react-hook-form';
 
 import Close from '@/assets/icons/close.svg?react';
 import IconButton from '@/ds-components/IconButton';
@@ -51,7 +50,6 @@ function InviteEmailsInput({
   const ref = useRef<HTMLInputElement>(null);
   const [focusedValueId, setFocusedValueId] = useState<Nullable<string>>(null);
   const [currentValue, setCurrentValue] = useState('');
-  const { setError, clearErrors } = useFormContext();
   const [minInputWidth, setMinInputWidth] = useState<number>(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -69,11 +67,10 @@ function InviteEmailsInput({
     const { values: parsedValues, errorMessage } = parseEmailOptions(values);
 
     if (errorMessage) {
-      setError(formName, { type: 'custom', message: errorMessage });
+      // Error handling is now managed by the parent component
       return false;
     }
 
-    clearErrors(formName);
     rawOnChange(parsedValues);
     return true;
   };

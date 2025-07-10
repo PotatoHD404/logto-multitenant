@@ -17,6 +17,9 @@ export const createDefaultAdminConsoleConfig = (
     value: {
       signInExperienceCustomized: false,
       organizationCreated: false,
+      tenantManagementEnabled: true,
+      tenantSettingsConfigured: false,
+      tenantCreationEnabled: true,
     },
   } satisfies CreateLogtoConfig);
 

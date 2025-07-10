@@ -6,12 +6,14 @@ import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
 import { useCloudApi } from '@/cloud/hooks/use-cloud-api';
+import { isCloud } from '@/consts/env';
 import PageMeta from '@/components/PageMeta';
 import SubmitFormChangesActionBar from '@/components/SubmitFormChangesActionBar';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
+import useApi, { useAdminApi } from '@/hooks/use-api';
 import { trySubmitSafe } from '@/utils/form';
 
 import DeleteCard from './DeleteCard';
@@ -21,12 +23,22 @@ import ProfileForm from './ProfileForm';
 import styles from './index.module.scss';
 import { type TenantSettingsForm } from './types.js';
 
+// Type for local API tenant response
+type LocalTenantResponse = {
+  id: string;
+  name: string;
+  tag: TenantTag;
+  createdAt: string;
+  isSuspended?: boolean;
+};
+
 function TenantBasicSettings() {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const {
     access: { canManageTenant },
   } = useCurrentTenantScopes();
-  const api = useCloudApi();
+  const cloudApi = useCloudApi();
+  const adminApi = useAdminApi();
   const {
     currentTenant,
     currentTenantId,
@@ -54,13 +66,20 @@ function TenantBasicSettings() {
   }, [currentTenant, reset]);
 
   const saveData = async (data: { name?: string; tag?: TenantTag }) => {
-    const { name, tag } = await api.patch(`/api/tenants/:tenantId`, {
-      params: { tenantId: currentTenantId },
-      body: data,
-    });
-    reset({ profile: { name, tag } });
+    if (isCloud) {
+      const { name, tag } = await cloudApi.patch(`/api/tenants/:tenantId`, {
+        params: { tenantId: currentTenantId },
+        body: data,
+      });
+      reset({ profile: { name, tag } });
+      updateTenant(currentTenantId, data);
+          } else {
+        // For local OSS, use the admin tenant API
+        const updatedTenant = await adminApi.patch(`tenants/${currentTenantId}`, { json: data }).json<LocalTenantResponse>();
+        reset({ profile: { name: updatedTenant.name, tag: updatedTenant.tag } });
+        updateTenant(currentTenantId, { name: updatedTenant.name, tag: updatedTenant.tag });
+      }
     toast.success(t('tenants.settings.tenant_info_saved'));
-    updateTenant(currentTenantId, data);
   };
 
   const onSubmit = handleSubmit(
@@ -77,6 +96,17 @@ function TenantBasicSettings() {
   );
 
   const onClickDeletionButton = async () => {
+    // Protect system tenants from deletion
+    if (currentTenantId === 'default' || currentTenantId === 'admin') {
+      await showModal({
+        title: 'tenants.delete_modal.cannot_delete_title',
+        ModalContent: t('tenants.delete_modal.cannot_delete_system'),
+        type: 'alert',
+        cancelButtonText: 'general.got_it',
+      });
+      return;
+    }
+
     if (
       !isDevTenant &&
       (currentTenant?.subscription.planId !== ReservedPlanId.Free ||
@@ -100,12 +130,32 @@ function TenantBasicSettings() {
       return;
     }
 
+    // Double-check system tenant protection
+    if (currentTenantId === 'default' || currentTenantId === 'admin') {
+      await showModal({
+        title: 'tenants.delete_modal.cannot_delete_title',
+        ModalContent: t('tenants.delete_modal.cannot_delete_system'),
+        type: 'alert',
+        cancelButtonText: 'general.got_it',
+      });
+      setIsDeletionModalOpen(false);
+      return;
+    }
+
     setIsDeleting(true);
     try {
-      await api.delete(`/api/tenants/:tenantId`, { params: { tenantId: currentTenantId } });
+      if (isCloud) {
+        await cloudApi.delete(`/api/tenants/:tenantId`, { params: { tenantId: currentTenantId } });
+      } else {
+        // For local OSS, use the admin tenant API for deletion
+        await adminApi.delete(`tenants/${currentTenantId}`);
+      }
       setIsDeletionModalOpen(false);
       removeTenant(currentTenantId);
       navigateTenant('');
+    } catch (error) {
+      console.error('Error deleting tenant:', error);
+      toast.error(t('tenants.delete_modal.delete_failed'));
     } finally {
       setIsDeleting(false);
     }
@@ -118,7 +168,8 @@ function TenantBasicSettings() {
         <FormProvider {...methods}>
           <div className={styles.fields}>
             <ProfileForm currentTenantId={currentTenantId} />
-            <LeaveCard />
+            {/* Add LeaveCard for local OSS */}
+            {!isCloud && <LeaveCard />}
             {canManageTenant && (
               <DeleteCard currentTenantId={currentTenantId} onClick={onClickDeletionButton} />
             )}

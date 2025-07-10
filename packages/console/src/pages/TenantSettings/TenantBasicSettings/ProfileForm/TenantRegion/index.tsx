@@ -3,6 +3,7 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import Region, { getRegionDisplayName } from '@/components/Region';
 import { trustAndSecurityLink } from '@/consts';
+import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import TextLink from '@/ds-components/TextLink';
 
@@ -13,7 +14,8 @@ function TenantRegion() {
   const { currentTenant } = useContext(TenantsContext);
   const regionName = currentTenant?.regionName;
 
-  if (!regionName) {
+  // Don't show region information for local development
+  if (!isCloud || !regionName) {
     return null;
   }
 

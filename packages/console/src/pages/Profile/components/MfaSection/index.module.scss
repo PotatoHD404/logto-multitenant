@@ -1,0 +1,29 @@
+@use '@/scss/underscore' as _;
+
+.mfaSection {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(4);
+}
+
+.factorItem {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(1);
+}
+
+.factorDate {
+  font: var(--font-body-3);
+  color: var(--color-text-secondary);
+}
+
+.factorDescription {
+  font: var(--font-body-2);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.error {
+  color: var(--color-error);
+  font: var(--font-body-2);
+} 

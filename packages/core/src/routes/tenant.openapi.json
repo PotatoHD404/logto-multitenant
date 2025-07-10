@@ -1,0 +1,252 @@
+{
+  "tags": [
+    {
+      "name": "Tenants",
+      "description": "Tenant management for local development"
+    }
+  ],
+  "paths": {
+    "/api/tenants": {
+      "get": {
+        "summary": "Get tenants",
+        "description": "Get a list of all tenants (local development only)",
+        "tags": ["Tenants"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (starts from 1)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Number of items per page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of tenants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Tenant"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create tenant",
+        "description": "Create a new tenant (local development only)",
+        "tags": ["Tenants"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenant"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tenant created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tenant"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "409": {
+            "description": "Tenant already exists"
+          }
+        }
+      }
+    },
+    "/api/tenants/{id}": {
+      "get": {
+        "summary": "Get tenant",
+        "description": "Get tenant by ID (local development only)",
+        "tags": ["Tenants"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Tenant ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tenant"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update tenant",
+        "description": "Update tenant by ID (local development only)",
+        "tags": ["Tenants"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Tenant ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenant"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tenant updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tenant"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "404": {
+            "description": "Tenant not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete tenant",
+        "description": "Delete tenant by ID (local development only)",
+        "tags": ["Tenants"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Tenant ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Tenant deleted successfully"
+          },
+          "400": {
+            "description": "Cannot delete system tenant"
+          },
+          "404": {
+            "description": "Tenant not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Tenant": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Tenant ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tenant name"
+          },
+          "tag": {
+            "type": "string",
+            "enum": ["Development", "Production"],
+            "description": "Tenant type"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          }
+        },
+        "required": ["id", "name", "tag", "createdAt"]
+      },
+      "CreateTenant": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Tenant name"
+          },
+          "tag": {
+            "type": "string",
+            "enum": ["Development", "Production"],
+            "description": "Tenant type",
+            "default": "Development"
+          }
+        },
+        "required": ["name"]
+      },
+      "UpdateTenant": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Tenant name"
+          },
+          "tag": {
+            "type": "string",
+            "enum": ["Development", "Production"],
+            "description": "Tenant type"
+          }
+        }
+      }
+    }
+  }
+} 

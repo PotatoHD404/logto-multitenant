@@ -15,7 +15,7 @@ import FormCard from '@/components/FormCard';
 import InlineUpsell from '@/components/InlineUpsell';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
 import { mfa } from '@/consts';
-import { isCloud, isDevFeaturesEnabled } from '@/consts/env';
+import { isCloud } from '@/consts/env';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import DynamicT from '@/ds-components/DynamicT';
@@ -132,9 +132,9 @@ function MfaForm({ data, onMfaUpdated }: Props) {
     [t]
   );
 
-  // Only show the organization MFA policy config for the admin tenant
+  // Show the organization MFA policy config for the admin tenant (both cloud and local OSS)
   const showOrganizationMfaPolicyConfig = useMemo(
-    () => isDevFeaturesEnabled || (isCloud && currentTenantId === adminTenantId),
+    () => currentTenantId === adminTenantId,
     [currentTenantId]
   );
 

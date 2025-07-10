@@ -9,11 +9,13 @@ import { useCloudApi } from '@/cloud/hooks/use-cloud-api';
 import { type InvitationResponse } from '@/cloud/types/router';
 import AppError from '@/components/AppError';
 import AppLoading from '@/components/AppLoading';
+import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import { type RequestError } from '@/hooks/use-api';
 import useRedirectUri from '@/hooks/use-redirect-uri';
 import { saveRedirect } from '@/utils/storage';
 
+import LocalOssInvitationHandler from './LocalOssInvitationHandler';
 import SwitchAccount from './SwitchAccount';
 
 function AcceptInvitation() {
@@ -23,6 +25,11 @@ function AcceptInvitation() {
   const { invitationId = '' } = useParams();
   const cloudApi = useCloudApi();
   const { navigateTenant, resetTenants } = useContext(TenantsContext);
+
+  // For local OSS, use the dedicated handler
+  if (!isCloud) {
+    return <LocalOssInvitationHandler />;
+  }
 
   // The request is only made when the user has signed-in and the invitation ID is available.
   // The response data is returned only when the current user matches the invitee email. Otherwise, it returns 404.

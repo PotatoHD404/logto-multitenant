@@ -31,7 +31,7 @@ describe('koaConsoleRedirectProxy()', () => {
     expect(next).not.toHaveBeenCalled();
     expect(ctx.redirect).toHaveBeenCalledWith(`${ossConsolePath}/welcome`);
   });
-  it("should redirect with 'ossConsolePath/welcome if ctx.path is '/' or '/welcome' AND hasUser is true", async () => {
+  it("should redirect to sign-in when ctx.path is '/' or '/welcome' AND hasUser is true", async () => {
     const ctx = createContextWithRouteParameters({
       url: '/',
     });
@@ -39,7 +39,7 @@ describe('koaConsoleRedirectProxy()', () => {
 
     await koaConsoleRedirectProxy(queries)(ctx, next);
     expect(next).not.toHaveBeenCalled();
-    expect(ctx.redirect).toHaveBeenCalledWith(`${ossConsolePath}`);
+    expect(ctx.redirect).toHaveBeenCalledWith('/sign-in?app_id=admin-console');
   });
   it("should not redirect if ctx.path is '/some_path' AND hasUser is false", async () => {
     const ctx = createContextWithRouteParameters({

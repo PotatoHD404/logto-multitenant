@@ -14,6 +14,8 @@ import {
   Roles,
   PredefinedScope,
   getManagementApiResourceIndicator,
+  TenantTag,
+  TenantManagementScope,
 } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { assert } from '@silverhand/essentials';
@@ -24,13 +26,16 @@ import { insertInto } from '../../../database.js';
 import { getDatabaseName } from '../../../queries/database.js';
 import { consoleLog } from '../../../utils.js';
 
-export const createTenant = async (pool: CommonQueryMethods, tenantId: string) => {
+export const createTenant = async (pool: CommonQueryMethods, tenantId: string, isCloud: boolean) => {
   const database = await getDatabaseName(pool, true);
   const { parentRole, role, password } = createTenantDatabaseMetadata(database, tenantId);
   const createTenant = {
     id: tenantId,
     dbUser: role,
     dbUserPassword: password,
+    // For local OSS, use Production tag (no dev/prod distinction)
+    // For cloud, use Development tag as default
+    tag: isCloud ? TenantTag.Development : TenantTag.Production,
   };
 
   await pool.query(insertInto(createTenant, 'tenants'));
@@ -170,6 +175,8 @@ export const seedLegacyManagementApiUserRole = async (
       Roles.table
     )
   );
+  
+  // Assign the 'all' scope to the role
   await connection.query(sql`
     insert into roles_scopes (id, role_id, scope_id, tenant_id)
     values (
@@ -185,4 +192,33 @@ export const seedLegacyManagementApiUserRole = async (
       ${adminTenantId}
     );
   `);
+  
+  // Assign tenant management scopes to the role for OSS tenant management
+  const tenantManagementScopes = [
+    TenantManagementScope.Read,
+    TenantManagementScope.Write,
+    TenantManagementScope.Delete,
+  ];
+  
+  await Promise.all(
+    tenantManagementScopes.map(async (scopeName) => {
+      await connection.query(sql`
+        insert into roles_scopes (id, role_id, scope_id, tenant_id)
+        values (
+          ${generateStandardId()},
+          ${roleId},
+          (
+            select scopes.id from scopes
+            join resources on scopes.resource_id = resources.id
+            where resources.indicator = ${getManagementApiResourceIndicator(defaultTenantId)}
+            and scopes.name = ${scopeName}
+            and scopes.tenant_id = ${adminTenantId}
+          ),
+          ${adminTenantId}
+        );
+      `);
+    })
+  );
+  
+  consoleLog.succeed('Assigned tenant management scopes to legacy admin role');
 };

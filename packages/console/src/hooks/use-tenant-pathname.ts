@@ -58,10 +58,11 @@ type TenantPathname = {
 function useTenantPathname(): TenantPathname {
   const location = useLocation();
   const { currentTenantId } = useContext(TenantsContext);
-  const tenantSegment = useMemo(
-    () => (isCloud ? currentTenantId : ossConsolePath.slice(1)),
-    [currentTenantId]
-  );
+  const tenantSegment = useMemo(() => {
+    // Only include tenant segment if we have a current tenant ID
+    if (!currentTenantId) return '';
+    return isCloud ? currentTenantId : `${ossConsolePath.slice(1)}/${currentTenantId}`;
+  }, [currentTenantId]);
   const navigate = useNavigate();
   const href = useHref('/');
 
@@ -76,9 +77,15 @@ function useTenantPathname(): TenantPathname {
       }
 
       // Match absolute pathnames with the tenant segment
-      return (
-        matchPath(joinPath(':tenantId', pathname, exact ? '' : '*'), location.pathname) !== null
-      );
+      if (isCloud) {
+        return (
+          matchPath(joinPath(':tenantId', pathname, exact ? '' : '*'), location.pathname) !== null
+        );
+      } else {
+        return (
+          matchPath(joinPath(ossConsolePath, ':tenantId', pathname, exact ? '' : '*'), location.pathname) !== null
+        );
+      }
     },
     [location.pathname]
   );
@@ -86,10 +93,10 @@ function useTenantPathname(): TenantPathname {
   /** Returns the pathname with the current tenant ID prepended. */
   const getPathname = useCallback(
     (pathname: string) => {
-      if (pathname.startsWith('/') && !pathname.startsWith(`/${tenantSegment}`)) {
+      if (pathname.startsWith('/') && tenantSegment && !pathname.startsWith(`/${tenantSegment}`)) {
         return joinPath(tenantSegment, pathname);
       }
-      // Directly return the pathname if it's a relative pathname
+      // Directly return the pathname if it's a relative pathname or no tenant segment
       return pathname;
     },
     [tenantSegment]
