@@ -16,6 +16,48 @@ export class SilentConsoleLog extends ConsoleLog {
   };
 }
 
+/**
+ * Debug-aware console log that only outputs when DEBUG_ENABLED environment variable is set.
+ * Useful for troubleshooting auth issues and other debug scenarios.
+ */
+export class DebugConsoleLog extends ConsoleLog {
+  plain: typeof console.log = (...args) => {
+    if (EnvSet.values.isDebugEnabled) {
+      console.log(...this.getArgs(args));
+    }
+  };
+
+  info: typeof console.log = (...args) => {
+    if (EnvSet.values.isDebugEnabled) {
+      this.plain(ConsoleLog.prefixes.info, ...args);
+    }
+  };
+
+  succeed: typeof console.log = (...args) => {
+    if (EnvSet.values.isDebugEnabled) {
+      this.info(chalk.green('✔'), ...args);
+    }
+  };
+
+  warn: typeof console.log = (...args) => {
+    if (EnvSet.values.isDebugEnabled) {
+      console.warn(...this.getArgs([ConsoleLog.prefixes.warn, ...args]));
+    }
+  };
+
+  error: typeof console.log = (...args) => {
+    if (EnvSet.values.isDebugEnabled) {
+      console.error(...this.getArgs([ConsoleLog.prefixes.error, ...args]));
+    }
+  };
+
+  fatal: (...args: Parameters<typeof console.log>) => never = (...args) => {
+    console.error(...this.getArgs([ConsoleLog.prefixes.fatal, ...args]));
+    // eslint-disable-next-line unicorn/no-process-exit
+    process.exit(1);
+  };
+}
+
 /** The fallback console log with `unknown` prefix. */
 export const unknownConsole: ConsoleLog = new ConsoleLog(chalk.yellow('unknown'));
 
@@ -24,6 +66,12 @@ export const unknownConsole: ConsoleLog = new ConsoleLog(chalk.yellow('unknown')
  * instead of this.
  */
 export const devConsole: ConsoleLog = new ConsoleLog(chalk.magenta('dev'));
+
+/**
+ * Debug console log with `debug` prefix that only outputs when DEBUG_ENABLED=true.
+ * Use this for troubleshooting auth issues and other debug scenarios.
+ */
+export const debugConsole: DebugConsoleLog = new DebugConsoleLog(chalk.cyan('debug'));
 
 /**
  * Try to get the `ConsoleLog` instance from the context by checking if the `console` property is

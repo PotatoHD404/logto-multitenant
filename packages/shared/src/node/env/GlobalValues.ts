@@ -109,6 +109,9 @@ export default class GlobalValues {
   /** Case insensitive username */
   public readonly isCaseSensitiveUsername = yes(getEnv('CASE_SENSITIVE_USERNAME', 'true'));
 
+  /** Enable debug logging (useful for troubleshooting auth issues) */
+  public readonly isDebugEnabled = yes(getEnv('DEBUG_ENABLED', 'false'));
+
   /**
    * The Redis endpoint (optional). If it's set, the central cache mechanism will be automatically enabled.
    *

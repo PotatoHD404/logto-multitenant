@@ -36,10 +36,10 @@ export const hasRequiredTenantScope = (
 };
 
 /**
- * Check if a tenant ID represents a system tenant that should have additional protection.
+ * Check if a tenant ID represents a system tenant that should be protected from deletion.
  */
-export const isProtectedSystemTenant = (tenantId: string): boolean => {
-  return tenantId === 'admin';
+export const isProtectedFromDeletion = (tenantId: string): boolean => {
+  return tenantId === 'admin' || tenantId === 'default';
 };
 
 /**
@@ -61,23 +61,15 @@ export default function koaTenantAuth<StateT, ContextT extends IRouterParamConte
       new RequestError({ code: 'auth.forbidden', status: 403 })
     );
 
-    // Check for system tenant protection
-    if (ctx.params?.id) {
+    // Check for system tenant protection - only protect from deletion
+    if (ctx.params?.id && operation === 'delete') {
       const tenantId = ctx.params.id as string;
       
-      if (operation === 'delete') {
-        // Both 'admin' and 'default' cannot be deleted
-        assertThat(
-          tenantId !== 'admin' && tenantId !== 'default',
-          new RequestError({ code: 'auth.forbidden', status: 403 })
-        );
-      } else if (operation === 'write' || operation === 'read') {
-        // Only 'admin' tenant is protected from read/write operations
-        assertThat(
-          !isProtectedSystemTenant(tenantId),
-          new RequestError({ code: 'auth.forbidden', status: 403 })
-        );
-      }
+      // Both 'admin' and 'default' cannot be deleted
+      assertThat(
+        !isProtectedFromDeletion(tenantId),
+        new RequestError({ code: 'auth.forbidden', status: 403 })
+      );
     }
 
     return next();

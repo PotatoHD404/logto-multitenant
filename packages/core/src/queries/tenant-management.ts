@@ -30,14 +30,12 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
       ? sql`
           SELECT id, name, tag, db_user, db_user_password, created_at, is_suspended
           FROM tenants 
-          WHERE id != 'admin'
           ORDER BY created_at DESC
           LIMIT ${limit} OFFSET ${offset}
         `
       : sql`
           SELECT id, name, tag, db_user, db_user_password, created_at, is_suspended
           FROM tenants 
-          WHERE id != 'admin'
           ORDER BY created_at DESC
         `;
 
@@ -57,7 +55,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
     const result = await pool.maybeOne(sql`
       SELECT id, name, tag, db_user, db_user_password, created_at, is_suspended
       FROM tenants 
-      WHERE id = ${id} AND id != 'admin'
+      WHERE id = ${id}
     `);
 
     if (!result) {
@@ -77,7 +75,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
 
   const countTenants = async (): Promise<number> => {
     const result = await pool.one(sql`
-      SELECT COUNT(*) as count FROM tenants WHERE id != 'admin'
+      SELECT COUNT(*) as count FROM tenants
     `);
     return Number((result as any).count);
   };

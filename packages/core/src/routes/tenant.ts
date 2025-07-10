@@ -82,7 +82,6 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       const tenants = await sharedPool.any<TenantDatabaseRow>(sql`
         SELECT id, name, tag, created_at, is_suspended
         FROM tenants 
-        WHERE id != 'admin'
         ORDER BY created_at DESC
       `);
         ctx.body = tenants.map((tenant) => ({
@@ -98,12 +97,11 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       const sharedPool = await EnvSet.sharedPool;
       const [countResult, tenants] = await Promise.all([
         sharedPool.one<CountResult>(
-          sql`SELECT COUNT(*) as count FROM tenants WHERE id != 'admin'`
+          sql`SELECT COUNT(*) as count FROM tenants`
         ),
         sharedPool.any<TenantDatabaseRow>(sql`
           SELECT id, name, tag, created_at, is_suspended
           FROM tenants 
-          WHERE id != 'admin'
           ORDER BY created_at DESC
           LIMIT ${limit} OFFSET ${offset}
         `),

@@ -7,7 +7,7 @@ import { redisCache } from '#src/caches/index.js';
 import { EnvSet, getTenantEndpoint } from '#src/env-set/index.js';
 import { createDomainsQueries } from '#src/queries/domains.js';
 
-import { devConsole } from './console.js';
+import { debugConsole } from './console.js';
 
 const normalizePathname = (pathname: string) =>
   pathname + conditionalString(!pathname.endsWith('/') && '/');
@@ -107,7 +107,7 @@ export const getTenantId = async (
   }
 
   if ((!isProduction || isIntegrationTest) && developmentTenantId) {
-    devConsole.warn(`Found dev tenant ID ${developmentTenantId}.`);
+    debugConsole.warn(`Found dev tenant ID ${developmentTenantId}.`);
 
     return [developmentTenantId, false];
   }
