@@ -8,7 +8,7 @@ import {
   adminTenantId,
   Applications,
   ApplicationsRoles,
-  getMapiProxyM2mApp,
+  getMapiProxyApplication,
   getMapiProxyRole,
   defaultManagementApiAdminName,
   Roles,
@@ -34,6 +34,8 @@ export const createTenant = async (pool: CommonQueryMethods, tenantId: string, i
     id: tenantId,
     dbUser: role,
     dbUserPassword: password,
+    // Set proper names for both tenants
+    name: tenantId === adminTenantId ? 'Admin tenant' : 'My Project',
     // For local OSS, use Production tag (no dev/prod distinction)
     // For cloud, use Development tag as default
     tag: isCloud ? TenantTag.Development : TenantTag.Production,
@@ -136,7 +138,7 @@ export const seedManagementApiProxyApplications = async (
   // Create machine-to-machine applications for Management API proxy
   await connection.query(
     insertInto(
-      tenantIds.map((tenantId) => getMapiProxyM2mApp(tenantId)),
+      tenantIds.map((tenantId) => getMapiProxyApplication(tenantId)),
       Applications.table
     )
   );
@@ -148,7 +150,7 @@ export const seedManagementApiProxyApplications = async (
       tenantIds.map((tenantId) => ({
         tenantId: adminTenantId,
         id: generateStandardId(),
-        applicationId: getMapiProxyM2mApp(tenantId).id,
+        applicationId: getMapiProxyApplication(tenantId).id,
         roleId: getMapiProxyRole(tenantId).id,
       })),
       ApplicationsRoles.table

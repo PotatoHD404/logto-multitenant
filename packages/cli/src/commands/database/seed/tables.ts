@@ -212,13 +212,16 @@ export const seedTables = async (
   // This must be done after the admin tenant user role is created
   await seedAdminTenantManagementApiUserScopes(connection);
 
-  // The below seed data is for the Logto Cloud only. We put it here for the sake of simplicity.
-  // The data is not harmful for OSS, since they are all admin tenant data. OSS will not use them
-  // and they cannot be seen by the Console.
-  await Promise.all([
-    seedTenantOrganizations(connection),
-    seedManagementApiProxyApplications(connection),
-  ]);
+  // Cloud-specific seed data
+  if (isCloud) {
+    await Promise.all([
+      seedTenantOrganizations(connection),
+      seedManagementApiProxyApplications(connection),
+    ]);
+  } else {
+    // OSS only needs tenant organizations for the new authorization system
+    await seedTenantOrganizations(connection);
+  }
 
   await updateDatabaseTimestamp(connection, latestTimestamp);
 

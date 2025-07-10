@@ -61,6 +61,14 @@ const alteration: AlterationScript = {
       on conflict (tenant_id, organization_role_id, organization_scope_id) do nothing;
     `);
 
+    // Ensure admin tenant has proper name
+    consoleLog.info('Ensuring admin tenant has proper name');
+    await pool.query(sql`
+      update tenants 
+      set name = 'Admin tenant' 
+      where id = ${adminTenantId} and (name is null or name = 'My Project');
+    `);
+
     // Ensure organizations exist for all tenants
     consoleLog.info('Ensuring organizations exist for all tenants');
     const tenants = await pool.any<{ id: string; name: string }>(sql`
@@ -91,6 +99,13 @@ const alteration: AlterationScript = {
 
   down: async (pool) => {
     consoleLog.info('=== Reverting tenant organizations setup ===');
+    
+    // Revert admin tenant name
+    await pool.query(sql`
+      update tenants 
+      set name = 'My Project' 
+      where id = ${adminTenantId} and name = 'Admin tenant';
+    `);
     
     // Remove organizations for user tenants (but keep admin tenant org structure)
     await pool.query(sql`

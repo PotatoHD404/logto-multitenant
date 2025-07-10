@@ -1,6 +1,7 @@
 import { OrganizationInvitationStatus } from '@logto/schemas';
 import { useContext, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLogto } from '@logto/react';
 
 import KeyboardArrowDown from '@/assets/icons/keyboard-arrow-down.svg?react';
 import PlusSign from '@/assets/icons/plus.svg?react';
@@ -15,6 +16,7 @@ import OverlayScrollbar from '@/ds-components/OverlayScrollbar';
 import useUserDefaultTenantId from '@/hooks/use-user-default-tenant-id';
 import useUserInvitations from '@/hooks/use-user-invitations';
 import { onKeyDownHandler } from '@/utils/a11y';
+import { refreshTokensForTenant } from '@/utils/tenant-token-refresh';
 
 import TenantDropdownItem from './TenantDropdownItem';
 import TenantInvitationDropdownItem from './TenantInvitationDropdownItem';
@@ -30,6 +32,7 @@ export default function TenantSelector() {
     navigateTenant,
   } = useContext(TenantsContext);
   const { data: pendingInvitations } = useUserInvitations(OrganizationInvitationStatus.Pending);
+  const logtoMethods = useLogto();
 
   const anchorRef = useRef<HTMLDivElement>(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -76,9 +79,24 @@ export default function TenantSelector() {
               key={tenantData.id}
               tenantData={tenantData}
               isSelected={tenantData.id === currentTenantId}
-              onClick={() => {
+              onClick={async () => {
+                // Navigate to the new tenant
                 navigateTenant(tenantData.id);
+                
+                // Update default tenant ID
                 void updateDefaultTenantId(tenantData.id);
+                
+                // Refresh tokens for the new tenant
+                const refreshResult = await refreshTokensForTenant(
+                  tenantData.id,
+                  isCloud,
+                  logtoMethods
+                );
+                
+                if (!refreshResult.success) {
+                  console.warn('Failed to refresh tokens for tenant:', tenantData.id, refreshResult.error);
+                }
+                
                 setShowDropdown(false);
               }}
             />
