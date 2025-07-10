@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
+import { koaTenantReadAuth, koaTenantWriteAuth } from '#src/middleware/koa-tenant-auth.js';
 import assertThat from '#src/utils/assert-that.js';
 
 import type { ManagementApiRouter, RouterInitArgs } from './types.js';
@@ -21,7 +22,8 @@ export default function domainRoutes<T extends ManagementApiRouter>(
 
   router.get(
     '/domains',
-    koaGuard({ response: domainResponseGuard.array(), status: 200 }),
+    koaGuard({ response: domainResponseGuard.array(), status: [200, 403] }),
+    koaTenantReadAuth,
     async (ctx, next) => {
       const domains = await findAllDomains();
       const syncedDomains = await Promise.all(
@@ -43,8 +45,9 @@ export default function domainRoutes<T extends ManagementApiRouter>(
     koaGuard({
       params: z.object({ id: z.string() }),
       response: domainResponseGuard,
-      status: [200, 404],
+      status: [200, 403, 404],
     }),
+    koaTenantReadAuth,
     async (ctx, next) => {
       const {
         params: { id },
@@ -72,8 +75,9 @@ export default function domainRoutes<T extends ManagementApiRouter>(
     koaGuard({
       body: Domains.createGuard.pick({ domain: true }),
       response: domainResponseGuard,
-      status: [201, 422, 400],
+      status: [201, 400, 403, 422],
     }),
+    koaTenantWriteAuth,
     async (ctx, next) => {
       const existingDomains = await findAllDomains();
       assertThat(
@@ -96,7 +100,8 @@ export default function domainRoutes<T extends ManagementApiRouter>(
 
   router.delete(
     '/domains/:id',
-    koaGuard({ params: z.object({ id: z.string() }), status: [204, 404] }),
+    koaGuard({ params: z.object({ id: z.string() }), status: [204, 403, 404] }),
+    koaTenantWriteAuth,
     async (ctx, next) => {
       const { id } = ctx.guard.params;
       await deleteDomain(id);
