@@ -143,13 +143,8 @@ function SetupTotpModal() {
     setValue('code', newCode);
     setError(undefined);
     
-    // Auto-submit when code is complete
-    if (newCode.length === 6 && newCode.every(Boolean)) {
-      setTimeout(() => {
-        void handleSubmit();
-      }, 100);
-    }
-  }, [setValue, handleSubmit]);
+    // Remove auto-submit - let user manually submit with Continue button
+  }, [setValue]);
 
   const copyToClipboard = useCallback(async (text: string) => {
     try {
@@ -290,6 +285,7 @@ function SetupTotpModal() {
           size="large"
           title="general.continue"
           isLoading={isSubmitting}
+          disabled={code.length !== 6 || code.some(c => !c)}
           onClick={handleSubmit}
         />
       </div>

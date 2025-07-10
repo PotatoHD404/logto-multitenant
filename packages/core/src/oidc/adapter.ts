@@ -35,6 +35,31 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
     ...urls.map(String),
   ];
 
+  // Add specific console pages that can be used for logout redirects
+  const consolePages = [
+    '', // Base console path
+    '/profile', // Profile page
+    '/sign-in-experience', // Sign in experience page
+    '/applications', // Applications page
+    '/api-resources', // API resources page
+    '/users', // Users page
+    '/roles', // Roles page
+    '/audit-logs', // Audit logs page
+    '/webhooks', // Webhooks page
+    '/connectors', // Connectors page
+    '/enterprise-sso', // Enterprise SSO page
+    '/organizations', // Organizations page
+    '/organization-template', // Organization template page
+    '/tenant-settings', // Tenant settings page
+  ];
+
+  // Add specific console paths for logout redirects
+  adminUrlSet.deduplicated().forEach((url) => {
+    consolePages.forEach((page) => {
+      postLogoutRedirectUris.push(appendPath(url, `/console${page}`).href);
+    });
+  });
+
   // Add tenant-specific logout redirect URIs for OSS
   if (!EnvSet.values.isCloud) {
     const tenantSpecificUrls = adminUrlSet.deduplicated().flatMap((url) => [
