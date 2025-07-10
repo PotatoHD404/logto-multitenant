@@ -1,4 +1,4 @@
-import { TenantTag, adminTenantId } from '@logto/schemas';
+import { TenantTag, adminTenantId, TenantRole } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { sql } from '@silverhand/slonik';
 import { object, string, nativeEnum, boolean } from 'zod';
@@ -155,10 +155,14 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         // for user management purposes
         try {
           await tenantOrg.ensureTenantOrganization(tenant.id, tenant.name);
+          
+          // Assign the creating user as an admin of the new tenant
+          const userId = ctx.auth.id;
+          await tenantOrg.addUserToTenant(tenant.id, userId, TenantRole.Admin);
         } catch (error) {
-          // If organization creation fails, log the error but don't block tenant creation
-          // The organization can be created later when needed
-          console.error(`Failed to initialize tenant organization for tenant ${tenant.id}:`, error);
+          // If organization creation or user assignment fails, log the error but don't block tenant creation
+          // The organization and user assignment can be created later when needed
+          console.error(`Failed to initialize tenant organization or assign user for tenant ${tenant.id}:`, error);
         }
 
         ctx.status = 201;
