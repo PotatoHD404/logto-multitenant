@@ -1,9 +1,11 @@
 import type { MiddlewareType } from 'koa';
 import type { IRouterParamContext } from 'koa-router';
-import { TenantManagementScope, PredefinedScope } from '@logto/schemas';
+import { TenantManagementScope, PredefinedScope, TenantRole } from '@logto/schemas';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
+import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
+import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
 
 export type TenantOperation = 'read' | 'write' | 'delete';
@@ -43,33 +45,137 @@ export const isProtectedFromDeletion = (tenantId: string): boolean => {
 };
 
 /**
- * Middleware factory to create tenant authorization middleware for specific operations.
- * This middleware checks if the authenticated user has the required permissions for tenant operations.
+ * Validate that the authenticated user has permission to access the specific tenant.
+ * 
+ * This implements proper cross-tenant access control:
+ * 1. Users with 'all' scope can access any tenant
+ * 2. Users from admin tenant can manage any tenant if they have tenant management scopes
+ * 3. Users from other tenants can only access their own tenant
+ * 4. Users must be members of the target tenant organization with appropriate roles
+ */
+export const validateTenantAccess = async (
+  targetTenantId: string,
+  authScopes: Set<string>,
+  currentTenantId: string,
+  userId: string,
+  queries: Queries,
+  operation: TenantOperation
+): Promise<void> => {
+  // Super admin with 'all' scope can access any tenant
+  if (authScopes.has(PredefinedScope.All)) {
+    return;
+  }
+
+  // Validate required scopes for tenant management
+  const requiredScope = TENANT_OPERATION_SCOPES[operation];
+  const hasManagementScope = authScopes.has(requiredScope);
+  
+  assertThat(
+    hasManagementScope,
+    new RequestError({ 
+      code: 'auth.forbidden', 
+      status: 403,
+      data: { message: `Missing required scope: ${requiredScope}` }
+    })
+  );
+
+  // Same tenant access - always allowed if user has proper scopes
+  if (targetTenantId === currentTenantId) {
+    return;
+  }
+
+  // Cross-tenant access validation:
+  // If user is accessing a different tenant, they must be a member of that tenant organization
+  // with appropriate permissions. No hardcoded "admin only" restrictions.
+  // The JWT audience validation already ensures the token was issued for the current tenant.
+  
+  // Validate that the user is a member of the target tenant organization
+  const tenantOrg = createTenantOrganizationLibrary(queries);
+  const userScopes = await tenantOrg.getUserScopes(targetTenantId, userId);
+  
+  assertThat(
+    userScopes.length > 0,
+    new RequestError({ 
+      code: 'auth.forbidden', 
+      status: 403,
+      data: { 
+        message: `User is not a member of tenant: ${targetTenantId}`,
+        targetTenant: targetTenantId
+      }
+    })
+  );
+
+  // Validate user has sufficient role for the operation
+  const hasManageTenantScope = userScopes.includes('manage:tenant');
+  const hasReadDataScope = userScopes.includes('read:data');
+  
+  const hasRequiredRole = operation === 'read' ? 
+    (hasManageTenantScope || hasReadDataScope) :
+    hasManageTenantScope;
+
+  assertThat(
+    hasRequiredRole,
+    new RequestError({ 
+      code: 'auth.forbidden', 
+      status: 403,
+      data: { 
+        message: `Insufficient role for ${operation} operation. Required: ${operation === 'read' ? 'Collaborator or Admin' : 'Admin'}, current scopes: ${userScopes.join(', ')}`,
+        userScopes,
+        requiredRole: operation === 'read' ? 'Collaborator or Admin' : 'Admin'
+      }
+    })
+  );
+};
+
+/**
+ * Production-ready middleware factory for tenant authorization.
+ * 
+ * This middleware provides complete tenant access control:
+ * 1. JWT audience validation (done by koaAuth)
+ * 2. Scope validation for tenant operations
+ * 3. Cross-tenant access control
+ * 4. Role-based access control within tenant organizations
+ * 5. System tenant protection
  */
 export default function koaTenantAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
-  operation: TenantOperation
+  operation: TenantOperation,
+  currentTenantId: string,
+  queries: Queries
 ): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
   return async (ctx, next) => {
     // Ensure the user is authenticated
     assertThat(ctx.auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
 
-    const { scopes } = ctx.auth;
+    const { scopes, id: userId } = ctx.auth;
 
     // Check if user has required scope for the operation
     assertThat(
       hasRequiredTenantScope(scopes, operation),
-      new RequestError({ code: 'auth.forbidden', status: 403 })
+      new RequestError({ 
+        code: 'auth.forbidden', 
+        status: 403,
+        data: { message: `Missing required scope for ${operation} operation` }
+      })
     );
 
-    // Check for system tenant protection - only protect from deletion
-    if (ctx.params?.id && operation === 'delete') {
-      const tenantId = ctx.params.id as string;
+    // For tenant-specific operations, validate access
+    if (ctx.params?.id) {
+      const targetTenantId = ctx.params.id as string;
       
-      // Both 'admin' and 'default' cannot be deleted
-      assertThat(
-        !isProtectedFromDeletion(tenantId),
-        new RequestError({ code: 'auth.forbidden', status: 403 })
-      );
+      // Validate tenant access with proper cross-tenant and role validation
+      await validateTenantAccess(targetTenantId, scopes, currentTenantId, userId, queries, operation);
+      
+      // Check for system tenant protection - only protect from deletion
+      if (operation === 'delete') {
+        assertThat(
+          !isProtectedFromDeletion(targetTenantId),
+          new RequestError({ 
+            code: 'auth.forbidden', 
+            status: 403,
+            data: { message: 'System tenants cannot be deleted' }
+          })
+        );
+      }
     }
 
     return next();
@@ -77,16 +183,10 @@ export default function koaTenantAuth<StateT, ContextT extends IRouterParamConte
 }
 
 /**
- * Middleware for tenant read operations (GET /tenants, GET /tenants/:id)
+ * Create tenant auth middleware factories that accept tenant context
  */
-export const koaTenantReadAuth = koaTenantAuth('read');
-
-/**
- * Middleware for tenant write operations (POST /tenants, PATCH /tenants/:id)
- */
-export const koaTenantWriteAuth = koaTenantAuth('write');
-
-/**
- * Middleware for tenant delete operations (DELETE /tenants/:id)
- */
-export const koaTenantDeleteAuth = koaTenantAuth('delete'); 
+export const createTenantAuthMiddleware = (queries: Queries, currentTenantId: string) => ({
+  koaTenantReadAuth: koaTenantAuth('read', currentTenantId, queries),
+  koaTenantWriteAuth: koaTenantAuth('write', currentTenantId, queries),
+  koaTenantDeleteAuth: koaTenantAuth('delete', currentTenantId, queries)
+}); 

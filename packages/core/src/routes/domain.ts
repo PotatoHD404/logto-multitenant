@@ -4,14 +4,19 @@ import { z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
-import { koaTenantReadAuth, koaTenantWriteAuth } from '#src/middleware/koa-tenant-auth.js';
+import { createTenantAuthMiddleware } from '#src/middleware/koa-tenant-auth.js';
 import assertThat from '#src/utils/assert-that.js';
 
 import type { ManagementApiRouter, RouterInitArgs } from './types.js';
 
 export default function domainRoutes<T extends ManagementApiRouter>(
-  ...[router, { id: tenantId, queries, libraries }]: RouterInitArgs<T>
+  ...[router, tenant]: RouterInitArgs<T>
 ) {
+  const { id: tenantId, queries, libraries } = tenant;
+  
+  // Create tenant auth middleware with the actual current tenant ID from context
+  const { koaTenantReadAuth, koaTenantWriteAuth } = createTenantAuthMiddleware(queries, tenant.id);
+  
   const {
     domains: { findAllDomains, findDomainById },
   } = queries;

@@ -1,17 +1,66 @@
-import { TenantTag, adminTenantId, TenantRole } from '@logto/schemas';
+import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, getManagementApiResourceIndicator, PredefinedScope } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { sql } from '@silverhand/slonik';
 import { object, string, nativeEnum, boolean } from 'zod';
+import type { Next } from 'koa';
 
 import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import koaPagination from '#src/middleware/koa-pagination.js';
-import { koaTenantReadAuth, koaTenantWriteAuth, koaTenantDeleteAuth } from '#src/middleware/koa-tenant-auth.js';
+import { createTenantAuthMiddleware } from '#src/middleware/koa-tenant-auth.js';
 import assertThat from '#src/utils/assert-that.js';
 import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
 
-import type { ManagementApiRouter, RouterInitArgs } from './types.js';
+import type { ManagementApiRouter, RouterInitArgs, ManagementApiRouterContext } from './types.js';
+
+/**
+ * Create admin data for OSS installations - only includes resource and scopes,
+ * no M2M role (which is only needed for Logto Cloud proxy).
+ */
+const createOssAdminData = (tenantId: string) => {
+  const resource = {
+    id: generateStandardId(),
+    tenantId: adminTenantId,
+    indicator: getManagementApiResourceIndicator(tenantId),
+    name: `Management API for ${tenantId}`,
+    accessTokenTtl: 3600,
+    isDefault: false,
+  };
+
+  const scopes = [
+    {
+      id: generateStandardId(),
+      tenantId: adminTenantId,
+      resourceId: resource.id,
+      name: PredefinedScope.All,
+      description: 'Allow all actions on the tenant.',
+    },
+    {
+      id: generateStandardId(),
+      tenantId: adminTenantId,
+      resourceId: resource.id,
+      name: 'tenant:read',
+      description: 'Allow reading tenant data.',
+    },
+    {
+      id: generateStandardId(),
+      tenantId: adminTenantId,
+      resourceId: resource.id,
+      name: 'tenant:write',
+      description: 'Allow writing tenant data.',
+    },
+    {
+      id: generateStandardId(),
+      tenantId: adminTenantId,
+      resourceId: resource.id,
+      name: 'tenant:delete',
+      description: 'Allow deleting tenant data.',
+    },
+  ];
+
+  return { resource, scopes };
+};
 
 type TenantDatabaseRow = {
   id: string;
@@ -55,7 +104,7 @@ const updateTenantGuard = object({
 
 
 export default function tenantRoutes<T extends ManagementApiRouter>(
-  ...[router, { queries }]: RouterInitArgs<T>
+  ...[router, tenant]: RouterInitArgs<T>
 ) {
   const { isCloud } = EnvSet.values;
 
@@ -64,7 +113,12 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     return;
   }
 
+  const { queries } = tenant;
   const tenantOrg = createTenantOrganizationLibrary(queries);
+  
+  // Create tenant auth middleware with the ACTUAL current tenant ID from context
+  // This allows each tenant to have its own management context
+  const { koaTenantReadAuth, koaTenantWriteAuth, koaTenantDeleteAuth } = createTenantAuthMiddleware(queries, tenant.id);
 
   router.get(
     '/tenants',
@@ -74,7 +128,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       status: [200],
     }),
     koaTenantReadAuth,
-    async (ctx, next) => {
+    async (ctx: ManagementApiRouterContext, next: Next) => {
       const { limit, offset, disabled } = ctx.pagination;
 
       if (disabled) {
@@ -128,7 +182,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       status: [201, 400, 409],
     }),
     koaTenantWriteAuth,
-    async (ctx, next) => {
+    async (ctx: ManagementApiRouterContext, next: Next) => {
       const { name, tag } = ctx.guard.body;
       const id = generateStandardId();
 
@@ -147,6 +201,63 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           VALUES (${id}, ${name}, ${tag}, ${databaseUser}, ${databaseUserPassword}, NOW(), false)
           RETURNING id, name, tag, created_at, is_suspended
         `);
+
+        // Create Management API resource for the new tenant
+        try {
+          const adminData = createOssAdminData(tenant.id);
+          
+          // Insert the Management API resource
+          await sharedPool.query(sql`
+            INSERT INTO resources (id, tenant_id, indicator, name, access_token_ttl, is_default)
+            VALUES (${adminData.resource.id}, ${adminData.resource.tenantId}, ${adminData.resource.indicator}, ${adminData.resource.name}, ${adminData.resource.accessTokenTtl}, ${adminData.resource.isDefault})
+          `);
+          
+          // Insert the Management API scopes
+          for (const scope of adminData.scopes) {
+            await sharedPool.query(sql`
+              INSERT INTO scopes (id, tenant_id, resource_id, name, description)
+              VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
+            `);
+          }
+          
+          // Grant the admin tenant 'user' role access to the new tenant's Management API
+          // This allows users in the admin tenant to manage the new tenant
+          try {
+            // Find the admin tenant 'user' role
+            const userRole = await sharedPool.maybeOne<{ id: string }>(sql`
+              SELECT id FROM roles WHERE tenant_id = ${adminTenantId} AND name = 'user'
+            `);
+            
+            if (userRole) {
+              // Assign all new tenant Management API scopes to the user role
+              for (const scope of adminData.scopes) {
+                // Check if assignment already exists to avoid constraint violation
+                const existingAssignment = await sharedPool.maybeOne(sql`
+                  SELECT id FROM roles_scopes 
+                  WHERE tenant_id = ${adminTenantId} 
+                  AND role_id = ${userRole.id} 
+                  AND scope_id = ${scope.id}
+                `);
+                
+                if (!existingAssignment) {
+                  await sharedPool.query(sql`
+                    INSERT INTO roles_scopes (id, tenant_id, role_id, scope_id)
+                    VALUES (${generateStandardId()}, ${adminTenantId}, ${userRole.id}, ${scope.id})
+                  `);
+                }
+              }
+              console.log(`Successfully granted user role access to tenant ${tenant.id} Management API`);
+            }
+          } catch (error) {
+            console.error(`Failed to grant user role access to tenant ${tenant.id} Management API:`, error);
+            // Don't throw as this shouldn't block tenant creation
+          }
+          
+          console.log(`Successfully created Management API resource for tenant ${tenant.id}`);
+        } catch (error) {
+          console.error(`Failed to create Management API resource for tenant ${tenant.id}:`, error);
+          // Don't throw error as this shouldn't block tenant creation
+        }
 
         // Initialize tenant organization in the admin tenant
         // This creates an organization in the admin tenant that represents this tenant
@@ -193,7 +304,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       status: [200, 403, 404],
     }),
     koaTenantReadAuth,
-    async (ctx, next) => {
+    async (ctx: ManagementApiRouterContext, next: Next) => {
       const { id } = ctx.guard.params;
 
       const sharedPool = await EnvSet.sharedPool;
@@ -232,7 +343,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       status: [200, 400, 403, 404],
     }),
     koaTenantWriteAuth,
-    async (ctx, next) => {
+    async (ctx: ManagementApiRouterContext, next: Next) => {
       const { id } = ctx.guard.params;
       const updates = ctx.guard.body;
 
@@ -304,7 +415,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       status: [204, 403, 404],
     }),
     koaTenantDeleteAuth,
-    async (ctx, next) => {
+    async (ctx: ManagementApiRouterContext, next: Next) => {
       const { id } = ctx.guard.params;
 
       // Check if tenant exists

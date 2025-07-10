@@ -34,10 +34,13 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
         // Use the provided tenant name, or fall back to tenant ID as display name
         const displayName = tenantName || tenantId;
         
+        // Special case for admin tenant: use "Admin" instead of "Tenant admin"
+        const organizationName = tenantId === adminTenantId ? 'Admin' : `Tenant ${displayName}`;
+        
         await organizations.insert({
           id: organizationId,
           tenantId: adminTenantId,
-          name: `Tenant ${displayName}`,
+          name: organizationName,
           description: `Organization for tenant ${tenantId}`,
         });
         

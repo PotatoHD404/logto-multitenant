@@ -49,7 +49,7 @@ export const getTenantOrganizationCreateData = (tenantId: string): Readonly<Crea
   Object.freeze({
     tenantId: adminTenantId,
     id: getTenantOrganizationId(tenantId),
-    name: `Tenant ${tenantId}`,
+    name: tenantId === adminTenantId ? 'Admin' : `Tenant ${tenantId}`,
   });
 
 /**
