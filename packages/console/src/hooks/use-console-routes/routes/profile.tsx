@@ -11,6 +11,8 @@ const VerificationCodeModal = safeLazy(
 const VerifyPasswordModal = safeLazy(
   async () => import('@/pages/Profile/containers/VerifyPasswordModal')
 );
+
+// MFA Setup Modals
 const SetupTotpModal = safeLazy(
   async () => import('@/pages/Profile/containers/SetupTotpModal')
 );
@@ -29,5 +31,5 @@ export const profile: RouteObject[] = [
   // MFA setup routes
   { path: 'setup-mfa/totp', element: <SetupTotpModal /> },
   { path: 'setup-mfa/webauthn', element: <SetupWebAuthnModal /> },
-  { path: 'setup-mfa/backup_code', element: <SetupBackupCodeModal /> },
+  { path: 'setup-mfa/backupcode', element: <SetupBackupCodeModal /> },
 ];

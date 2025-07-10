@@ -9,7 +9,8 @@ import useSwrFetcher from '@/hooks/use-swr-fetcher';
 
 /**
  * Hook to fetch the current user's MFA verifications.
- * This is for the profile page where users can manage their own MFA factors.
+ * This is for the profile page where admin users can manage their own MFA factors.
+ * Uses the /me API endpoints which are specifically for admin users.
  */
 const useCurrentUserMfa = () => {
   const { user } = useCurrentUser();
@@ -23,7 +24,7 @@ const useCurrentUserMfa = () => {
     UserMfaVerificationResponse,
     RequestError
   >(
-    user?.id ? `my-account/mfa-verifications` : null,
+    user?.id ? 'me/mfa-verifications' : null,
     fetcher
   );
   
@@ -31,7 +32,7 @@ const useCurrentUserMfa = () => {
     if (!user?.id) {
       throw new Error('User ID not available');
     }
-    await api.delete(`my-account/mfa-verifications/${verificationId}`);
+    await api.delete(`me/mfa-verifications/${verificationId}`);
     // Update the cache by removing the deleted verification
     if (mfaVerifications) {
       const updated = mfaVerifications.filter(verification => verification.id !== verificationId);

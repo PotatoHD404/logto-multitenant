@@ -1,0 +1,146 @@
+@use '@/scss/underscore' as _;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(4);
+}
+
+.description {
+  font: var(--font-body-2);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.codesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(3);
+  padding: _.unit(4);
+  border: 1px solid var(--color-border);
+  border-radius: _.unit(2);
+  background: var(--color-layer-1);
+}
+
+.codesHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: _.unit(2);
+}
+
+.codesTitle {
+  font: var(--font-title-3);
+  color: var(--color-text);
+}
+
+.codesCount {
+  font: var(--font-body-3);
+  color: var(--color-text-secondary);
+}
+
+.codesList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: _.unit(2);
+}
+
+.codeItem {
+  display: flex;
+  gap: _.unit(2);
+  align-items: center;
+  padding: _.unit(2);
+  background: var(--color-neutral-95);
+  border-radius: _.unit(1);
+  font: var(--font-mono);
+  font-size: 14px;
+}
+
+.codeNumber {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  min-width: _.unit(4);
+}
+
+.codeValue {
+  color: var(--color-text);
+  letter-spacing: 0.5px;
+}
+
+.actions {
+  display: flex;
+  gap: _.unit(2);
+  justify-content: center;
+  margin-top: _.unit(2);
+}
+
+.warning {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(2);
+  padding: _.unit(3);
+  background: var(--color-warning-background);
+  border: 1px solid var(--color-warning-border);
+  border-radius: _.unit(2);
+}
+
+.warningTitle {
+  font: var(--font-body-2);
+  font-weight: 600;
+  color: var(--color-warning-text);
+}
+
+.warningText {
+  font: var(--font-body-3);
+  color: var(--color-warning-text);
+  line-height: 1.4;
+}
+
+.setupActions {
+  display: flex;
+  gap: _.unit(2);
+  justify-content: flex-end;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: _.unit(8);
+  color: var(--color-text-secondary);
+}
+
+.error {
+  color: var(--color-error);
+  padding: _.unit(2);
+  text-align: center;
+  font: var(--font-body-2);
+} 
+
+.prerequisiteMessage {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(3);
+  padding: _.unit(4);
+  background: var(--color-layer-1);
+  border: 1px solid var(--color-border);
+  border-radius: _.unit(2);
+}
+
+.prerequisiteTitle {
+  font: var(--font-title-3);
+  color: var(--color-text);
+}
+
+.prerequisiteText {
+  font: var(--font-body-2);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.prerequisiteActions {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(3);
+}

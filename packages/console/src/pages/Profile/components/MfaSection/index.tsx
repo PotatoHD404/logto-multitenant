@@ -1,4 +1,3 @@
-import type { AdminConsoleKey } from '@logto/phrases';
 import { MfaFactor } from '@logto/schemas';
 import { useCallback } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -44,51 +43,15 @@ function MfaSection() {
     [deleteMfaVerification, showConfirm, t]
   );
 
-  const handleSetupMfa = useCallback(
-    (factor: MfaFactor) => {
-      navigate(`setup-mfa/${factor.toLowerCase()}`);
-    },
-    [navigate]
-  );
+  const handleSetupMfa = useCallback((factor: MfaFactor) => {
+    navigate(`setup-mfa/${factor.toLowerCase()}`);
+  }, [navigate]);
 
-  const availableFactors = [
-    {
-      factor: MfaFactor.TOTP,
-      name: t('profile.set_up_mfa.totp_name'),
-      description: t('profile.set_up_mfa.totp_description'),
-      isEnabled: !mfaVerifications?.some(v => v.type === MfaFactor.TOTP),
-    },
-    {
-      factor: MfaFactor.WebAuthn,
-      name: t('profile.set_up_mfa.webauthn_name'),
-      description: t('profile.set_up_mfa.webauthn_description'),
-      isEnabled: !mfaVerifications?.some(v => v.type === MfaFactor.WebAuthn),
-    },
-    {
-      factor: MfaFactor.BackupCode,
-      name: t('profile.set_up_mfa.backup_code_name'),
-      description: t('profile.set_up_mfa.backup_code_description'),
-      isEnabled: !mfaVerifications?.some(v => v.type === MfaFactor.BackupCode),
-    },
-  ];
-
-  const hasCurrentFactors = Boolean(mfaVerifications?.length);
-
-  // Handle loading and error states
   if (isLoading) {
     return (
       <FormCard title="profile.set_up_mfa.title">
-        <div className={styles.mfaSection}>
-          <CardContent
-            title="profile.set_up_mfa.current_mfa_factors"
-            data={[{
-              key: 'loading',
-              label: 'general.loading',
-              value: true,
-              renderer: () => <span>Loading...</span>,
-              action: { name: 'general.loading' as const, handler: () => {} },
-            }]}
-          />
+        <div className={styles.loading}>
+          {t('general.loading')}
         </div>
       </FormCard>
     );
@@ -97,92 +60,79 @@ function MfaSection() {
   if (error) {
     return (
       <FormCard title="profile.set_up_mfa.title">
-        <div className={styles.mfaSection}>
-          <CardContent
-            title="profile.set_up_mfa.current_mfa_factors"
-            data={[{
-              key: 'error',
-              label: 'general.unknown_error',
-              value: error?.body?.message ?? error?.message,
-              renderer: (value: string) => <span className={styles.error}>{value}</span>,
-              action: { name: 'general.retry' as const, handler: () => {} },
-            }]}
-          />
+        <div className={styles.error}>
+          {error?.body?.message ?? error?.message ?? t('general.unknown_error')}
         </div>
       </FormCard>
     );
   }
 
-  // Create data for current MFA factors using CardContent pattern
-  const currentFactorsData = mfaVerifications?.map((verification) => ({
-    key: verification.id,
-    label: <MfaFactorName {...verification} />,
-    value: verification.createdAt,
-    renderer: (value: string) => (
-      <div className={styles.factorItem}>
-        {value && (
-          <div className={styles.factorDate}>
-            {t('profile.set_up_mfa.created_at', { 
-              date: new Date(value).toLocaleDateString() 
-            })}
-          </div>
-        )}
-      </div>
-    ),
-    action: {
-      name: 'profile.set_up_mfa.delete_factor' as const,
-      handler: () => handleDelete(verification),
-    },
-  })) || [];
+  // All available MFA factors
+  const allFactors = [
+    { type: MfaFactor.TOTP },
+    { type: MfaFactor.WebAuthn },
+    { type: MfaFactor.BackupCode },
+  ];
 
-  // Create data for available MFA factors
-  const availableFactorsData = availableFactors
-    .filter(({ isEnabled }) => isEnabled)
-    .map(({ factor, name, description }) => ({
-      key: factor,
-      label: name as AdminConsoleKey,
-      value: description,
-      renderer: (value: string) => (
-        <div className={styles.factorDescription}>
-          {value}
+  // Create unified data for all MFA factors
+  const mfaFactorsData = allFactors.map((factor) => {
+    const existingVerification = mfaVerifications?.find(v => v.type === factor.type);
+    const isConfigured = Boolean(existingVerification);
+
+    return {
+      key: factor.type,
+      label: (
+        <div className={styles.factorLabel}>
+          <div className={styles.factorName}>
+            {factor.type === MfaFactor.TOTP 
+              ? t('profile.set_up_mfa.totp_name') 
+              : factor.type === MfaFactor.WebAuthn 
+                ? t('profile.set_up_mfa.webauthn_name')
+                : t('profile.set_up_mfa.backup_code_name')}
+          </div>
+          <div className={styles.factorDescription}>
+            {factor.type === MfaFactor.TOTP 
+              ? t('profile.set_up_mfa.totp_description') 
+              : factor.type === MfaFactor.WebAuthn 
+                ? t('profile.set_up_mfa.webauthn_description')
+                : t('profile.set_up_mfa.backup_code_description')}
+          </div>
         </div>
       ),
-      action: {
-        name: 'profile.set' as const,
-        handler: () => handleSetupMfa(factor),
+      value: existingVerification?.createdAt || null,
+      renderer: (value: string | null) => {
+        if (value) {
+          return (
+            <div className={styles.factorStatus}>
+              <div className={styles.statusBadge}>
+                {t('profile.set_up_mfa.configured')}
+              </div>
+              <div className={styles.factorDate}>
+                {`${t('profile.set_up_mfa.created_at').replace('{{time}}', new Date(value).toLocaleDateString())}`}
+              </div>
+            </div>
+          );
+        }
+        return <NotSet />;
       },
-    }));
+      action: isConfigured && existingVerification
+        ? {
+            name: 'general.delete' as any,
+            handler: async () => handleDelete(existingVerification),
+          }
+        : {
+            name: 'profile.set_up_mfa.setup' as any,
+            handler: async () => handleSetupMfa(factor.type),
+          },
+    };
+  });
 
   return (
     <FormCard title="profile.set_up_mfa.title">
-      <div className={styles.mfaSection}>
-        {/* Current MFA Factors */}
-        {hasCurrentFactors ? (
-          <CardContent
-            title="profile.set_up_mfa.current_mfa_factors"
-            data={currentFactorsData}
-          />
-        ) : (
-          <CardContent
-            title="profile.set_up_mfa.current_mfa_factors"
-            data={[{
-              key: 'no-factors',
-              label: 'profile.set_up_mfa.no_mfa_factors' as const,
-              value: false,
-              renderer: () => <NotSet />,
-              action: { name: 'general.set_up' as const, handler: () => {} },
-            }]}
-          />
-        )}
-
-        {/* Available MFA Factors to Set Up */}
-        {availableFactorsData.length > 0 && (
-          <CardContent
-            title="profile.set_up_mfa.available_mfa_factors"
-            data={availableFactorsData}
-          />
-        )}
-      </div>
+      <CardContent
+        title="profile.set_up_mfa.mfa_factors"
+        data={mfaFactorsData}
+      />
     </FormCard>
   );
 }

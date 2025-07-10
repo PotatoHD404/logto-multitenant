@@ -1,0 +1,68 @@
+@use '@/scss/underscore' as _;
+
+.footer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: _.unit(3);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(6);
+}
+
+.description {
+  font: var(--font-body-2);
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: _.unit(2) _.unit(4);
+  background: var(--color-layer-1);
+  border-radius: _.unit(2);
+  border: 1px solid var(--color-border);
+}
+
+.instructions {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(4);
+}
+
+.instruction {
+  display: flex;
+  align-items: flex-start;
+  gap: _.unit(3);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: _.unit(8);
+  height: _.unit(8);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-radius: 50%;
+  font: var(--font-label-2);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.text {
+  font: var(--font-body-2);
+  color: var(--color-text);
+  line-height: 1.5;
+  padding-top: _.unit(1);
+}
+
+.error {
+  color: var(--color-error);
+  font: var(--font-body-2);
+  padding: _.unit(3);
+  background: var(--color-error-container);
+  border-radius: _.unit(2);
+  border: 1px solid var(--color-error);
+  text-align: center;
+} 

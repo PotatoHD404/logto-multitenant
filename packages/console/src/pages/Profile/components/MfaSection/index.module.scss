@@ -1,15 +1,50 @@
 @use '@/scss/underscore' as _;
 
-.mfaSection {
-  display: flex;
-  flex-direction: column;
-  gap: _.unit(4);
+.error {
+  color: var(--color-error);
+  font: var(--font-body-2);
+  padding: _.unit(2);
 }
 
-.factorItem {
+.loading {
+  font: var(--font-body-2);
+  color: var(--color-text-secondary);
+  padding: _.unit(2);
+}
+
+.factorLabel {
   display: flex;
   flex-direction: column;
   gap: _.unit(1);
+}
+
+.factorName {
+  font: var(--font-label-2);
+  color: var(--color-text);
+}
+
+.factorDescription {
+  font: var(--font-body-3);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.factorStatus {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(1);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: _.unit(1) _.unit(2);
+  background: var(--color-success-container);
+  color: var(--color-on-success-container);
+  border-radius: _.unit(1);
+  font: var(--font-body-3);
+  font-weight: 500;
+  width: fit-content;
 }
 
 .factorDate {
@@ -17,13 +52,8 @@
   color: var(--color-text-secondary);
 }
 
-.factorDescription {
-  font: var(--font-body-2);
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-}
-
-.error {
-  color: var(--color-error);
-  font: var(--font-body-2);
+.factorButtons {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(2);
 } 

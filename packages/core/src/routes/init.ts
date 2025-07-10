@@ -174,10 +174,10 @@ const createRouters = (tenant: TenantContext) => {
 
 export default function initApis(tenant: TenantContext): Koa {
   const apisApp = new Koa();
-  const { adminUrlSet, cloudUrlSet } = EnvSet.values;
+  const { adminUrlSet, cloudUrlSet, urlSet } = EnvSet.values;
   apisApp.use(
     koaCors(
-      [adminUrlSet, cloudUrlSet],
+      [adminUrlSet, cloudUrlSet, urlSet],
       [accountApiPrefix, verificationApiPrefix, googleOneTapApiPrefix]
     )
   );

@@ -75,7 +75,7 @@ function TenantBasicSettings() {
       updateTenant(currentTenantId, data);
           } else {
         // For local OSS, use the admin tenant API
-        const updatedTenant = await adminApi.patch(`tenants/${currentTenantId}`, { json: data }).json<LocalTenantResponse>();
+        const updatedTenant = await adminApi.patch(`api/tenants/${currentTenantId}`, { json: data }).json<LocalTenantResponse>();
         reset({ profile: { name: updatedTenant.name, tag: updatedTenant.tag } });
         updateTenant(currentTenantId, { name: updatedTenant.name, tag: updatedTenant.tag });
       }
@@ -148,7 +148,7 @@ function TenantBasicSettings() {
         await cloudApi.delete(`/api/tenants/:tenantId`, { params: { tenantId: currentTenantId } });
       } else {
         // For local OSS, use the admin tenant API for deletion
-        await adminApi.delete(`tenants/${currentTenantId}`);
+        await adminApi.delete(`api/tenants/${currentTenantId}`);
       }
       setIsDeletionModalOpen(false);
       removeTenant(currentTenantId);
