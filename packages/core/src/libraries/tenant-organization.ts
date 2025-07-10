@@ -41,12 +41,15 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
           description: `Organization for tenant ${tenantId}`,
         });
         
+        console.log(`Successfully created organization ${organizationId}`);
         return organizationId;
       } catch (error) {
+        console.error(`Failed to create organization ${organizationId}:`, error);
         throw new RequestError({ 
           code: 'entity.create_failed', 
           status: 500,
-          data: { tenantId }
+          name: 'organization',
+          data: { tenantId, organizationId, error: error instanceof Error ? error.message : String(error) }
         });
       }
     }

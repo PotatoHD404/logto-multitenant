@@ -6,17 +6,15 @@
 
 import { adminTenantId } from '@logto/schemas';
 
-/** Given a tenant ID, return the corresponding organization ID in the admin tenant. */
-export const getTenantOrganizationId = (tenantId: string) => `t-${tenantId}`;
+/** 
+ * Given a tenant ID, return the corresponding organization ID in the admin tenant.
+ * Since tenant IDs are already unique and fit within the 21-character database constraint,
+ * we use the tenant ID directly as the organization ID.
+ */
+export const getTenantOrganizationId = (tenantId: string) => tenantId;
 
-/** Given an admin tenant organization ID, check the format and return the corresponding user tenant ID. */
-export const getTenantIdFromOrganizationId = (organizationId: string) => {
-  if (!organizationId.startsWith('t-')) {
-    throw new Error(`Invalid admin tenant organization ID: ${organizationId}`);
-  }
-
-  return organizationId.slice(2);
-};
+/** Given an admin tenant organization ID, return the corresponding user tenant ID. */
+export const getTenantIdFromOrganizationId = (organizationId: string) => organizationId;
 
 /**
  * Ensure that a tenant organization exists in the admin tenant.

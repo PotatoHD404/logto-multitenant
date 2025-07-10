@@ -106,8 +106,8 @@ type Props = {
  */
 function TenantsProvider({ children }: Props) {
   const [tenants, setTenants] = useState(initialTenants);
-  /** @see {@link initialTenants} */
-  const [isInitComplete, setIsInitComplete] = useState(!isCloud);
+  /** Initialize as incomplete for both cloud and OSS to ensure tenant loading happens */
+  const [isInitComplete, setIsInitComplete] = useState(false);
   
   // Match different routing patterns based on environment
   const cloudMatch = useMatch('/:tenantId/*');

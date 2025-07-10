@@ -50,6 +50,7 @@ import {
   seedAdminData,
   seedLegacyManagementApiUserRole,
   seedManagementApiProxyApplications,
+  seedAdminTenantManagementApiUserScopes,
 } from './tenant.js';
 
 const getExplicitOrder = (query: string) => {
@@ -206,6 +207,10 @@ export const seedTables = async (
     connection.query(insertInto(createDefaultAccountCenter(defaultTenantId), AccountCenters.table)),
     connection.query(insertInto(createDefaultAccountCenter(adminTenantId), AccountCenters.table)),
   ]);
+
+  // Assign admin tenant management API scopes to the admin tenant user role
+  // This must be done after the admin tenant user role is created
+  await seedAdminTenantManagementApiUserScopes(connection);
 
   // The below seed data is for the Logto Cloud only. We put it here for the sake of simplicity.
   // The data is not harmful for OSS, since they are all admin tenant data. OSS will not use them

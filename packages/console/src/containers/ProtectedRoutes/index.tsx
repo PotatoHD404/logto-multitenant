@@ -69,7 +69,7 @@ export default function ProtectedRoutes() {
             resetTenants(data);
           } else {
             // For local OSS, load tenants from the local API
-            const localTenants = await localApi.get('tenants').json<LocalTenantResponse[]>();
+            const localTenants = await localApi.get('api/tenants').json<LocalTenantResponse[]>();
             // Convert local API response to match TenantResponse format
             const tenants: TenantResponse[] = localTenants.map((tenant) => ({
               ...defaultTenantResponse,

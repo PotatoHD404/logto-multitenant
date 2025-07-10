@@ -14,8 +14,14 @@ function TenantStatusTag({ tenantData, className }: Props) {
     quota,
     openInvoices,
     isSuspended,
-    subscription: { planId, isEnterprisePlan },
+    subscription,
   } = tenantData;
+
+  // Defensive checks for all fields that might be undefined in OSS
+  const { planId, isEnterprisePlan } = subscription || { planId: 'development', isEnterprisePlan: false };
+  const safeUsage = usage || { activeUsers: 0, tokenUsage: 0 };
+  const safeQuota = quota || { mauLimit: null, tokenLimit: null };
+  const safeOpenInvoices = openInvoices || [];
 
   /**
    * Tenant status priority:
@@ -33,7 +39,7 @@ function TenantStatusTag({ tenantData, className }: Props) {
     );
   }
 
-  if (openInvoices.length > 0) {
+  if (safeOpenInvoices.length > 0) {
     return (
       <Tag className={className}>
         <DynamicT forKey="tenants.status.overdue" />
@@ -43,9 +49,9 @@ function TenantStatusTag({ tenantData, className }: Props) {
 
   const isPaidTenant = isPaidPlan(planId, isEnterprisePlan);
 
-  const { activeUsers, tokenUsage } = usage;
+  const { activeUsers, tokenUsage } = safeUsage;
 
-  const { mauLimit, tokenLimit } = quota;
+  const { mauLimit, tokenLimit } = safeQuota;
 
   const isMauExceeded = mauLimit !== null && activeUsers >= mauLimit;
   const isTokenExceeded = tokenLimit !== null && !isPaidTenant && tokenUsage >= tokenLimit;

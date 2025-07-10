@@ -88,7 +88,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           id: tenant.id,
           name: tenant.name,
           tag: tenant.tag,
-          createdAt: tenant.created_at.toISOString(),
+          createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
           isSuspended: tenant.is_suspended,
         }));
         return next();
@@ -112,7 +112,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         id: tenant.id,
         name: tenant.name,
         tag: tenant.tag,
-        createdAt: tenant.created_at.toISOString(),
+        createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
         isSuspended: tenant.is_suspended,
       }));
 
@@ -168,7 +168,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           id: tenant.id,
           name: tenant.name,
           tag: tenant.tag,
-          createdAt: tenant.created_at.toISOString(),
+          createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
           isSuspended: tenant.is_suspended,
         };
       } catch (error) {
@@ -215,7 +215,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         id: tenant.id,
         name: tenant.name,
         tag: tenant.tag,
-        createdAt: tenant.created_at.toISOString(),
+        createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
         isSuspended: tenant.is_suspended,
       };
 
@@ -289,7 +289,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         id: tenant.id,
         name: tenant.name,
         tag: tenant.tag,
-        createdAt: tenant.created_at.toISOString(),
+        createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
         isSuspended: tenant.is_suspended,
       };
 

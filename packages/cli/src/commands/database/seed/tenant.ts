@@ -16,6 +16,7 @@ import {
   getManagementApiResourceIndicator,
   TenantTag,
   TenantManagementScope,
+  AdminTenantRole,
 } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { assert } from '@silverhand/essentials';
@@ -221,4 +222,82 @@ export const seedLegacyManagementApiUserRole = async (
   );
   
   consoleLog.succeed('Assigned tenant management scopes to legacy admin role');
+};
+
+/**
+ * Seed admin tenant management API scopes to the admin tenant user role.
+ * This allows the admin tenant user role to access the admin tenant management API.
+ * Used in OSS only.
+ */
+export const seedAdminTenantManagementApiUserScopes = async (
+  connection: DatabaseTransactionConnection
+) => {
+  const userRole = await connection.maybeOne<{ id: string }>(sql`
+    select id from roles
+    where tenant_id = ${adminTenantId}
+    and name = ${AdminTenantRole.User}
+  `);
+  
+  if (!userRole) {
+    consoleLog.warn('Admin tenant user role not found, skipping admin tenant management API scope assignment');
+    return;
+  }
+
+  // Check if admin tenant management API resource exists
+  const adminApiResource = await connection.maybeOne<{ id: string }>(sql`
+    select id from resources
+    where indicator = ${getManagementApiResourceIndicator(adminTenantId)}
+    and tenant_id = ${adminTenantId}
+  `);
+  
+  if (!adminApiResource) {
+    consoleLog.warn('Admin tenant management API resource not found, skipping scope assignment');
+    return;
+  }
+
+  // Assign admin tenant management API scopes to the user role
+  await connection.query(sql`
+    insert into roles_scopes (id, role_id, scope_id, tenant_id)
+    values (
+      ${generateStandardId()},
+      ${userRole.id},
+      (
+        select scopes.id from scopes
+        join resources on scopes.resource_id = resources.id
+        where resources.indicator = ${getManagementApiResourceIndicator(adminTenantId)}
+        and scopes.name = ${PredefinedScope.All}
+        and scopes.tenant_id = ${adminTenantId}
+      ),
+      ${adminTenantId}
+    );
+  `);
+  
+  // Assign tenant management scopes to the user role for admin tenant management
+  const tenantManagementScopes = [
+    TenantManagementScope.Read,
+    TenantManagementScope.Write,
+    TenantManagementScope.Delete,
+  ];
+  
+  await Promise.all(
+    tenantManagementScopes.map(async (scopeName) => {
+      await connection.query(sql`
+        insert into roles_scopes (id, role_id, scope_id, tenant_id)
+        values (
+          ${generateStandardId()},
+          ${userRole.id},
+          (
+            select scopes.id from scopes
+            join resources on scopes.resource_id = resources.id
+            where resources.indicator = ${getManagementApiResourceIndicator(adminTenantId)}
+            and scopes.name = ${scopeName}
+            and scopes.tenant_id = ${adminTenantId}
+          ),
+          ${adminTenantId}
+        );
+      `);
+    })
+  );
+  
+  consoleLog.succeed('Assigned admin tenant management API scopes to admin tenant user role');
 };
