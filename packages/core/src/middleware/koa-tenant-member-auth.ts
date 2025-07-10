@@ -4,7 +4,7 @@ import { TenantScope, TenantManagementScope, PredefinedScope } from '@logto/sche
 
 import RequestError from '#src/errors/RequestError/index.js';
 import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
-import { hasRequiredTenantScope, isProtectedSystemTenant } from '#src/middleware/koa-tenant-auth.js';
+import { hasRequiredTenantScope, isProtectedFromDeletion } from '#src/middleware/koa-tenant-auth.js';
 import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
@@ -90,7 +90,7 @@ export default function koaTenantMemberAuth<StateT, ContextT extends IRouterPara
       // Check for system tenant protection
       if (operation === 'remove' || operation === 'update-role') {
         assertThat(
-          !isProtectedSystemTenant(tenantId),
+          !isProtectedFromDeletion(tenantId),
           new RequestError({ code: 'auth.forbidden', status: 403 })
         );
       }
@@ -123,7 +123,7 @@ export default function koaTenantMemberAuth<StateT, ContextT extends IRouterPara
     // Additional protection for system tenants
     if (operation === 'remove' || operation === 'update-role') {
       assertThat(
-        !isProtectedSystemTenant(tenantId),
+        !isProtectedFromDeletion(tenantId),
         new RequestError({ code: 'auth.forbidden', status: 403 })
       );
     }
