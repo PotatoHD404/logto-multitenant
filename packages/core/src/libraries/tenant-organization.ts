@@ -6,6 +6,7 @@
  */
 
 import { TenantRole, adminTenantId, getTenantRole, OrganizationInvitationStatus } from '@logto/schemas';
+import { generateStandardId } from '@logto/shared';
 import type { CommonQueryMethods } from '@silverhand/slonik';
 
 import RequestError from '#src/errors/RequestError/index.js';
@@ -20,7 +21,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     tenants,
   } = queries;
 
-  const ensureTenantOrganization = async (tenantId: string) => {
+  const ensureTenantOrganization = async (tenantId: string, tenantName?: string) => {
     const organizationId = getTenantOrganizationId(tenantId);
     
     try {
@@ -30,13 +31,14 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     } catch {
       // Organization doesn't exist, create it
       try {
-        const tenant = await tenants.findTenantSuspendStatusById(tenantId);
+        // Use the provided tenant name, or fall back to tenant ID as display name
+        const displayName = tenantName || tenantId;
         
         await organizations.insert({
           id: organizationId,
           tenantId: adminTenantId,
-          name: `Tenant ${tenant.id}`,
-          description: `Organization for tenant ${tenant.id}`,
+          name: `Tenant ${displayName}`,
+          description: `Organization for tenant ${tenantId}`,
         });
         
         return organizationId;
@@ -267,6 +269,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     
     try {
       const invitation = await organizations.invitations.insert({
+        id: generateStandardId(),
         organizationId,
         invitee: email,
         inviterId,
@@ -299,15 +302,17 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
   ) => {
     const organizationId = await ensureTenantOrganization(tenantId);
     
-    const [totalCount, invitations] = await organizations.invitations.findByOrganizationId(
+    // Use findEntities method with organizationId filter
+    const invitations = await organizations.invitations.findEntities({
       organizationId,
-      limit,
-      offset
-    );
+    });
+
+    // Apply pagination manually since findEntities doesn't support it directly
+    const paginatedInvitations = invitations.slice(offset, offset + limit);
 
     return {
-      totalCount,
-      invitations: invitations.map((invitation: any) => ({
+      totalCount: invitations.length,
+      invitations: paginatedInvitations.map((invitation: any) => ({
         id: invitation.id,
         email: invitation.invitee,
         role: invitation.organizationRoles?.[0]?.name as TenantRole || TenantRole.Collaborator,

@@ -144,23 +144,21 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         const sharedPool = await EnvSet.sharedPool;
         
         // Create tenant record using shared admin pool
-        await sharedPool.query(sql`
+        const tenant = await sharedPool.one<TenantDatabaseRow>(sql`
           INSERT INTO tenants (id, name, tag, db_user, db_user_password, created_at, is_suspended)
           VALUES (${id}, ${name}, ${tag}, ${databaseUser}, ${databaseUserPassword}, NOW(), false)
+          RETURNING id, name, tag, created_at, is_suspended
         `);
 
-        const tenant = await sharedPool.one<TenantDatabaseRow>(sql`
-          SELECT id, name, tag, created_at, is_suspended
-          FROM tenants 
-          WHERE id = ${id}
-        `);
-
-        // Initialize tenant organization for member management
+        // Initialize tenant organization in the admin tenant
+        // This creates an organization in the admin tenant that represents this tenant
+        // for user management purposes
         try {
-          await tenantOrg.ensureTenantOrganization(id);
+          await tenantOrg.ensureTenantOrganization(tenant.id, tenant.name);
         } catch (error) {
-          // Log error but don't fail tenant creation
-          console.error('Failed to initialize tenant organization:', error);
+          // If organization creation fails, log the error but don't block tenant creation
+          // The organization can be created later when needed
+          console.error(`Failed to initialize tenant organization for tenant ${tenant.id}:`, error);
         }
 
         ctx.status = 201;

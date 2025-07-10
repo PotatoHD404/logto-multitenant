@@ -3,8 +3,10 @@ import { LogtoProvider, Prompt, useLogto } from '@logto/react';
 import {
   adminConsoleApplicationId,
   defaultTenantId,
+  adminTenantId,
   PredefinedScope,
   TenantScope,
+  TenantManagementScope,
 } from '@logto/schemas';
 import { conditionalArray } from '@silverhand/essentials';
 import { useContext, useMemo } from 'react';
@@ -74,12 +76,16 @@ function Providers() {
   const { currentTenantId } = useContext(TenantsContext);
 
   // For Cloud, we use Management API proxy for accessing tenant data.
-  // For OSS, we directly call the tenant API with the default tenant API resource.
+  // For OSS, we need both default tenant and admin tenant management API resources for multi-tenancy.
   const resources = useMemo(
     () =>
       isCloud
         ? [cloudApi.indicator, meApi.indicator]
-        : [getManagementApi(defaultTenantId).indicator, meApi.indicator],
+        : [
+            getManagementApi(defaultTenantId).indicator,
+            getManagementApi(adminTenantId).indicator,
+            meApi.indicator,
+          ],
     []
   );
 
@@ -96,6 +102,12 @@ function Providers() {
           ...Object.values(TenantScope),
           cloudApi.scopes.CreateTenant,
           cloudApi.scopes.ManageTenantSelf,
+        ]
+      ),
+      ...conditionalArray(
+        !isCloud && [
+          // Include tenant management scopes for OSS multi-tenancy
+          ...Object.values(TenantManagementScope),
         ]
       ),
     ],

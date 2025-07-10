@@ -2,6 +2,7 @@ import { isKeyInObject, trySafe } from '@silverhand/essentials';
 import classNames from 'classnames';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import ContactIcon from '@/assets/icons/contact-us.svg?react';
 import CubeIcon from '@/assets/icons/cube.svg?react';
@@ -9,6 +10,7 @@ import DocumentIcon from '@/assets/icons/document-nav-button.svg?react';
 import CloudLogo from '@/assets/images/cloud-logo.svg?react';
 import Logo from '@/assets/images/logo.svg?react';
 import { githubReleasesLink } from '@/consts';
+import { isCloud } from '@/consts/env';
 import DynamicT from '@/ds-components/DynamicT';
 import Spacer from '@/ds-components/Spacer';
 import TextLink from '@/ds-components/TextLink';
@@ -32,25 +34,19 @@ type Props = {
 
 function Topbar({ className, hideTenantSelector, hideTitle }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
-  const { navigate } = useTenantPathname();
-  const isCloud = true;
+  const { getTo } = useTenantPathname();
   const LogtoLogo = isCloud ? CloudLogo : Logo;
+  
+  // For OSS: /console/{tenantId} or /console (when no tenant)
+  // For Cloud: /{tenantId} or / (when no tenant)
+  const consoleHomePath = getTo('/');
   
   return (
     <div className={classNames(styles.topbar, className)}>
-      <LogtoLogo
-        className={styles.logo}
-        onClick={() => {
-          navigate('/');
-        }}
-      />
-      {isCloud && !hideTenantSelector && <TenantSelector />}
-      {!isCloud && !hideTitle && (
-        <>
-          <div className={styles.line} />
-          <div className={styles.text}>{t('title')}</div>
-        </>
-      )}
+      <Link to={consoleHomePath} className={styles.logoLink}>
+        <LogtoLogo className={styles.logo} />
+      </Link>
+      {!hideTenantSelector && <TenantSelector />}
       <Spacer />
       <DocumentButton />
       <HelpButton />
