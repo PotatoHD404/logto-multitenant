@@ -1,7 +1,6 @@
 import { useLogto } from '@logto/react';
 import { useContext, useEffect, useCallback, useState } from 'react';
-import { buildOrganizationUrn } from '@logto/core-kit';
-import { getTenantOrganizationId, getManagementApiResourceIndicator } from '@logto/schemas';
+import { getTenantOrganizationId } from '@logto/schemas';
 import { Prompt } from '@logto/react';
 
 import { isCloud } from '@/consts/env';
@@ -16,7 +15,6 @@ export default function useTenantTokenRefresh() {
   const { currentTenantId } = useContext(TenantsContext);
   const { 
     isAuthenticated, 
-    getAccessToken, 
     getOrganizationToken, 
     getOrganizationTokenClaims,
     clearAccessToken,
@@ -39,45 +37,29 @@ export default function useTenantTokenRefresh() {
       // Clear existing access token to force refresh
       await clearAccessToken();
 
-      // Get fresh token based on environment
-      if (isCloud) {
-        // For cloud: get organization token
-        const organizationId = getTenantOrganizationId(currentTenantId);
-        const resourceIndicator = buildOrganizationUrn(organizationId);
-        
-        // This will fetch a fresh token
-        const token = await getOrganizationToken(organizationId);
-        
-        if (!token) {
-          console.warn('Failed to get organization token for tenant:', currentTenantId);
-          // Optionally redirect to sign-in for re-consent
-          saveRedirect();
-          void signIn({
-            redirectUri: redirectUri.href,
-            prompt: Prompt.Consent,
-          });
-          return;
-        }
-
-        // Validate token has required scopes
-        const claims = await getOrganizationTokenClaims(organizationId);
-        console.log('Refreshed token claims for tenant:', currentTenantId, claims);
-        
-      } else {
-        // For OSS: get management API token
-        const resourceIndicator = getManagementApiResourceIndicator(currentTenantId);
-        const token = await getAccessToken(resourceIndicator);
-        
-        if (!token) {
-          console.warn('Failed to get management API token for tenant:', currentTenantId);
-          return;
-        }
-
-        console.log('Refreshed management API token for tenant:', currentTenantId);
+      // Both cloud and OSS now use organization tokens for consistent behavior
+      const organizationId = getTenantOrganizationId(currentTenantId);
+      
+      // This will fetch a fresh organization token
+      const token = await getOrganizationToken(organizationId);
+      
+      if (!token) {
+        console.warn('❌ Failed to get organization token for tenant:', currentTenantId);
+        // Redirect to sign-in for re-consent
+        saveRedirect();
+        void signIn({
+          redirectUri: redirectUri.href,
+          prompt: Prompt.Consent,
+        });
+        return;
       }
 
+      // Validate token has required scopes
+      const claims = await getOrganizationTokenClaims(organizationId);
+      console.log('✅ Auto-refreshed organization token for tenant:', currentTenantId, 'scopes:', claims?.scope);
+
     } catch (error) {
-      console.error('Failed to refresh tenant token:', error);
+      console.error('❌ Failed to refresh tenant token:', error);
     } finally {
       setIsRefreshing(false);
     }
@@ -86,7 +68,6 @@ export default function useTenantTokenRefresh() {
     currentTenantId,
     isRefreshing,
     clearAccessToken,
-    getAccessToken,
     getOrganizationToken,
     getOrganizationTokenClaims,
     redirectUri.href,
@@ -102,20 +83,15 @@ export default function useTenantTokenRefresh() {
     }
 
     try {
-      if (isCloud) {
-        const organizationId = getTenantOrganizationId(currentTenantId);
-        const token = await getOrganizationToken(organizationId);
-        return Boolean(token);
-      } else {
-        const resourceIndicator = getManagementApiResourceIndicator(currentTenantId);
-        const token = await getAccessToken(resourceIndicator);
-        return Boolean(token);
-      }
+      // Both cloud and OSS now use organization tokens for consistent behavior
+      const organizationId = getTenantOrganizationId(currentTenantId);
+      const token = await getOrganizationToken(organizationId);
+      return Boolean(token);
     } catch (error) {
       console.error('Failed to validate tenant access:', error);
       return false;
     }
-  }, [isAuthenticated, currentTenantId, getAccessToken, getOrganizationToken]);
+  }, [isAuthenticated, currentTenantId, getOrganizationToken]);
 
   // Refresh token when tenant changes
   useEffect(() => {

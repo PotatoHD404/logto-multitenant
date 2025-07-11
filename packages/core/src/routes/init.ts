@@ -1,4 +1,4 @@
-import { getManagementApiResourceIndicator } from '@logto/schemas';
+import { getManagementApiResourceIndicator, getTenantOrganizationId } from '@logto/schemas';
 import Koa from 'koa';
 import Router from 'koa-router';
 
@@ -12,6 +12,7 @@ import type TenantContext from '#src/tenants/TenantContext.js';
 import koaAuth from '../middleware/koa-auth/index.js';
 import koaOidcAuth from '../middleware/koa-auth/koa-oidc-auth.js';
 import koaCors from '../middleware/koa-cors.js';
+import { buildOrganizationUrn } from '@logto/core-kit';
 
 import { accountApiPrefix } from './account/constants.js';
 import accountRoutes from './account/index.js';
@@ -74,7 +75,9 @@ const createRouters = (tenant: TenantContext) => {
   experienceApiRoutes(experienceRouter, tenant);
 
   const managementRouter: ManagementApiRouter = new Router();
-  managementRouter.use(koaAuth(tenant.envSet, getManagementApiResourceIndicator(tenant.id)));
+  // Use organization-based authentication for consistency with console frontend
+  // This ensures management API endpoints accept organization tokens instead of resource-based tokens
+  managementRouter.use(koaAuth(tenant.envSet, buildOrganizationUrn(getTenantOrganizationId(tenant.id))));
   managementRouter.use(koaTenantGuard(tenant.id, tenant.queries));
   managementRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
 

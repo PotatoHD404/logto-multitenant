@@ -205,14 +205,15 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
   const config = useMemo(
     () => {
       // If no tenant ID is available (e.g., on reserved routes like profile), 
-      // fall back to the default tenant for OSS or don't use organization tokens
+      // fall back to the default tenant organization for OSS
       if (!currentTenantId) {
         if (isCloud) {
           throw new Error('Tenant ID is required for cloud environments');
         }
         return {
           prefixUrl: tenantEndpoint,
-          resourceIndicator: getManagementApiResourceIndicator(defaultTenantId),
+          // Use organization token for default tenant instead of resource-based token
+          resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(defaultTenantId)),
         };
       }
 
@@ -247,12 +248,15 @@ export default useApi;
 /**
  * A hook to get a Ky instance specifically for admin tenant operations.
  * This is used for tenant management operations in OSS deployments.
+ * Uses organization tokens for consistency with the main useApi hook.
  */
 export const useAdminApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}) => {
   const config = useMemo(
     () => ({
       prefixUrl: adminTenantEndpoint,
-      resourceIndicator: getManagementApiResourceIndicator(adminTenantId),
+      // Use organization token for admin tenant operations instead of resource-based token
+      // This ensures consistency with the main useApi hook and cloud behavior
+      resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(adminTenantId)),
     }),
     []
   );

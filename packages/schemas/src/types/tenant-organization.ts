@@ -16,7 +16,22 @@ import {
 import { adminTenantId } from '../seeds/tenant.js';
 
 /** Given a tenant ID, return the corresponding organization ID in the admin tenant. */
-export const getTenantOrganizationId = (tenantId: string) => `t-${tenantId}`;
+export const getTenantOrganizationId = (tenantId: string) => {
+  // Organization IDs have a 21-character database constraint (varchar(21))
+  // We need 2 characters for "t-" prefix, leaving 19 characters maximum for the tenant ID
+  const maxTenantIdLength = 19;
+  
+  if (tenantId.length > maxTenantIdLength) {
+    // Truncate tenant ID to fit within organization ID constraint
+    // This ensures the resulting organization ID is exactly 21 characters: "t-" + 19 chars
+    console.warn(
+      `Tenant ID "${tenantId}" is ${tenantId.length} characters long, exceeding the maximum of ${maxTenantIdLength} characters for organization ID generation. Truncating to "${tenantId.slice(0, maxTenantIdLength)}".`
+    );
+    return `t-${tenantId.slice(0, maxTenantIdLength)}`;
+  }
+  
+  return `t-${tenantId}`;
+};
 
 /** Given an admin tenant organization ID, check the format and return the corresponding user tenant ID. */
 export const getTenantIdFromOrganizationId = (organizationId: string) => {
@@ -24,7 +39,23 @@ export const getTenantIdFromOrganizationId = (organizationId: string) => {
     throw new Error(`Invalid admin tenant organization ID: ${organizationId}`);
   }
 
-  return organizationId.slice(2);
+  // Validate organization ID length constraint
+  if (organizationId.length > 21) {
+    throw new Error(
+      `Organization ID "${organizationId}" exceeds the maximum length of 21 characters. This should not happen and indicates a data integrity issue.`
+    );
+  }
+
+  const tenantId = organizationId.slice(2);
+  
+  // Warn if the tenant ID is exactly 19 characters, as it may have been truncated
+  if (tenantId.length === 19) {
+    console.warn(
+      `Extracted tenant ID "${tenantId}" is exactly 19 characters long, which may indicate it was truncated during organization ID generation. Original tenant ID may have been longer.`
+    );
+  }
+
+  return tenantId;
 };
 
 /**
