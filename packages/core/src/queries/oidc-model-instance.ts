@@ -6,10 +6,12 @@ import {
 import { conditional, conditionalString, type Nullable } from '@silverhand/essentials';
 import { sql, type CommonQueryMethods, type ValueExpression } from '@silverhand/slonik';
 import { addSeconds, isBefore } from 'date-fns';
+import { generateStandardId } from '@logto/shared';
 
 import { buildInsertIntoWithPool } from '#src/database/insert-into.js';
 import { DeletionError } from '#src/errors/SlonikError/index.js';
 import { convertToIdentifiers, convertToTimestamp } from '#src/utils/sql.js';
+import { type EnvSet } from '#src/env-set/index.js';
 
 export type WithConsumed<T> = T & { consumed?: boolean };
 export type QueryResult = Pick<OidcModelInstance, 'payload' | 'consumedAt'>;
@@ -56,7 +58,23 @@ const findByModel = (modelName: string) => sql`
   where ${fields.modelName}=${modelName}
 `;
 
-export const createOidcModelInstanceQueries = (pool: CommonQueryMethods) => {
+/**
+ * JWT Blacklist table structure for tracking revoked JWT tokens
+ */
+const jwtBlacklistTable = convertToIdentifiers({
+  table: 'jwt_blacklist',
+  fields: {
+    id: 'id',
+    jti: 'jti', // JWT ID from the token
+    userId: 'user_id',
+    sessionUid: 'session_uid',
+    expiresAt: 'expires_at',
+    revokedAt: 'revoked_at',
+    tenantId: 'tenant_id'
+  }
+});
+
+export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?: EnvSet) => {
   const upsertInstance = buildInsertIntoWithPool(pool)(OidcModelInstances, {
     onConflict: {
       fields: [fields.tenantId, fields.modelName, fields.id],
@@ -163,9 +181,104 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods) => {
   };
 
   /**
-   * Revoke a specific session by session UID for a user
+   * Add a JWT token to the blacklist
+   */
+  const addToJwtBlacklist = async (jti: string, userId: string, sessionUid: string, expiresAt: Date, tenantId?: string) => {
+    await pool.query(sql`
+      insert into ${jwtBlacklistTable.table} (
+        ${jwtBlacklistTable.fields.id},
+        ${jwtBlacklistTable.fields.jti},
+        ${jwtBlacklistTable.fields.userId},
+        ${jwtBlacklistTable.fields.sessionUid},
+        ${jwtBlacklistTable.fields.expiresAt},
+        ${jwtBlacklistTable.fields.revokedAt},
+        ${jwtBlacklistTable.fields.tenantId}
+      ) values (
+        ${generateStandardId()},
+        ${jti},
+        ${userId},
+        ${sessionUid},
+        ${convertToTimestamp(expiresAt)},
+        ${convertToTimestamp()},
+        ${tenantId ?? 'default'}
+      )
+      on conflict (${jwtBlacklistTable.fields.jti}, ${jwtBlacklistTable.fields.tenantId}) do nothing
+    `);
+  };
+
+  /**
+   * Check if a JWT token is blacklisted
+   */
+  const isJwtBlacklisted = async (jti: string) => {
+    const result = await pool.maybeOne<{ count: string }>(sql`
+      select count(*) as count
+      from ${jwtBlacklistTable.table}
+      where ${jwtBlacklistTable.fields.jti} = ${jti}
+        and ${jwtBlacklistTable.fields.expiresAt} > now()
+    `);
+    
+    return (result?.count ?? '0') !== '0';
+  };
+
+  /**
+   * Revoke all JWT tokens associated with a specific session
+   */
+  const revokeJwtTokensBySessionId = async (sessionId: string, userId: string) => {
+    // Find all JWT tokens associated with this session that are still valid
+    const tokens = await pool.any<{
+      jti: string;
+      expiresAt: Date;
+    }>(sql`
+      select 
+        ${fields.payload}->>'jti' as jti,
+        ${fields.expiresAt} as expires_at
+      from ${table}
+      where ${fields.modelName} in ('AccessToken', 'RefreshToken')
+        and ${fields.payload}->>'sessionUid' = ${sessionId}
+        and ${fields.payload}->>'accountId' = ${userId}
+        and ${fields.expiresAt} > now()
+        and ${fields.consumedAt} is null
+    `);
+
+    // Add each token to the blacklist
+    await Promise.all(
+      tokens.map(token => 
+        addToJwtBlacklist(token.jti, userId, sessionId, token.expiresAt, envSet?.tenantId)
+      )
+    );
+  };
+
+  /**
+   * Revoke all tokens associated with a specific session
+   */
+  const revokeTokensBySessionId = async (sessionId: string) => {
+    await Promise.all([
+      // Revoke access tokens associated with this session
+      pool.query(sql`
+        delete from ${table}
+        where ${fields.modelName} = 'AccessToken'
+          and ${fields.payload}->>'sessionUid' = ${sessionId}
+      `),
+      // Revoke refresh tokens associated with this session
+      pool.query(sql`
+        delete from ${table}
+        where ${fields.modelName} = 'RefreshToken'
+          and ${fields.payload}->>'sessionUid' = ${sessionId}
+      `),
+    ]);
+  };
+
+  /**
+   * Revoke a specific session by session UID for a user, including associated tokens
    */
   const revokeSessionByUid = async (sessionUid: string, userId: string) => {
+    // First, blacklist all JWT tokens associated with this session
+    await revokeJwtTokensBySessionId(sessionUid, userId);
+    
+    // Then revoke all tokens associated with this session
+    await revokeTokensBySessionId(sessionUid);
+    
+    // Finally revoke the session itself
     const result = await pool.query(sql`
       delete from ${table}
       where ${fields.modelName} = 'Session'
@@ -179,14 +292,42 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods) => {
   };
 
   /**
-   * Revoke all sessions except the current one for a user
+   * Revoke all sessions except the current one for a user, including associated tokens
    */
   const revokeOtherSessionsByUserId = async (userId: string, currentSessionUid?: string) => {
+    // First, find all sessions to be revoked to get their UIDs
+    const sessionsToRevoke = await pool.any<{ sessionUid: string }>(sql`
+      select ${fields.payload}->>'uid' as session_uid
+      from ${table}
+      where ${fields.modelName} = 'Session'
+        and ${fields.payload}->>'accountId' = ${userId}
+        ${currentSessionUid ? sql`and ${fields.payload}->>'uid' != ${currentSessionUid}` : sql``}
+    `);
+
+    // Blacklist JWT tokens and revoke tokens for each session
+    await Promise.all(
+      sessionsToRevoke.map(async ({ sessionUid }) => {
+        await revokeJwtTokensBySessionId(sessionUid, userId);
+        await revokeTokensBySessionId(sessionUid);
+      })
+    );
+
+    // Then revoke the sessions themselves
     await pool.query(sql`
       delete from ${table}
       where ${fields.modelName} = 'Session'
         and ${fields.payload}->>'accountId' = ${userId}
         ${currentSessionUid ? sql`and ${fields.payload}->>'uid' != ${currentSessionUid}` : sql``}
+    `);
+  };
+
+  /**
+   * Clean up expired JWT blacklist entries
+   */
+  const cleanupExpiredBlacklistEntries = async () => {
+    await pool.query(sql`
+      delete from ${jwtBlacklistTable.table}
+      where ${jwtBlacklistTable.fields.expiresAt} <= now()
     `);
   };
 
@@ -201,5 +342,10 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods) => {
     findSessionsByUserId,
     revokeSessionByUid,
     revokeOtherSessionsByUserId,
+    revokeTokensBySessionId,
+    revokeJwtTokensBySessionId,
+    addToJwtBlacklist,
+    isJwtBlacklisted,
+    cleanupExpiredBlacklistEntries,
   };
 };

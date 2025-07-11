@@ -11,6 +11,7 @@ import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import assertThat from '#src/utils/assert-that.js';
 import { devConsole, debugConsole } from '#src/utils/console.js';
+import { type TenantContext } from '#src/tenants/types.js';
 
 import { type WithAuthContext, type TokenInfo } from './types.js';
 import { extractBearerTokenFromHeaders, getAdminTenantTokenValidationSet } from './utils.js';
@@ -21,7 +22,8 @@ export * from './constants.js';
 export const verifyBearerTokenFromRequest = async (
   envSet: EnvSet,
   request: Request,
-  audience: Optional<string>
+  audience: Optional<string>,
+  tenant?: TenantContext
 ): Promise<TokenInfo> => {
   const { isProduction, isIntegrationTest, developmentUserId } = EnvSet.values;
   const userId = request.headers['development-user-id']?.toString() ?? developmentUserId;
@@ -73,7 +75,7 @@ export const verifyBearerTokenFromRequest = async (
     debugConsole.warn('Audience for verification:', audience);
     
     const {
-      payload: { sub, client_id: clientId, scope = '' },
+      payload: { sub, client_id: clientId, scope = '', jti },
     } = await jwtVerify(
       bearerToken,
       createLocalJWKSet({ keys }),
@@ -84,6 +86,14 @@ export const verifyBearerTokenFromRequest = async (
     );
 
     assertThat(sub, new RequestError({ code: 'auth.jwt_sub_missing', status: 401 }));
+
+    // Check if the JWT token is blacklisted (revoked)
+    if (jti && tenant) {
+      const isBlacklisted = await tenant.queries.oidcModelInstances.isJwtBlacklisted(String(jti));
+      if (isBlacklisted) {
+        throw new RequestError({ code: 'auth.jwt_revoked', status: 401 });
+      }
+    }
 
     return { sub, clientId, scopes: z.string().parse(scope).split(' ') };
   } catch (error: unknown) {
