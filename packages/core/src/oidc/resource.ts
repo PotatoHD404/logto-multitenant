@@ -2,8 +2,9 @@ import { ReservedResource } from '@logto/core-kit';
 import { type Resource, getManagementApiResourceIndicator } from '@logto/schemas';
 import { trySafe, type Nullable } from '@silverhand/essentials';
 import { type ResourceServer } from 'oidc-provider';
+import { sql } from '@silverhand/slonik';
 
-import { type EnvSet } from '#src/env-set/index.js';
+import { EnvSet } from '#src/env-set/index.js';
 import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 
@@ -139,6 +140,7 @@ export const findResourceScopes = async ({
   indicator,
   organizationId,
   findFromOrganizations,
+  envSet,
 }: {
   queries: Queries;
   libraries: Libraries;
@@ -156,7 +158,8 @@ export const findResourceScopes = async ({
   userId?: string;
   applicationId?: string;
   organizationId?: string;
-}): Promise<readonly string[]> => {
+  envSet?: EnvSet;
+}): Promise<readonly { name: string; id: string; }[]> => {
   if (isReservedResource(indicator)) {
     const { users: { findUserScopesForResourceIndicator }, applications: { findApplicationScopesForResourceIndicator } } = libraries;
 
@@ -167,7 +170,7 @@ export const findResourceScopes = async ({
         findFromOrganizations,
         organizationId
       );
-      return scopes.map((scope) => scope.name);
+      return scopes.map((scope) => ({ name: scope.name, id: scope.id }));
     }
 
     if (applicationId && organizationId) {
@@ -176,92 +179,133 @@ export const findResourceScopes = async ({
         applicationId,
         indicator
       );
-      return scopes.map((scope) => scope.name);
+      return scopes.map((scope) => ({ name: scope.name, id: scope.id }));
     }
 
     if (applicationId) {
       const scopes = await findApplicationScopesForResourceIndicator(applicationId, indicator);
-      return scopes.map((scope) => scope.name);
+      return scopes.map((scope) => ({ name: scope.name, id: scope.id }));
     }
 
     return [];
   }
 
-  // Handle special case: profile API maps to Me API scopes
+  // Handle special case: profile API maps to Me API scopes  
+  // Profile API scopes are stored in admin tenant, so we need cross-tenant access
   if (indicator === 'https://profile.logto.app/api') {
-    const { users: { findUserScopesForResourceIndicator }, applications: { findApplicationScopesForResourceIndicator } } = libraries;
-
-    if (userId) {
-      const scopes = await findUserScopesForResourceIndicator(
-        userId,
-        'https://admin.logto.app/me',
-        findFromOrganizations,
-        organizationId
-      );
-      return scopes.map((scope) => scope.name);
+    if (envSet && userId) {
+      try {
+        // For profile API, we need to query admin tenant directly
+        // because user permissions are stored there, not in the user tenant
+        const sharedPool = await EnvSet.sharedPool;
+        
+        // Use transaction to isolate tenant context setting
+        const scopes = await sharedPool.transaction(async (connection) => {
+          await connection.query(sql`SET LOCAL app.tenant_id = 'admin'`);
+          
+          // Query admin tenant for user scopes on the Me API resource
+          return await connection.any<{ name: string; id: string }>(sql`
+            SELECT DISTINCT s.name, s.id
+            FROM scopes s
+            JOIN resources r ON s.resource_id = r.id
+            JOIN roles_scopes rs ON s.id = rs.scope_id
+            JOIN roles role ON rs.role_id = role.id
+            JOIN users_roles ur ON role.id = ur.role_id
+            WHERE r.indicator = 'https://admin.logto.app/me'
+            AND r.tenant_id = 'admin'
+            AND ur.user_id = ${userId}
+            AND role.tenant_id = 'admin'
+          `);
+        });
+        
+        return scopes.map((scope) => ({ name: scope.name, id: scope.id }));
+      } catch (error) {
+        console.error(`Failed to query profile API scopes:`, error);
+        return [];
+      }
     }
-
-    if (applicationId && organizationId) {
-      const scopes = await queries.organizations.relations.appsRoles.getApplicationResourceScopes(
-        organizationId,
-        applicationId,
-        'https://admin.logto.app/me'
-      );
-      return scopes.map((scope) => scope.name);
-    }
-
-    if (applicationId) {
-      const scopes = await findApplicationScopesForResourceIndicator(applicationId, 'https://admin.logto.app/me');
-      return scopes.map((scope) => scope.name);
-    }
-
-    return [];
   }
 
-  // Handle management API resources with validation
-  if (isManagementApiResource(indicator)) {
-    const tenantId = extractTenantIdFromManagementApiResource(indicator);
-    if (tenantId) {
-      // For validated management API resources, look up scopes in database
-      const resource = await queries.resources.findResourceByIndicator(indicator);
-      
-      if (resource) {
-        const { users: { findUserScopesForResourceIndicator }, applications: { findApplicationScopesForResourceIndicator } } = libraries;
+  // Handle Me API resource directly (https://admin.logto.app/me)
+  // Me API scopes are stored in admin tenant, so we need cross-tenant access
+  if (indicator === 'https://admin.logto.app/me') {
+    console.log(`[DEBUG] Me API detected for ${indicator} - userId: ${!!userId}, envSet: ${!!envSet}`);
+    if (envSet && userId) {
+      try {
+        // For Me API, we need to query admin tenant directly
+        // because user permissions are stored there, not in the user tenant
+        const sharedPool = await EnvSet.sharedPool;
         
-        if (userId) {
-          const scopes = await findUserScopesForResourceIndicator(
-            userId,
-            resource.indicator,
-            findFromOrganizations,
-            organizationId
-          );
-          return scopes.map((scope) => scope.name);
-        }
+        // Use transaction to isolate tenant context setting
+        const scopes = await sharedPool.transaction(async (connection) => {
+          await connection.query(sql`SET LOCAL app.tenant_id = 'admin'`);
+          
+          // Query admin tenant for user scopes on the Me API resource
+          return await connection.any<{ name: string; id: string }>(sql`
+            SELECT DISTINCT s.name, s.id
+            FROM scopes s
+            JOIN resources r ON s.resource_id = r.id
+            JOIN roles_scopes rs ON s.id = rs.scope_id
+            JOIN roles role ON rs.role_id = role.id
+            JOIN users_roles ur ON role.id = ur.role_id
+            WHERE r.indicator = 'https://admin.logto.app/me'
+            AND r.tenant_id = 'admin'
+            AND ur.user_id = ${userId}
+            AND role.tenant_id = 'admin'
+          `);
+        });
+        
+        console.log(`[DEBUG] Me API scopes found: ${JSON.stringify(scopes)}`);
+        return scopes.map((scope) => ({ name: scope.name, id: scope.id }));
+      } catch (error) {
+        console.error(`Failed to query Me API scopes:`, error);
+        return [];
+      }
+    }
+  }
 
-        if (applicationId && organizationId) {
-          const scopes = await queries.organizations.relations.appsRoles.getApplicationResourceScopes(
-            organizationId,
-            applicationId,
-            resource.indicator
-          );
-          return scopes.map((scope) => scope.name);
-        }
-
-        if (applicationId) {
-          const scopes = await findApplicationScopesForResourceIndicator(applicationId, resource.indicator);
-          return scopes.map((scope) => scope.name);
+  // Handle management API resources with cross-tenant access for admin permissions
+  if (isManagementApiResource(indicator)) {
+    console.log(`[DEBUG] Management API detected for ${indicator} - userId: ${!!userId}, envSet: ${!!envSet}`);
+    if (envSet && userId) {
+      const tenantId = extractTenantIdFromManagementApiResource(indicator);
+      if (tenantId) {
+        try {
+          // For management API resources, we need to query admin tenant directly
+          // because user permissions are stored there, not in the user tenant
+          const sharedPool = await EnvSet.sharedPool;
+          
+          // Use transaction to isolate tenant context setting
+          const scopes = await sharedPool.transaction(async (connection) => {
+            await connection.query(sql`SET LOCAL app.tenant_id = 'admin'`);
+            
+            // Query admin tenant for user scopes on this management API resource
+            return await connection.any<{ name: string; id: string }>(sql`
+              SELECT DISTINCT s.name, s.id
+              FROM scopes s
+              JOIN resources r ON s.resource_id = r.id
+              JOIN roles_scopes rs ON s.id = rs.scope_id
+              JOIN roles role ON rs.role_id = role.id
+              JOIN users_roles ur ON role.id = ur.role_id
+              WHERE r.indicator = ${indicator}
+              AND r.tenant_id = 'admin'
+              AND ur.user_id = ${userId}
+              AND role.tenant_id = 'admin'
+            `);
+          });
+          
+          console.log(`[DEBUG] Management API scopes found: ${JSON.stringify(scopes)}`);
+          return scopes.map((scope) => ({ name: scope.name, id: scope.id }));
+        } catch (error) {
+          console.error(`Failed to query management API scopes for ${indicator}:`, error);
+          return [];
         }
       }
-      
-      // No scopes found for valid management API resource
-      return [];
     }
-    
-    // Invalid management API resource (bad tenant ID, reserved subdomain, etc.)
-    return [];
   }
 
-  // Handle regular database resources
+  // For all other resources (organizations, custom APIs), use tenant-isolated queries
+  // This ensures proper tenant isolation for regular resources
   const resource = await queries.resources.findResourceByIndicator(indicator);
 
   if (!resource) {
@@ -277,7 +321,7 @@ export const findResourceScopes = async ({
       findFromOrganizations,
       organizationId
     );
-    return scopes.map((scope) => scope.name);
+    return scopes.map((scope) => ({ name: scope.name, id: scope.id }));
   }
 
   if (applicationId && organizationId) {
@@ -286,12 +330,12 @@ export const findResourceScopes = async ({
       applicationId,
       resource.indicator
     );
-    return scopes.map((scope) => scope.name);
+    return scopes.map((scope) => ({ name: scope.name, id: scope.id }));
   }
 
   if (applicationId) {
     const scopes = await findApplicationScopesForResourceIndicator(applicationId, resource.indicator);
-    return scopes.map((scope) => scope.name);
+    return scopes.map((scope) => ({ name: scope.name, id: scope.id }));
   }
 
   return [];

@@ -267,6 +267,45 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           console.error(`Failed to grant user role access to tenant ${newTenant.id} Management API:`, error);
           // Don't throw as this shouldn't block tenant creation
         }
+
+        // Grant admin-console application access to the new tenant's Management API
+        // This ensures the admin console can manage resources across all tenants
+        try {
+          // Find the admin-console application in the admin tenant
+          const adminConsoleApp = await sharedPool.maybeOne<{ id: string }>(sql`
+            SELECT id FROM applications 
+            WHERE tenant_id = ${adminTenantId} 
+            AND id = 'admin-console'
+          `);
+          
+          if (adminConsoleApp) {
+            console.log(`Found admin-console application in admin tenant: ${adminConsoleApp.id}`);
+            
+            // Grant admin-console application access to all Management API scopes for this tenant
+            for (const scope of adminData.scopes) {
+              // Check if consent already exists to avoid constraint violation
+              const existingConsent = await sharedPool.maybeOne(sql`
+                SELECT application_id FROM application_user_consent_resource_scopes 
+                WHERE tenant_id = ${adminTenantId}
+                AND application_id = ${adminConsoleApp.id} 
+                AND scope_id = ${scope.id}
+              `);
+              
+              if (!existingConsent) {
+                await sharedPool.query(sql`
+                  INSERT INTO application_user_consent_resource_scopes (tenant_id, application_id, scope_id)
+                  VALUES (${adminTenantId}, ${adminConsoleApp.id}, ${scope.id})
+                `);
+              }
+            }
+            console.log(`Successfully granted admin-console application access to tenant ${newTenant.id} Management API`);
+          } else {
+            console.warn(`Admin-console application not found in admin tenant - this may cause cross-tenant access issues`);
+          }
+        } catch (error) {
+          console.error(`Failed to grant admin-console application access to tenant ${newTenant.id} Management API:`, error);
+          // Don't throw as this shouldn't block tenant creation
+        }
         
         console.log(`Successfully created Management API resource for tenant ${newTenant.id} in admin tenant only`);
       } catch (error) {

@@ -140,6 +140,11 @@ export const consent = async ({
 
   const { accountId } = session;
 
+  console.log(`[DEBUG] consent() called for client: ${client_id}, user: ${accountId}`);
+  console.log(`[DEBUG] missingOIDCScopes: ${JSON.stringify(missingOIDCScopes)}`);
+  console.log(`[DEBUG] resourceScopesToGrant: ${JSON.stringify(resourceScopesToGrant)}`);
+  console.log(`[DEBUG] resourceScopesToReject: ${JSON.stringify(resourceScopesToReject)}`);
+
   const grant =
     conditional(grantId && (await provider.Grant.find(grantId))) ??
     new provider.Grant({ accountId, clientId: String(client_id) });
@@ -151,19 +156,27 @@ export const consent = async ({
 
   // Fulfill missing scopes
   if (missingOIDCScopes.length > 0) {
+    console.log(`[DEBUG] Adding OIDC scopes to grant: ${missingOIDCScopes.join(' ')}`);
     grant.addOIDCScope(missingOIDCScopes.join(' '));
   }
 
-  for (const [indicator, scope] of Object.entries(resourceScopesToGrant)) {
-    grant.addResourceScope(indicator, scope.join(' '));
+  for (const [resourceIndicator, scopes] of Object.entries(resourceScopesToGrant)) {
+    console.log(`[DEBUG] Adding resource scope to grant - indicator: ${resourceIndicator}, scopes: ${scopes.join(' ')}`);
+    grant.addResourceScope(resourceIndicator, scopes.join(' '));
   }
 
-  for (const [indicator, scope] of Object.entries(resourceScopesToReject)) {
-    grant.rejectResourceScope(indicator, scope.join(' '));
+  for (const [resourceIndicator, scopes] of Object.entries(resourceScopesToReject)) {
+    console.log(`[DEBUG] Rejecting resource scope - indicator: ${resourceIndicator}, scopes: ${scopes.join(' ')}`);
+    grant.rejectResourceScope(resourceIndicator, scopes.join(' '));
   }
 
   const finalGrantId = await grant.save();
-
+  console.log(`[DEBUG] Grant saved with ID: ${finalGrantId}`);
+  
+  // Debug: Let's see what the grant actually contains
+  console.log(`[DEBUG] Grant details - clientId: ${grant.clientId}, accountId: ${grant.accountId}`);
+  console.log(`[DEBUG] Grant resource scopes: ${typeof grant.getResourceScopeFiltered === 'function' ? 'method exists' : 'method missing'}`);
+  
   // Configure consent
   return updateInteractionResult(ctx, provider, { consent: { grantId: finalGrantId } }, true);
 };

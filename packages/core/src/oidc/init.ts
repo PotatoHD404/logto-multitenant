@@ -15,6 +15,7 @@ import {
   logtoCookieKey,
   type LogtoUiCookie,
   ExtraParamsKey,
+  adminConsoleApplicationId,
 } from '@logto/schemas';
 import { removeUndefinedKeys, trySafe, tryThat } from '@silverhand/essentials';
 import { type i18n } from 'i18next';
@@ -40,6 +41,7 @@ import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 import { i18next } from '#src/utils/i18n.js';
 
+
 import { type SubscriptionLibrary } from '../libraries/subscription.js';
 import koaTokenUsageGuard from '../middleware/koa-token-usage-guard.js';
 
@@ -61,6 +63,8 @@ import { getAcceptedUserClaims, getUserClaimsData } from './scope.js';
 
 // Temporarily removed 'EdDSA' since it's not supported by browser yet
 const supportedSigningAlgs = Object.freeze(['RS256', 'PS256', 'ES256', 'ES384', 'ES512'] as const);
+
+
 
 export default function initOidc(
   envSet: EnvSet,
@@ -169,10 +173,18 @@ export default function initOidc(
             organizationId: typeof organizationId === 'string' ? organizationId : undefined,
             applicationId: client?.clientId,
             userId,
+            envSet,
           });
 
+          // Debug: Check if client is third-party
+          const isThirdParty = client ? await isThirdPartyApplication(queries, client.clientId) : false;
+          console.log(`[DEBUG] Client: ${client?.clientId}, isThirdParty: ${isThirdParty}, indicator: ${indicator}`);
+
           // Need to filter out the unsupported scopes for the third-party application.
-          if (client && (await isThirdPartyApplication(queries, client.clientId))) {
+          if (client && isThirdParty) {
+            console.log(`[DEBUG] Third-party application detected: ${client.clientId}, indicator: ${indicator}`);
+            console.log(`[DEBUG] Scopes before filtering: ${JSON.stringify(scopes)}`);
+            
             // Get application consent resource scopes, from RBAC roles
             const filteredScopes = await filterResourceScopesForTheThirdPartyApplication(
               libraries,
@@ -181,18 +193,28 @@ export default function initOidc(
               scopes
             );
 
-            return {
+            console.log(`[DEBUG] Scopes after filtering: ${JSON.stringify(filteredScopes)}`);
+
+            const result = {
               ...getSharedResourceServerData(envSet),
               accessTokenTTL,
               scope: filteredScopes.map(({ name }) => name).join(' '),
             };
+            
+            console.log(`[DEBUG] Third-party getResourceServerInfo result: ${JSON.stringify(result)}`);
+            return result;
           }
 
-          return {
+          console.log(`[DEBUG] Final scopes (no filtering): ${JSON.stringify(scopes)}`);
+
+          const result = {
             ...getSharedResourceServerData(envSet),
             accessTokenTTL,
             scope: scopes.map(({ name }) => name).join(' '),
           };
+          
+          console.log(`[DEBUG] Non-third-party getResourceServerInfo result: ${JSON.stringify(result)}`);
+          return result;
         },
       },
     },
@@ -239,6 +261,8 @@ export default function initOidc(
     },
     extraParams: Object.values(ExtraParamsKey),
     extraTokenClaims: async (ctx, token) => {
+      console.log(`[DEBUG] extraTokenClaims called for token kind: ${token.kind}, clientId: ${token.clientId}, scope: ${token.scope}`);
+      
       const [tokenExchangeClaims, organizationApiResourceClaims, jwtCustomizedClaims] =
         await Promise.all([
           getExtraTokenClaimsForTokenExchange(ctx, token),
@@ -253,14 +277,18 @@ export default function initOidc(
         ]);
 
       if (!organizationApiResourceClaims && !jwtCustomizedClaims && !tokenExchangeClaims) {
+        console.log(`[DEBUG] No extra token claims to add`);
         return;
       }
 
-      return {
+      const finalClaims = {
         ...tokenExchangeClaims,
         ...organizationApiResourceClaims,
         ...jwtCustomizedClaims,
       };
+      
+      console.log(`[DEBUG] Extra token claims: ${JSON.stringify(finalClaims)}`);
+      return finalClaims;
     },
     extraClientMetadata: {
       properties: Object.values(CustomClientMetadataKey),

@@ -39,9 +39,14 @@ export default function koaAutoConsent<StateT, ContextT extends IRouterParamCont
 
     const shouldAutoConsent = !application.isThirdParty;
 
+    console.log(`[DEBUG] koaAutoConsent: client=${clientId}, isThirdParty=${application.isThirdParty}, shouldAutoConsent=${shouldAutoConsent}`);
+
     if (shouldAutoConsent) {
       const { missingOIDCScope: missingOIDCScopes, missingResourceScopes: resourceScopesToGrant } =
         getMissingScopes(prompt);
+
+      console.log(`[DEBUG] koaAutoConsent: missingOIDCScopes=${JSON.stringify(missingOIDCScopes)}`);
+      console.log(`[DEBUG] koaAutoConsent: resourceScopesToGrant=${JSON.stringify(resourceScopesToGrant)}`);
 
       const redirectTo = await consent({
         ctx,
@@ -52,6 +57,7 @@ export default function koaAutoConsent<StateT, ContextT extends IRouterParamCont
         resourceScopesToGrant,
       });
 
+      console.log(`[DEBUG] koaAutoConsent: Redirecting to ${redirectTo}`);
       ctx.redirect(redirectTo);
       return;
     }

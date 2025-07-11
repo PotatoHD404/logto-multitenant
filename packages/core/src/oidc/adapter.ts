@@ -13,10 +13,11 @@ import type Queries from '#src/tenants/Queries.js';
 import { getConstantClientMetadata } from './utils.js';
 
 /**
- * Append `redirect_uris` and `post_logout_redirect_uris` for Admin Console
+ * Transpile the client metadata for the admin console application.
+ * This is necessary because the admin console application is not stored in the database,
  * as Admin Console is attached to the admin tenant in OSS and its endpoints are dynamic (from env variable).
  */
-const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClientMetadata => {
+const transpileMetadata = (clientId: string, data: AllClientMetadata, tenantId?: string): AllClientMetadata => {
   if (clientId !== adminConsoleApplicationId) {
     return data;
   }
@@ -51,6 +52,7 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
     '/organizations', // Organizations page
     '/organization-template', // Organization template page
     '/tenant-settings', // Tenant settings page
+    '/get-started', // Get started page
   ];
 
   // Add specific console paths for logout redirects
@@ -65,10 +67,23 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
     const tenantSpecificUrls = adminUrlSet.deduplicated().flatMap((url) => [
       // Add common tenant IDs that might be used
       appendPath(url, '/console/default').href,
-      // Add wildcard pattern for any tenant ID (this covers dynamic tenant IDs)
-      // Note: We can't know all possible tenant IDs at build time, but 'default' is the most common
+      // Add admin tenant specifically
+      appendPath(url, '/console/admin').href,
     ]);
     postLogoutRedirectUris.push(...tenantSpecificUrls);
+  }
+
+  // If we have a tenant ID context, add tenant-specific paths
+  if (tenantId) {
+    adminUrlSet.deduplicated().forEach((url) => {
+      // Add base tenant console path
+      postLogoutRedirectUris.push(appendPath(url, `/console/${tenantId}`).href);
+      
+      // Add specific page paths for this tenant
+      consolePages.forEach((page) => {
+        postLogoutRedirectUris.push(appendPath(url, `/console/${tenantId}${page}`).href);
+      });
+    });
   }
 
   return {
@@ -163,7 +178,7 @@ export default function postgresAdapter(
       client_secret,
       client_name,
       ...getConstantClientMetadata(envSet, type),
-      ...transpileMetadata(client_id, snakecaseKeys(oidcClientMetadata)),
+      ...transpileMetadata(client_id, snakecaseKeys(oidcClientMetadata), envSet.tenantId),
       // `node-oidc-provider` won't camelCase custom parameter keys, so we need to keep the keys camelCased
       ...customClientMetadata,
       /* Third-party client scopes are restricted to the app-level enabled user scopes. */
