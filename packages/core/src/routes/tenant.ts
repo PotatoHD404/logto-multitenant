@@ -1,4 +1,4 @@
-import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData, getManagementApiResourceIndicator, PredefinedScope } from '@logto/schemas';
+import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { sql } from '@silverhand/slonik';
 import { object, string, nativeEnum, boolean } from 'zod';
@@ -17,53 +17,9 @@ import { seedOidcConfigs } from '@logto/cli/lib/commands/database/seed/oidc-conf
 
 import type { ManagementApiRouter, RouterInitArgs, ManagementApiRouterContext } from './types.js';
 
-/**
- * Create admin data for OSS installations - only includes resource and scopes,
- * no M2M role (which is only needed for Logto Cloud proxy).
- */
-const createOssAdminData = (tenantId: string) => {
-  const resource = {
-    id: generateStandardId(),
-    tenantId: adminTenantId,
-    indicator: getManagementApiResourceIndicator(tenantId),
-    name: `Management API for ${tenantId}`,
-    accessTokenTtl: 3600,
-    isDefault: false,
-  };
-
-  const scopes = [
-    {
-      id: generateStandardId(),
-      tenantId: adminTenantId,
-      resourceId: resource.id,
-      name: PredefinedScope.All,
-      description: 'Allow all actions on the tenant.',
-    },
-    {
-      id: generateStandardId(),
-      tenantId: adminTenantId,
-      resourceId: resource.id,
-      name: 'tenant:read',
-      description: 'Allow reading tenant data.',
-    },
-    {
-      id: generateStandardId(),
-      tenantId: adminTenantId,
-      resourceId: resource.id,
-      name: 'tenant:write',
-      description: 'Allow writing tenant data.',
-    },
-    {
-      id: generateStandardId(),
-      tenantId: adminTenantId,
-      resourceId: resource.id,
-      name: 'tenant:delete',
-      description: 'Allow deleting tenant data.',
-    },
-  ];
-
-  return { resource, scopes };
-};
+// Organization-based tenant management approach
+// Each tenant gets a corresponding organization in the admin tenant
+// The admin-console application is granted access to these organizations
 
 type TenantDatabaseRow = {
   id: string;
@@ -214,102 +170,68 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       }
 
       try {
-        // Create Management API resource in admin tenant (for admin management)
-        const adminData = createOssAdminData(newTenant.id);
+        // Create organization for the new tenant in admin tenant
+        // This uses the organization-based approach for tenant management
+        const organizationId = newTenant.id;
         
-        // Insert resource in admin tenant
+        // Create organization in admin tenant
         await sharedPool.query(sql`
-          INSERT INTO resources (id, tenant_id, name, indicator, access_token_ttl)
-          VALUES (${adminData.resource.id}, ${adminData.resource.tenantId}, ${adminData.resource.name}, ${adminData.resource.indicator}, ${3600})
+          INSERT INTO organizations (id, tenant_id, name, description, created_at)
+          VALUES (${organizationId}, ${adminTenantId}, ${'Tenant ' + newTenant.name}, ${'Organization for tenant ' + newTenant.id}, NOW())
         `);
 
-        // Insert scopes in admin tenant
-        for (const scope of adminData.scopes) {
+        // Create tenant admin role for the organization
+        const tenantAdminRoleId = `${organizationId}-admin`;
+        await sharedPool.query(sql`
+          INSERT INTO organization_roles (id, tenant_id, name, description, organization_id, created_at)
+          VALUES (${tenantAdminRoleId}, ${adminTenantId}, 'Tenant Admin', 'Full administrative access to tenant resources', ${organizationId}, NOW())
+        `);
+
+        // Get all organization scopes for tenant management
+        const orgScopes = await sharedPool.any<{ id: string; name: string }>(sql`
+          SELECT id, name FROM organization_scopes 
+          WHERE tenant_id = ${adminTenantId}
+          AND name IN ('delete:data', 'invite:member', 'manage:tenant', 'read:data', 'read:member', 'remove:member', 'update:member:role', 'write:data')
+        `);
+
+        // Assign organization scopes to tenant admin role
+        for (const scope of orgScopes) {
           await sharedPool.query(sql`
-            INSERT INTO scopes (id, tenant_id, resource_id, name, description)
-            VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
+            INSERT INTO organization_role_scope_relations (tenant_id, organization_role_id, organization_scope_id)
+            VALUES (${adminTenantId}, ${tenantAdminRoleId}, ${scope.id})
           `);
         }
 
-        // NOTE: We do NOT create a management API resource in the user tenant itself
-        // All management API resources are created in the admin tenant only
-        // This ensures rights are always checked from the admin tenant organizations
+        // Find the admin-console application in the admin tenant
+        const adminConsoleApp = await sharedPool.maybeOne<{ id: string }>(sql`
+          SELECT id FROM applications 
+          WHERE tenant_id = ${adminTenantId} 
+          AND id = 'admin-console'
+        `);
         
-        // Grant the admin tenant 'user' role access to the new tenant's Management API
-        // This allows users in the admin tenant to manage the new tenant
-        try {
-          // Find the admin tenant 'user' role
-          const userRole = await sharedPool.maybeOne<{ id: string }>(sql`
-            SELECT id FROM roles WHERE tenant_id = ${adminTenantId} AND name = 'user'
-          `);
+        if (adminConsoleApp) {
+          console.log(`Found admin-console application in admin tenant: ${adminConsoleApp.id}`);
           
-          if (userRole) {
-            // Assign all new tenant Management API scopes to the user role
-            for (const scope of adminData.scopes) {
-              // Check if assignment already exists to avoid constraint violation
-              const existingAssignment = await sharedPool.maybeOne(sql`
-                SELECT id FROM roles_scopes 
-                WHERE tenant_id = ${adminTenantId} 
-                AND role_id = ${userRole.id} 
-                AND scope_id = ${scope.id}
-              `);
-              
-              if (!existingAssignment) {
-                await sharedPool.query(sql`
-                  INSERT INTO roles_scopes (id, tenant_id, role_id, scope_id)
-                  VALUES (${generateStandardId()}, ${adminTenantId}, ${userRole.id}, ${scope.id})
-                `);
-              }
-            }
-            console.log(`Successfully granted user role access to tenant ${newTenant.id} Management API`);
-          }
-        } catch (error) {
-          console.error(`Failed to grant user role access to tenant ${newTenant.id} Management API:`, error);
-          // Don't throw as this shouldn't block tenant creation
-        }
+          // Associate admin-console application with the organization
+          await sharedPool.query(sql`
+            INSERT INTO organization_application_relations (tenant_id, organization_id, application_id, created_at)
+            VALUES (${adminTenantId}, ${organizationId}, ${adminConsoleApp.id}, NOW())
+          `);
 
-        // Grant admin-console application access to the new tenant's Management API
-        // This ensures the admin console can manage resources across all tenants
-        try {
-          // Find the admin-console application in the admin tenant
-          const adminConsoleApp = await sharedPool.maybeOne<{ id: string }>(sql`
-            SELECT id FROM applications 
-            WHERE tenant_id = ${adminTenantId} 
-            AND id = 'admin-console'
+          // Assign tenant admin role to admin-console application
+          await sharedPool.query(sql`
+            INSERT INTO organization_application_role_relations (tenant_id, organization_id, application_id, organization_role_id, created_at)
+            VALUES (${adminTenantId}, ${organizationId}, ${adminConsoleApp.id}, ${tenantAdminRoleId}, NOW())
           `);
           
-          if (adminConsoleApp) {
-            console.log(`Found admin-console application in admin tenant: ${adminConsoleApp.id}`);
-            
-            // Grant admin-console application access to all Management API scopes for this tenant
-            for (const scope of adminData.scopes) {
-              // Check if consent already exists to avoid constraint violation
-              const existingConsent = await sharedPool.maybeOne(sql`
-                SELECT application_id FROM application_user_consent_resource_scopes 
-                WHERE tenant_id = ${adminTenantId}
-                AND application_id = ${adminConsoleApp.id} 
-                AND scope_id = ${scope.id}
-              `);
-              
-              if (!existingConsent) {
-                await sharedPool.query(sql`
-                  INSERT INTO application_user_consent_resource_scopes (tenant_id, application_id, scope_id)
-                  VALUES (${adminTenantId}, ${adminConsoleApp.id}, ${scope.id})
-                `);
-              }
-            }
-            console.log(`Successfully granted admin-console application access to tenant ${newTenant.id} Management API`);
-          } else {
-            console.warn(`Admin-console application not found in admin tenant - this may cause cross-tenant access issues`);
-          }
-        } catch (error) {
-          console.error(`Failed to grant admin-console application access to tenant ${newTenant.id} Management API:`, error);
-          // Don't throw as this shouldn't block tenant creation
+          console.log(`Successfully associated admin-console application with organization ${organizationId}`);
+        } else {
+          console.warn(`Admin-console application not found in admin tenant - this may cause cross-tenant access issues`);
         }
         
-        console.log(`Successfully created Management API resource for tenant ${newTenant.id} in admin tenant only`);
+        console.log(`Successfully created organization ${organizationId} for tenant ${newTenant.id} in admin tenant`);
       } catch (error) {
-        console.error(`Failed to create Management API resource for tenant ${newTenant.id}:`, error);
+        console.error(`Failed to create organization for tenant ${newTenant.id}:`, error);
         // Don't throw error as this shouldn't block tenant creation
       }
 
@@ -338,9 +260,9 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         // But we should log this as a critical issue for monitoring
       }
 
-      // Update existing OIDC grants to include the new tenant's Management API resources
+      // Update existing OIDC grants to include the new tenant's organization resource
       // This ensures that already-authenticated admin-console sessions can access the new tenant
-      console.log('Updating existing OIDC grants to include new tenant Management API resources...');
+      console.log('Updating existing OIDC grants to include new tenant organization resource...');
       try {
         // Find all active grants for admin-console
         const activeGrants = await sharedPool.any<{ id: string; payload: any }>(sql`
@@ -352,17 +274,11 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           AND expires_at > NOW()
         `);
 
-        // Find all Management API resources that admin-console should have access to
-        const allManagementApiResources = await sharedPool.any<{ indicator: string }>(sql`
-          SELECT DISTINCT indicator 
-          FROM resources 
+        // Find all organizations that admin-console should have access to
+        const allOrganizations = await sharedPool.any<{ id: string }>(sql`
+          SELECT DISTINCT id 
+          FROM organizations 
           WHERE tenant_id = ${adminTenantId}
-          AND (
-            indicator LIKE '%.logto.app/api' 
-            OR indicator = 'https://admin.logto.app/api'
-            OR indicator = 'https://admin.logto.app/me'
-            OR indicator = 'https://profile.logto.app/api'
-          )
         `);
 
         for (const grant of activeGrants) {
@@ -375,15 +291,11 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
             grantModified = true;
           }
           
-          // Add all Management API resources to the grant
-          for (const resource of allManagementApiResources) {
-            if (!payload.resources[resource.indicator]) {
-              // Different scopes for different resource types
-              if (resource.indicator === 'https://admin.logto.app/me' || resource.indicator === 'https://profile.logto.app/api') {
-                payload.resources[resource.indicator] = 'all';
-              } else {
-                payload.resources[resource.indicator] = 'all tenant:read tenant:write tenant:delete';
-              }
+          // Add all organization resources to the grant
+          for (const org of allOrganizations) {
+            const orgUrn = `urn:logto:organization:${org.id}`;
+            if (!payload.resources[orgUrn]) {
+              payload.resources[orgUrn] = 'delete:data invite:member manage:tenant read:data read:member remove:member update:member:role write:data';
               grantModified = true;
             }
           }
@@ -396,7 +308,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
               WHERE id = ${grant.id}
             `);
             
-            console.log(`Updated grant ${grant.id} to include ${Object.keys(payload.resources).length} Management API resources`);
+            console.log(`Updated grant ${grant.id} to include ${Object.keys(payload.resources).length} organization resources`);
           }
         }
       } catch (error) {
