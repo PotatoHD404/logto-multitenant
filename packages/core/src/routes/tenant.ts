@@ -231,22 +231,9 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           `);
         }
 
-        // Create Management API resource in the new tenant's own context (for its OIDC provider)
-        const tenantOwnData = createAdminData(newTenant.id);
-        
-        // Insert resource in new tenant's own context
-        await sharedPool.query(sql`
-          INSERT INTO resources (id, tenant_id, name, indicator, access_token_ttl)
-          VALUES (${tenantOwnData.resource.id}, ${tenantOwnData.resource.tenantId}, ${tenantOwnData.resource.name}, ${tenantOwnData.resource.indicator}, ${3600})
-        `);
-
-        // Insert scopes in new tenant's own context
-        for (const scope of tenantOwnData.scopes) {
-          await sharedPool.query(sql`
-            INSERT INTO scopes (id, tenant_id, resource_id, name, description)
-            VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
-          `);
-        }
+        // NOTE: We do NOT create a management API resource in the user tenant itself
+        // All management API resources are created in the admin tenant only
+        // This ensures rights are always checked from the admin tenant organizations
         
         // Grant the admin tenant 'user' role access to the new tenant's Management API
         // This allows users in the admin tenant to manage the new tenant
@@ -281,7 +268,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           // Don't throw as this shouldn't block tenant creation
         }
         
-        console.log(`Successfully created Management API resource for tenant ${newTenant.id}`);
+        console.log(`Successfully created Management API resource for tenant ${newTenant.id} in admin tenant only`);
       } catch (error) {
         console.error(`Failed to create Management API resource for tenant ${newTenant.id}:`, error);
         // Don't throw error as this shouldn't block tenant creation

@@ -12,12 +12,29 @@ const isReservedResource = (indicator: string): indicator is ReservedResource =>
   Object.values(ReservedResource).includes(indicator as ReservedResource);
 
 /**
- * Check if the given indicator is a management API resource.
- * Management API resources follow the pattern: https://{tenantId}.logto.app/{prefix}
+ * Check if the given indicator is a management API resource for a valid tenant.
+ * Management API resources follow the pattern: https://{tenantId}.logto.app/api
+ * where tenantId must be a valid tenant ID (not reserved subdomains).
  */
 const isManagementApiResource = (indicator: string): boolean => {
-  const managementApiPattern = /^https:\/\/[\w-]+\.logto\.app\/(api|me)$/;
-  return managementApiPattern.test(indicator);
+  const match = indicator.match(/^https:\/\/([\w-]+)\.logto\.app\/api$/);
+  if (!match?.[1]) return false;
+  
+  const tenantId = match[1];
+  
+  // Exclude known non-tenant subdomains (but keep admin as it's a real tenant)
+  const reservedSubdomains = ['profile', 'cloud', 'api', 'www', 'console'];
+  if (reservedSubdomains.includes(tenantId)) {
+    return false;
+  }
+  
+  // Validate tenant ID format - should be alphanumeric and reasonable length
+  // Real tenant IDs are typically 21 characters, but allow some flexibility
+  if (!/^[a-zA-Z0-9]{5,25}$/.test(tenantId)) {
+    return false;
+  }
+  
+  return true;
 };
 
 /**
@@ -26,7 +43,11 @@ const isManagementApiResource = (indicator: string): boolean => {
  * @returns The tenant ID or null if not a valid management API resource
  */
 const extractTenantIdFromManagementApiResource = (indicator: string): string | null => {
-  const match = indicator.match(/^https:\/\/([\w-]+)\.logto\.app\/(api|me)$/);
+  if (!isManagementApiResource(indicator)) {
+    return null;
+  }
+  
+  const match = indicator.match(/^https:\/\/([\w-]+)\.logto\.app\/api$/);
   return match?.[1] ?? null;
 };
 
@@ -39,17 +60,77 @@ export const getSharedResourceServerData = (
   },
 });
 
-// TODO: Refactor me. This function is too complex.
 /**
- * Find the scopes for a given resource indicator according to the subject in the context. The
- * subject can be either a user or an application.
- *
- * When both `userId` and `applicationId` are provided, the function will prioritize the user.
- *
- * This function also handles the reserved resources.
+ * The default TTL (Time To Live) of the access token for the reversed resources.
+ * It may be configurable in the future.
+ */
+export const reversedResourceAccessTokenTtl = 3600;
+
+/**
+ * Find the resource for a given indicator. This function also handles the reserved
+ * resources and validates management API resources.
  *
  * @see {@link ReservedResource} for the list of reserved resources.
  */
+export const findResource = async (
+  queries: Queries,
+  indicator: string
+): Promise<Nullable<Pick<Resource, 'indicator' | 'accessTokenTtl'>>> => {
+  if (isReservedResource(indicator)) {
+    return {
+      indicator,
+      accessTokenTtl: reversedResourceAccessTokenTtl,
+    };
+  }
+
+  // Handle special case: profile API maps to Me API
+  if (indicator === 'https://profile.logto.app/api') {
+    // Return the Me API resource configuration
+    return {
+      indicator,
+      accessTokenTtl: reversedResourceAccessTokenTtl,
+    };
+  }
+
+  // Validate management API resources before database lookup
+  if (isManagementApiResource(indicator)) {
+    const tenantId = extractTenantIdFromManagementApiResource(indicator);
+    if (tenantId) {
+      // For validated management API resources, check if it exists in database
+      const resource = await queries.resources.findResourceByIndicator(indicator);
+      if (resource) {
+        return {
+          indicator: resource.indicator,
+          accessTokenTtl: resource.accessTokenTtl,
+        };
+      }
+      
+      // If no resource found in database but it's a valid management API pattern,
+      // return a default configuration (this handles the case where the resource
+      // should exist but hasn't been created yet)
+      return {
+        indicator,
+        accessTokenTtl: reversedResourceAccessTokenTtl,
+      };
+    }
+    
+    // Invalid management API resource (bad tenant ID format, reserved subdomain, etc.)
+    return null;
+  }
+
+  // For all other resources, do regular database lookup
+  const resource = await queries.resources.findResourceByIndicator(indicator);
+
+  if (!resource) {
+    return null;
+  }
+
+  return {
+    indicator: resource.indicator,
+    accessTokenTtl: resource.accessTokenTtl,
+  };
+};
+
 export const findResourceScopes = async ({
   queries,
   libraries,
@@ -75,123 +156,145 @@ export const findResourceScopes = async ({
   userId?: string;
   applicationId?: string;
   organizationId?: string;
-}): Promise<ReadonlyArray<{ name: string; id: string }>> => {
+}): Promise<readonly string[]> => {
   if (isReservedResource(indicator)) {
-    switch (indicator) {
-      case ReservedResource.Organization: {
-        const [, rows] = await queries.organizations.scopes.findAll();
-        return rows;
-      }
+    const { users: { findUserScopesForResourceIndicator }, applications: { findApplicationScopesForResourceIndicator } } = libraries;
+
+    if (userId) {
+      const scopes = await findUserScopesForResourceIndicator(
+        userId,
+        indicator,
+        findFromOrganizations,
+        organizationId
+      );
+      return scopes.map((scope) => scope.name);
     }
+
+    if (applicationId && organizationId) {
+      const scopes = await queries.organizations.relations.appsRoles.getApplicationResourceScopes(
+        organizationId,
+        applicationId,
+        indicator
+      );
+      return scopes.map((scope) => scope.name);
+    }
+
+    if (applicationId) {
+      const scopes = await findApplicationScopesForResourceIndicator(applicationId, indicator);
+      return scopes.map((scope) => scope.name);
+    }
+
+    return [];
   }
 
-  // Handle management API resources
+  // Handle special case: profile API maps to Me API scopes
+  if (indicator === 'https://profile.logto.app/api') {
+    const { users: { findUserScopesForResourceIndicator }, applications: { findApplicationScopesForResourceIndicator } } = libraries;
+
+    if (userId) {
+      const scopes = await findUserScopesForResourceIndicator(
+        userId,
+        'https://admin.logto.app/me',
+        findFromOrganizations,
+        organizationId
+      );
+      return scopes.map((scope) => scope.name);
+    }
+
+    if (applicationId && organizationId) {
+      const scopes = await queries.organizations.relations.appsRoles.getApplicationResourceScopes(
+        organizationId,
+        applicationId,
+        'https://admin.logto.app/me'
+      );
+      return scopes.map((scope) => scope.name);
+    }
+
+    if (applicationId) {
+      const scopes = await findApplicationScopesForResourceIndicator(applicationId, 'https://admin.logto.app/me');
+      return scopes.map((scope) => scope.name);
+    }
+
+    return [];
+  }
+
+  // Handle management API resources with validation
   if (isManagementApiResource(indicator)) {
     const tenantId = extractTenantIdFromManagementApiResource(indicator);
     if (tenantId) {
-      // For management API resources, we need to get the management API resource from the database
-      // and then find scopes for that resource using the existing logic
-      const managementApiResource = await queries.resources.findResourceByIndicator(
-        getManagementApiResourceIndicator(tenantId)
-      );
+      // For validated management API resources, look up scopes in database
+      const resource = await queries.resources.findResourceByIndicator(indicator);
       
-      if (managementApiResource) {
-        // Use the existing scope resolution logic with the database resource
+      if (resource) {
         const { users: { findUserScopesForResourceIndicator }, applications: { findApplicationScopesForResourceIndicator } } = libraries;
         
         if (userId) {
-          return findUserScopesForResourceIndicator(
+          const scopes = await findUserScopesForResourceIndicator(
             userId,
-            managementApiResource.indicator,
+            resource.indicator,
             findFromOrganizations,
             organizationId
           );
+          return scopes.map((scope) => scope.name);
         }
 
         if (applicationId && organizationId) {
-          return queries.organizations.relations.appsRoles.getApplicationResourceScopes(
+          const scopes = await queries.organizations.relations.appsRoles.getApplicationResourceScopes(
             organizationId,
             applicationId,
-            managementApiResource.indicator
+            resource.indicator
           );
+          return scopes.map((scope) => scope.name);
         }
 
         if (applicationId) {
-          return findApplicationScopesForResourceIndicator(applicationId, managementApiResource.indicator);
+          const scopes = await findApplicationScopesForResourceIndicator(applicationId, resource.indicator);
+          return scopes.map((scope) => scope.name);
         }
       }
       
-      // Fallback: return empty array if no specific scopes found
+      // No scopes found for valid management API resource
       return [];
     }
+    
+    // Invalid management API resource (bad tenant ID, reserved subdomain, etc.)
+    return [];
   }
 
-  const {
-    users: { findUserScopesForResourceIndicator },
-    applications: { findApplicationScopesForResourceIndicator },
-  } = libraries;
+  // Handle regular database resources
+  const resource = await queries.resources.findResourceByIndicator(indicator);
+
+  if (!resource) {
+    return [];
+  }
+
+  const { users: { findUserScopesForResourceIndicator }, applications: { findApplicationScopesForResourceIndicator } } = libraries;
 
   if (userId) {
-    return findUserScopesForResourceIndicator(
+    const scopes = await findUserScopesForResourceIndicator(
       userId,
-      indicator,
+      resource.indicator,
       findFromOrganizations,
       organizationId
     );
+    return scopes.map((scope) => scope.name);
   }
 
   if (applicationId && organizationId) {
-    return queries.organizations.relations.appsRoles.getApplicationResourceScopes(
+    const scopes = await queries.organizations.relations.appsRoles.getApplicationResourceScopes(
       organizationId,
       applicationId,
-      indicator
+      resource.indicator
     );
+    return scopes.map((scope) => scope.name);
   }
 
   if (applicationId) {
-    return findApplicationScopesForResourceIndicator(applicationId, indicator);
+    const scopes = await findApplicationScopesForResourceIndicator(applicationId, resource.indicator);
+    return scopes.map((scope) => scope.name);
   }
 
   return [];
-};
-
-/**
- * The default TTL (Time To Live) of the access token for the reversed resources.
- * It may be configurable in the future.
- */
-export const reversedResourceAccessTokenTtl = 3600;
-
-/**
- * Find the resource for a given indicator. This function also handles the reserved
- * resources and management API resources.
- *
- * @see {@link ReservedResource} for the list of reserved resources.
- */
-export const findResource = async (
-  queries: Queries,
-  indicator: string
-): Promise<Nullable<Pick<Resource, 'indicator' | 'accessTokenTtl'>>> => {
-  if (isReservedResource(indicator)) {
-    return {
-      indicator,
-      accessTokenTtl: reversedResourceAccessTokenTtl,
-    };
-  }
-
-  // Handle management API resources
-  if (isManagementApiResource(indicator)) {
-    const tenantId = extractTenantIdFromManagementApiResource(indicator);
-    if (tenantId) {
-      // Management API resources are valid and have a default TTL
-      return {
-        indicator,
-        accessTokenTtl: reversedResourceAccessTokenTtl,
-      };
-    }
-  }
-
-  // Fall back to database lookup for regular resources
-  return queries.resources.findResourceByIndicator(indicator);
 };
 
 export const isThirdPartyApplication = async ({ applications }: Queries, applicationId: string) => {

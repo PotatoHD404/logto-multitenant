@@ -26,6 +26,13 @@ export const createResourceQueries = (pool: CommonQueryMethods) => {
       where ${fields.indicator}=${indicator}
     `);
 
+  const findResourceByIndicatorAndTenant = async (indicator: string, tenantId: string) =>
+    pool.maybeOne<Resource>(sql`
+      select ${sql.join(Object.values(fields), sql`, `)}
+      from ${table}
+      where ${fields.indicator}=${indicator} and ${fields.tenantId}=${tenantId}
+    `);
+
   const findDefaultResource = async () =>
     pool.maybeOne<Resource>(sql`
       select ${sql.join(Object.values(fields), sql`, `)}
@@ -93,6 +100,7 @@ export const createResourceQueries = (pool: CommonQueryMethods) => {
     findTotalNumberOfResources,
     findAllResources,
     findResourceByIndicator,
+    findResourceByIndicatorAndTenant,
     findDefaultResource,
     setDefaultResource,
     findResourceById,
