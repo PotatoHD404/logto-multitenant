@@ -12,6 +12,7 @@ import type TenantContext from '#src/tenants/TenantContext.js';
 import assertThat from '#src/utils/assert-that.js';
 
 import mfaVerificationsRoutes from './mfa-verifications.js';
+import sessionsRoutes from './sessions.js';
 import socialRoutes from './social.js';
 import userAssetsRoutes from './user-assets.js';
 import userRoutes from './user.js';
@@ -41,6 +42,7 @@ export default function initMeApis(tenant: TenantContext): Koa {
   verificationCodeRoutes(meRouter, tenant);
   userAssetsRoutes(meRouter, tenant);
   mfaVerificationsRoutes(meRouter, tenant);
+  sessionsRoutes(meRouter, tenant);
 
   const meApp = new Koa();
   meApp.use(koaCors([EnvSet.values.cloudUrlSet]));

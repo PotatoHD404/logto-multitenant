@@ -1,12 +1,14 @@
-import type { OidcModelInstance, OidcModelInstancePayload } from '@logto/schemas';
-import { OidcModelInstances } from '@logto/schemas';
-import type { Nullable } from '@silverhand/essentials';
-import { conditional } from '@silverhand/essentials';
-import type { CommonQueryMethods, ValueExpression } from '@silverhand/slonik';
-import { sql } from '@silverhand/slonik';
+import {
+  OidcModelInstances,
+  type OidcModelInstance,
+  type OidcModelInstancePayload,
+} from '@logto/schemas';
+import { conditional, conditionalString, type Nullable } from '@silverhand/essentials';
+import { sql, type CommonQueryMethods, type ValueExpression } from '@silverhand/slonik';
 import { addSeconds, isBefore } from 'date-fns';
 
 import { buildInsertIntoWithPool } from '#src/database/insert-into.js';
+import { DeletionError } from '#src/errors/SlonikError/index.js';
 import { convertToIdentifiers, convertToTimestamp } from '#src/utils/sql.js';
 
 export type WithConsumed<T> = T & { consumed?: boolean };
@@ -120,6 +122,74 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods) => {
     `);
   };
 
+  /**
+   * Find active sessions for a specific user with metadata from session extensions
+   */
+  const findSessionsByUserId = async (userId: string) => {
+    const { table: sessionExtTable, fields: sessionExtFields } = convertToIdentifiers({ 
+      table: 'oidc_session_extensions', 
+      fields: {
+        sessionUid: 'session_uid',
+        accountId: 'account_id', 
+        lastSubmission: 'last_submission',
+        createdAt: 'created_at',
+        updatedAt: 'updated_at'
+      }
+    });
+
+    return pool.any<{
+      id: string;
+      sessionUid: string;
+      payload: OidcModelInstancePayload;
+      expiresAt: Date;
+      lastSubmission?: Record<string, unknown>;
+      updatedAt?: Date;
+    }>(sql`
+      select 
+        s.${fields.id},
+        s.${fields.payload}->>'uid' as session_uid,
+        s.${fields.payload},
+        s.${fields.expiresAt} as expires_at,
+        ext.${sessionExtFields.lastSubmission} as last_submission,
+        ext.${sessionExtFields.updatedAt} as updated_at
+      from ${table} s
+      left join ${sessionExtTable} ext on s.${fields.payload}->>'uid' = ext.${sessionExtFields.sessionUid}
+      where s.${fields.modelName} = 'Session'
+        and s.${fields.payload}->>'accountId' = ${userId}
+        and s.${fields.expiresAt} > now()
+        and s.${fields.consumedAt} is null
+      order by ext.${sessionExtFields.createdAt} desc, s.${fields.expiresAt} desc
+    `);
+  };
+
+  /**
+   * Revoke a specific session by session UID for a user
+   */
+  const revokeSessionByUid = async (sessionUid: string, userId: string) => {
+    const result = await pool.query(sql`
+      delete from ${table}
+      where ${fields.modelName} = 'Session'
+        and ${fields.payload}->>'uid' = ${sessionUid}
+        and ${fields.payload}->>'accountId' = ${userId}
+    `);
+
+    if (result.rowCount === 0) {
+      throw new DeletionError('Session not found or already revoked');
+    }
+  };
+
+  /**
+   * Revoke all sessions except the current one for a user
+   */
+  const revokeOtherSessionsByUserId = async (userId: string, currentSessionUid?: string) => {
+    await pool.query(sql`
+      delete from ${table}
+      where ${fields.modelName} = 'Session'
+        and ${fields.payload}->>'accountId' = ${userId}
+        ${currentSessionUid ? sql`and ${fields.payload}->>'uid' != ${currentSessionUid}` : sql``}
+    `);
+  };
+
   return {
     upsertInstance,
     findPayloadById,
@@ -128,5 +198,8 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods) => {
     destroyInstanceById,
     revokeInstanceByGrantId,
     revokeInstanceByUserId,
+    findSessionsByUserId,
+    revokeSessionByUid,
+    revokeOtherSessionsByUserId,
   };
 };

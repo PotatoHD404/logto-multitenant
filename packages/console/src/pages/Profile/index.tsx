@@ -30,6 +30,7 @@ import CardContent from './components/CardContent';
 import LinkAccountSection from './components/LinkAccountSection';
 import MfaSection from './components/MfaSection';
 import NotSet from './components/NotSet';
+import SessionManagement from './components/SessionManagement';
 import Skeleton from './components/Skeleton';
 import DeleteAccountModal from './containers/DeleteAccountModal';
 import styles from './index.module.scss';
@@ -83,6 +84,7 @@ function Profile() {
                 )}
                 {/* MFA Section - only show when MFA is available for the user */}
                 {isMfaAvailableForUser && <MfaSection />}
+                <SessionManagement />
                 <AccountActivity />
                 <FormCard title="profile.password.title">
                   <CardContent
