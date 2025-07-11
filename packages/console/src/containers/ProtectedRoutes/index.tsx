@@ -50,7 +50,7 @@ export default function ProtectedRoutes() {
   const [searchParameters] = useSearchParams();
 
   const localApi = useApi({ hideErrorToast: true });
-  const adminApi = useAdminApi({ hideErrorToast: true });
+  const adminApi = useAdminApi();
   const cloudApi = useCloudApi({ hideErrorToast: true });
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export default function ProtectedRoutes() {
           } else {
             // For local OSS, use admin API with admin organization tokens
             // This will show all tenants the user has access to based on organization membership
-            const tenants = await adminApi.get('/api/tenants').json<LocalTenantResponse[]>();
+            const tenants = await adminApi.get('api/tenants').json<LocalTenantResponse[]>();
             
             // Convert local API response to match TenantResponse format
             const tenantResponses: TenantResponse[] = tenants.map((tenant) => ({

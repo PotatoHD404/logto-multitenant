@@ -247,23 +247,17 @@ export default useApi;
 /**
  * A hook to get a Ky instance specifically for admin tenant operations.
  * This is used for tenant management operations in OSS deployments.
- * Uses the current tenant's organization token for proper access control.
+ * Uses the default tenant's organization token for initialization and tenant loading.
  */
 export const useAdminApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}) => {
-  const { currentTenantId } = useContext(TenantsContext);
-  
   const config = useMemo(
-    () => {
-      // Use current tenant's organization token, fallback to default tenant if not available
-      const tenantId = currentTenantId || defaultTenantId;
-      return {
-        prefixUrl: adminTenantEndpoint,
-        // Use organization token for current tenant instead of hardcoded admin tenant
-        // This ensures proper access control based on user's tenant membership
-        resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(tenantId)),
-      };
-    },
-    [currentTenantId]
+    () => ({
+      prefixUrl: adminTenantEndpoint,
+      // Use default tenant organization token for admin operations
+      // This is used during initialization when currentTenantId is not yet available
+      resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(defaultTenantId)),
+    }),
+    []
   );
 
   return useStaticApi({

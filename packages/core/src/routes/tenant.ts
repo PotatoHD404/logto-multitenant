@@ -2,13 +2,14 @@ import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, cre
 import { generateStandardId } from '@logto/shared';
 import { sql } from '@silverhand/slonik';
 import { object, string, nativeEnum, boolean } from 'zod';
-import type { Next } from 'koa';
+import type { Next, MiddlewareType } from 'koa';
 
 import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import koaPagination from '#src/middleware/koa-pagination.js';
 import { createTenantAuthMiddleware } from '#src/middleware/koa-tenant-auth.js';
+import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
 import assertThat from '#src/utils/assert-that.js';
 import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
 
@@ -128,20 +129,46 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
   const { queries } = tenant;
   const tenantOrg = createTenantOrganizationLibrary(queries);
   
-  // Use current tenant authentication for all operations
-  // Users access tenant APIs through their tenant context (e.g., t-default for default tenant)
-  const { koaTenantReadAuth, koaTenantWriteAuth, koaTenantDeleteAuth } = createTenantAuthMiddleware(queries, tenant.id);
+  // Create flexible tenant management auth middleware
+  const koaTenantManagementAuth: MiddlewareType<unknown, WithAuthContext<ManagementApiRouterContext>, unknown> = async (ctx, next) => {
+    // Ensure the user is authenticated
+    assertThat(ctx.auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
+
+    const { scopes } = ctx.auth;
+
+    // Check if user has any tenant management scope
+    // This allows cross-tenant access for users with appropriate permissions
+    const hasTenantManagementScope = 
+      scopes.has(PredefinedScope.All) ||
+      scopes.has('manage:tenant') ||
+      scopes.has('read:data') ||
+      scopes.has('write:data') ||
+      scopes.has('delete:data');
+
+    assertThat(
+      hasTenantManagementScope,
+      new RequestError({ 
+        code: 'auth.forbidden', 
+        status: 403,
+        data: { message: 'Missing required tenant management scopes' }
+      })
+    );
+
+    return next();
+  };
+
+  const { koaTenantWriteAuth, koaTenantDeleteAuth } = createTenantAuthMiddleware(queries, tenant.id);
 
   // List all tenants that the authenticated user has access to
-  // If user can authenticate to this tenant, show all tenants they're a member of
+  // Accepts organization tokens from any tenant, checks tenant management scopes
   router.get(
     '/tenants',
     koaPagination({ isOptional: true }),
     koaGuard({
       response: tenantResponseGuard.array(),
-      status: [200],
+      status: [200, 401, 403],
     }),
-    koaTenantReadAuth,
+    koaTenantManagementAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { limit, offset, disabled } = ctx.pagination;
       const { auth } = ctx;
@@ -334,17 +361,21 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     }
   );
 
-  // Get single tenant - use current tenant auth
+  // Get single tenant - use tenant management auth
   router.get(
     '/tenants/:id',
     koaGuard({
       params: object({ id: string().min(1) }),
       response: tenantResponseGuard,
-      status: [200, 403, 404],
+      status: [200, 401, 403, 404],
     }),
-    koaTenantReadAuth,
+    koaTenantManagementAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { id } = ctx.guard.params;
+      const { auth } = ctx;
+      
+      assertThat(auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
+      const { id: userId } = auth;
       
       const sharedPool = await EnvSet.sharedPool;
       const tenant = await sharedPool.maybeOne<TenantDatabaseRow>(sql`
@@ -360,6 +391,34 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           status: 404,
         })
       );
+
+      // Check if user has access to this specific tenant (must be a member)
+      try {
+        const organizationId = getTenantOrganizationId(id);
+        const isMember = await queries.organizations.relations.users.exists({
+          organizationId,
+          userId,
+        });
+        
+        assertThat(
+          isMember,
+          new RequestError({
+            code: 'auth.forbidden',
+            status: 403,
+            data: { message: `Access denied to tenant: ${id}` }
+          })
+        );
+      } catch (error) {
+        if (error instanceof RequestError) {
+          throw error;
+        }
+        // If we can't check membership, deny access
+        throw new RequestError({
+          code: 'auth.forbidden',
+          status: 403,
+          data: { message: `Access denied to tenant: ${id}` }
+        });
+      }
 
       ctx.body = {
         id: tenant.id,
