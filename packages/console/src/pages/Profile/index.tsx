@@ -24,6 +24,7 @@ import useTenantPathname from '@/hooks/use-tenant-pathname';
 import useUserAssetsService from '@/hooks/use-user-assets-service';
 import pageLayout from '@/scss/page-layout.module.scss';
 
+import AccountActivity from './components/AccountActivity';
 import BasicUserInfoSection from './components/BasicUserInfoSection';
 import CardContent from './components/CardContent';
 import LinkAccountSection from './components/LinkAccountSection';
@@ -82,6 +83,7 @@ function Profile() {
                 )}
                 {/* MFA Section - only show when MFA is available for the user */}
                 {isMfaAvailableForUser && <MfaSection />}
+                <AccountActivity />
                 <FormCard title="profile.password.title">
                   <CardContent
                     title="profile.password.password_setting"

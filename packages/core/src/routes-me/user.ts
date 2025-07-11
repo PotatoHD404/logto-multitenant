@@ -1,11 +1,13 @@
 import { emailRegEx, PasswordPolicyChecker, usernameRegEx } from '@logto/core-kit';
-import { userInfoSelectFields, jsonObjectGuard } from '@logto/schemas';
+import { userInfoSelectFields, jsonObjectGuard, interaction, saml, jwtCustomizer } from '@logto/schemas';
 import { condArray, conditional, pick } from '@silverhand/essentials';
-import { literal, object, string } from 'zod';
+import { literal, object, string, number } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import { encryptUserPassword } from '#src/libraries/user.utils.js';
 import koaGuard from '#src/middleware/koa-guard.js';
+import koaPagination from '#src/middleware/koa-pagination.js';
+import type { AllowedKeyPrefix } from '#src/queries/log.js';
 import assertThat from '#src/utils/assert-that.js';
 
 import type { RouterInitArgs } from '../routes/types.js';
@@ -20,6 +22,7 @@ export default function userRoutes<T extends AuthedMeRouter>(
     queries: {
       users: { findUserById, updateUserById, deleteUserById },
       signInExperiences: { findDefaultSignInExperience },
+      logs: { findLogs, countLogs },
     },
     libraries: {
       users: { checkIdentifierCollision, verifyUserPassword, signOutUser },
@@ -174,6 +177,82 @@ export default function userRoutes<T extends AuthedMeRouter>(
       await updateUserById(userId, { passwordEncrypted, passwordEncryptionMethod });
 
       ctx.status = 204;
+
+      return next();
+    }
+  );
+
+  router.get(
+    '/activities',
+    koaPagination(),
+    koaGuard({
+      query: object({
+        page: number().optional(),
+        page_size: number().optional(),
+      }),
+      response: object({
+        data: object({
+          id: string(),
+          key: string(),
+          payload: object({}).passthrough(),
+          createdAt: string(),
+        }).array(),
+        totalCount: number(),
+      }),
+      status: 200,
+    }),
+    async (ctx, next) => {
+      const { id: userId } = ctx.auth;
+      const { limit, offset } = ctx.pagination;
+
+      const user = await findUserById(userId);
+      assertThat(!user.isSuspended, new RequestError({ code: 'user.suspended', status: 401 }));
+
+      // Define allowed activity log prefixes - exclude sensitive operations like token issuing
+      const allowedKeyPrefixes: AllowedKeyPrefix[] = [
+        interaction.prefix, // User interactions (login, register, password reset, etc.)
+        saml.prefix, // SAML activities
+        jwtCustomizer.prefix, // JWT customizations (less sensitive)
+      ];
+
+      // Query logs for the specific user
+      const [{ count }, logs] = await Promise.all([
+        countLogs({
+          payload: { userId },
+          includeKeyPrefix: allowedKeyPrefixes,
+        }),
+        findLogs(limit, offset, {
+          payload: { userId },
+          includeKeyPrefix: allowedKeyPrefixes,
+        }),
+      ]);
+
+      // Filter out sensitive payload information
+      const filteredLogs = logs.map(log => {
+        const safePayload: Record<string, unknown> = {};
+        
+        // Include non-sensitive information
+        if (log.payload.ip) safePayload.ip = log.payload.ip;
+        if (log.payload.userAgent) safePayload.userAgent = log.payload.userAgent;
+        if (log.payload.result) safePayload.result = log.payload.result;
+        if (log.payload.error) safePayload.error = log.payload.error;
+        if (log.payload.interactionEvent) safePayload.interactionEvent = log.payload.interactionEvent;
+        if (log.payload.applicationId) safePayload.applicationId = log.payload.applicationId;
+        
+        return {
+          id: log.id,
+          key: log.key,
+          payload: safePayload,
+          createdAt: log.createdAt,
+        };
+      });
+
+      // Return totalCount to pagination middleware
+      ctx.pagination.totalCount = count;
+      ctx.body = {
+        data: filteredLogs,
+        totalCount: count,
+      };
 
       return next();
     }
