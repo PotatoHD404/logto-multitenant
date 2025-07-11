@@ -1,6 +1,6 @@
 import type { MiddlewareType } from 'koa';
 import type { IRouterParamContext } from 'koa-router';
-import { TenantManagementScope, PredefinedScope, TenantRole } from '@logto/schemas';
+import { TenantManagementScope, PredefinedScope, TenantRole, adminTenantId } from '@logto/schemas';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
@@ -49,9 +49,9 @@ export const isProtectedFromDeletion = (tenantId: string): boolean => {
  * 
  * This implements proper cross-tenant access control:
  * 1. Users with 'all' scope can access any tenant
- * 2. Users from admin tenant can manage any tenant if they have tenant management scopes
- * 3. Users from other tenants can only access their own tenant
- * 4. Users must be members of the target tenant organization with appropriate roles
+ * 2. Rights are ALWAYS checked from the admin tenant organizations, not from the target tenant
+ * 3. The admin tenant has organizations with id = tenant id for each user tenant
+ * 4. User permissions are checked from these admin tenant organizations
  */
 export const validateTenantAccess = async (
   targetTenantId: string,
@@ -79,17 +79,10 @@ export const validateTenantAccess = async (
     })
   );
 
-  // Same tenant access - always allowed if user has proper scopes
-  if (targetTenantId === currentTenantId) {
-    return;
-  }
-
-  // Cross-tenant access validation:
-  // If user is accessing a different tenant, they must be a member of that tenant organization
-  // with appropriate permissions. No hardcoded "admin only" restrictions.
-  // The JWT audience validation already ensures the token was issued for the current tenant.
-  
-  // Validate that the user is a member of the target tenant organization
+  // IMPORTANT: Always check tenant rights from admin tenant organizations, not from target tenant
+  // This ensures we're using the correct tenant organization structure where:
+  // - Admin tenant has organizations with id = `t-${tenantId}` for each user tenant
+  // - User permissions are managed through these admin tenant organizations
   const tenantOrg = createTenantOrganizationLibrary(queries);
   const userScopes = await tenantOrg.getUserScopes(targetTenantId, userId);
   
@@ -99,8 +92,9 @@ export const validateTenantAccess = async (
       code: 'auth.forbidden', 
       status: 403,
       data: { 
-        message: `User is not a member of tenant: ${targetTenantId}`,
-        targetTenant: targetTenantId
+        message: `User is not a member of tenant organization for tenant: ${targetTenantId}. Rights are checked from admin tenant organizations only.`,
+        targetTenant: targetTenantId,
+        adminTenant: adminTenantId
       }
     })
   );
@@ -119,9 +113,11 @@ export const validateTenantAccess = async (
       code: 'auth.forbidden', 
       status: 403,
       data: { 
-        message: `Insufficient role for ${operation} operation. Required: ${operation === 'read' ? 'Collaborator or Admin' : 'Admin'}, current scopes: ${userScopes.join(', ')}`,
+        message: `Insufficient role for ${operation} operation on tenant ${targetTenantId}. Required: ${operation === 'read' ? 'Collaborator or Admin' : 'Admin'}, current scopes: ${userScopes.join(', ')}`,
         userScopes,
-        requiredRole: operation === 'read' ? 'Collaborator or Admin' : 'Admin'
+        requiredRole: operation === 'read' ? 'Collaborator or Admin' : 'Admin',
+        targetTenant: targetTenantId,
+        adminTenant: adminTenantId
       }
     })
   );
@@ -133,7 +129,7 @@ export const validateTenantAccess = async (
  * This middleware provides complete tenant access control:
  * 1. JWT audience validation (done by koaAuth)
  * 2. Scope validation for tenant operations
- * 3. Cross-tenant access control
+ * 3. Cross-tenant access control using admin tenant organizations
  * 4. Role-based access control within tenant organizations
  * 5. System tenant protection
  */
@@ -163,6 +159,7 @@ export default function koaTenantAuth<StateT, ContextT extends IRouterParamConte
       const targetTenantId = ctx.params.id as string;
       
       // Validate tenant access with proper cross-tenant and role validation
+      // This ALWAYS checks from admin tenant organizations
       await validateTenantAccess(targetTenantId, scopes, currentTenantId, userId, queries, operation);
       
       // Check for system tenant protection - only protect from deletion

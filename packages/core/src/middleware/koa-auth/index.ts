@@ -1,4 +1,4 @@
-import { adminTenantId, defaultManagementApi, PredefinedScope } from '@logto/schemas';
+import { adminTenantId, defaultManagementApi, PredefinedScope, getManagementApiResourceIndicator } from '@logto/schemas';
 import type { Optional } from '@silverhand/essentials';
 import type { JWK } from 'jose';
 import { createLocalJWKSet, jwtVerify } from 'jose';
@@ -11,7 +11,7 @@ import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import assertThat from '#src/utils/assert-that.js';
 import { devConsole, debugConsole } from '#src/utils/console.js';
-import { type TenantContext } from '#src/tenants/types.js';
+import type TenantContext from '#src/tenants/TenantContext.js';
 
 import { type WithAuthContext, type TokenInfo } from './types.js';
 import { extractBearerTokenFromHeaders, getAdminTenantTokenValidationSet } from './utils.js';
@@ -64,6 +64,31 @@ export const verifyBearerTokenFromRequest = async (
     ];
   };
 
+  /**
+   * Get valid audiences for token validation.
+   * For user tenants, we accept tokens with either:
+   * 1. The current tenant's management API audience (for tokens issued by the current tenant)
+   * 2. The current tenant's management API audience but in the admin tenant context (for tokens issued by admin tenant)
+   */
+  const getValidAudiences = (currentTenantId: string, requestedAudience: Optional<string>): string[] => {
+    const audiences: string[] = [];
+    
+    if (requestedAudience) {
+      audiences.push(requestedAudience);
+    }
+    
+    // For user tenants, also accept tokens that were issued by the admin tenant
+    // for managing this specific tenant
+    if (currentTenantId !== adminTenantId) {
+      const adminTenantAudience = getManagementApiResourceIndicator(currentTenantId);
+      if (requestedAudience !== adminTenantAudience) {
+        audiences.push(adminTenantAudience);
+      }
+    }
+    
+    return audiences;
+  };
+
   try {
     const bearerToken = extractBearerTokenFromHeaders(request.headers);
     debugConsole.warn('Bearer token length:', bearerToken.length);
@@ -74,6 +99,9 @@ export const verifyBearerTokenFromRequest = async (
     debugConsole.warn('Issuers for verification:', issuer);
     debugConsole.warn('Audience for verification:', audience);
     
+    const validAudiences = getValidAudiences(envSet.tenantId, audience);
+    debugConsole.warn('Valid audiences for verification:', validAudiences);
+    
     const {
       payload: { sub, client_id: clientId, scope = '', jti },
     } = await jwtVerify(
@@ -81,7 +109,7 @@ export const verifyBearerTokenFromRequest = async (
       createLocalJWKSet({ keys }),
       {
         issuer,
-        audience,
+        audience: validAudiences.length > 0 ? validAudiences : undefined,
       }
     );
 
@@ -91,7 +119,7 @@ export const verifyBearerTokenFromRequest = async (
     if (jti && tenant) {
       const isBlacklisted = await tenant.queries.oidcModelInstances.isJwtBlacklisted(String(jti));
       if (isBlacklisted) {
-        throw new RequestError({ code: 'auth.jwt_revoked', status: 401 });
+        throw new RequestError({ code: 'auth.unauthorized', status: 401 });
       }
     }
 

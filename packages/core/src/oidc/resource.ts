@@ -1,5 +1,5 @@
 import { ReservedResource } from '@logto/core-kit';
-import { type Resource } from '@logto/schemas';
+import { type Resource, getManagementApiResourceIndicator } from '@logto/schemas';
 import { trySafe, type Nullable } from '@silverhand/essentials';
 import { type ResourceServer } from 'oidc-provider';
 
@@ -10,6 +10,25 @@ import type Queries from '#src/tenants/Queries.js';
 const isReservedResource = (indicator: string): indicator is ReservedResource =>
   // eslint-disable-next-line no-restricted-syntax -- it's the best way to do it
   Object.values(ReservedResource).includes(indicator as ReservedResource);
+
+/**
+ * Check if the given indicator is a management API resource.
+ * Management API resources follow the pattern: https://{tenantId}.logto.app/{prefix}
+ */
+const isManagementApiResource = (indicator: string): boolean => {
+  const managementApiPattern = /^https:\/\/[\w-]+\.logto\.app\/(api|me)$/;
+  return managementApiPattern.test(indicator);
+};
+
+/**
+ * Extract tenant ID from a management API resource indicator.
+ * @param indicator The resource indicator (e.g., "https://tenant123.logto.app/api")
+ * @returns The tenant ID or null if not a valid management API resource
+ */
+const extractTenantIdFromManagementApiResource = (indicator: string): string | null => {
+  const match = indicator.match(/^https:\/\/([\w-]+)\.logto\.app\/(api|me)$/);
+  return match?.[1] ?? null;
+};
 
 export const getSharedResourceServerData = (
   envSet: EnvSet
@@ -103,7 +122,7 @@ export const reversedResourceAccessTokenTtl = 3600;
 
 /**
  * Find the resource for a given indicator. This function also handles the reserved
- * resources.
+ * resources and management API resources.
  *
  * @see {@link ReservedResource} for the list of reserved resources.
  */
@@ -118,6 +137,19 @@ export const findResource = async (
     };
   }
 
+  // Handle management API resources
+  if (isManagementApiResource(indicator)) {
+    const tenantId = extractTenantIdFromManagementApiResource(indicator);
+    if (tenantId) {
+      // Management API resources are valid and have a default TTL
+      return {
+        indicator,
+        accessTokenTtl: reversedResourceAccessTokenTtl,
+      };
+    }
+  }
+
+  // Fall back to database lookup for regular resources
   return queries.resources.findResourceByIndicator(indicator);
 };
 

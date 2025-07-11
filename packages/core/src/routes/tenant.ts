@@ -290,16 +290,26 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       // Initialize tenant organization in the admin tenant
       // This creates an organization in the admin tenant that represents this tenant
       // for user management purposes
+      // IMPORTANT: All tenant organizations are created in the admin tenant, not in the user tenant
       try {
-        await tenantOrg.ensureTenantOrganization(newTenant.id, newTenant.name);
+        const organizationId = await tenantOrg.ensureTenantOrganization(newTenant.id, newTenant.name);
+        console.log(`Successfully created tenant organization ${organizationId} in admin tenant for tenant ${newTenant.id}`);
         
         // Assign the creating user as an admin of the new tenant
+        // This user will have permissions to manage the new tenant through the admin tenant organization
         const userId = ctx.auth.id;
         await tenantOrg.addUserToTenant(newTenant.id, userId, TenantRole.Admin);
+        console.log(`Successfully assigned user ${userId} as admin of tenant ${newTenant.id} via admin tenant organization`);
       } catch (error) {
-        // If organization creation or user assignment fails, log the error but don't block tenant creation
+        // If organization creation or user assignment fails, log detailed error information
+        console.error(`Critical error: Failed to initialize tenant organization in admin tenant for tenant ${newTenant.id}:`, error);
+        console.error(`This means the tenant was created but the user management structure was not set up correctly.`);
+        console.error(`The organization should be created in the admin tenant with id: t-${newTenant.id}`);
+        console.error(`The user ${ctx.auth.id} should be assigned as admin of this organization.`);
+        
+        // Note: We don't throw the error to avoid blocking tenant creation entirely
         // The organization and user assignment can be created later when needed
-        console.error(`Failed to initialize tenant organization or assign user for tenant ${newTenant.id}:`, error);
+        // But we should log this as a critical issue for monitoring
       }
 
       ctx.status = 201;
