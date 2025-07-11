@@ -1,4 +1,5 @@
 import { MfaFactor } from '@logto/schemas';
+import type { AdminConsoleKey } from '@logto/phrases';
 import { useCallback } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -81,24 +82,11 @@ function MfaSection() {
 
     return {
       key: factor.type,
-      label: (
-        <div className={styles.factorLabel}>
-          <div className={styles.factorName}>
-            {factor.type === MfaFactor.TOTP 
-              ? t('profile.set_up_mfa.totp_name') 
-              : factor.type === MfaFactor.WebAuthn 
-                ? t('profile.set_up_mfa.webauthn_name')
-                : t('profile.set_up_mfa.backup_code_name')}
-          </div>
-          <div className={styles.factorDescription}>
-            {factor.type === MfaFactor.TOTP 
-              ? t('profile.set_up_mfa.totp_description') 
-              : factor.type === MfaFactor.WebAuthn 
-                ? t('profile.set_up_mfa.webauthn_description')
-                : t('profile.set_up_mfa.backup_code_description')}
-          </div>
-        </div>
-      ),
+      label: (factor.type === MfaFactor.TOTP 
+        ? 'profile.set_up_mfa.totp_name' 
+        : factor.type === MfaFactor.WebAuthn 
+          ? 'profile.set_up_mfa.webauthn_name'
+          : 'profile.set_up_mfa.backup_code_name') as AdminConsoleKey,
       value: existingVerification?.createdAt || null,
       renderer: (value: string | null) => {
         if (value) {
