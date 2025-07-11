@@ -76,15 +76,16 @@ function Providers() {
   const { currentTenantId } = useContext(TenantsContext);
 
   // For Cloud, we use Management API proxy for accessing tenant data.
-  // For OSS, we need both default tenant and admin tenant management API resources for multi-tenancy.
+  // For OSS, we use organization-based authentication for multi-tenancy.
   const resources = useMemo(
     () =>
       isCloud
         ? [cloudApi.indicator, meApi.indicator]
         : [
-            getManagementApi(defaultTenantId).indicator,
-            getManagementApi(adminTenantId).indicator,
+            // For OSS, include the ME API for profile operations
             meApi.indicator,
+            // Note: Organization tokens are requested dynamically per tenant
+            // No need to pre-register specific tenant resources
           ],
     []
   );

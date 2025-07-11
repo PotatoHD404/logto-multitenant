@@ -1,5 +1,6 @@
 import { OrganizationInvitationStatus } from '@logto/schemas';
 import { useContext, useRef, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useLogto } from '@logto/react';
 
@@ -80,13 +81,7 @@ export default function TenantSelector() {
               tenantData={tenantData}
               isSelected={tenantData.id === currentTenantId}
               onClick={async () => {
-                // Navigate to the new tenant
-                navigateTenant(tenantData.id);
-                
-                // Update default tenant ID
-                void updateDefaultTenantId(tenantData.id);
-                
-                // Refresh tokens for the new tenant
+                // Refresh tokens for the new tenant first
                 const refreshResult = await refreshTokensForTenant(
                   tenantData.id,
                   isCloud,
@@ -94,8 +89,16 @@ export default function TenantSelector() {
                 );
                 
                 if (!refreshResult.success) {
-                  console.warn('Failed to refresh tokens for tenant:', tenantData.id, refreshResult.error);
+                  console.error('Failed to refresh tokens for tenant:', tenantData.id, refreshResult.error);
+                  toast.error(`Failed to access tenant: ${refreshResult.error}`);
+                  return;
                 }
+                
+                // Navigate to the new tenant
+                navigateTenant(tenantData.id);
+                
+                // Update default tenant ID
+                void updateDefaultTenantId(tenantData.id);
                 
                 setShowDropdown(false);
               }}

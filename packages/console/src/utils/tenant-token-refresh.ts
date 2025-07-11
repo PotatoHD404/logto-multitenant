@@ -1,11 +1,12 @@
 import { buildOrganizationUrn } from '@logto/core-kit';
 import { getTenantOrganizationId, getManagementApiResourceIndicator } from '@logto/schemas';
+import { type AccessTokenClaims } from '@logto/react';
 
 interface LogtoMethods {
   isAuthenticated: boolean;
   getAccessToken: (resource?: string) => Promise<string | null | undefined>;
   getOrganizationToken: (organizationId: string) => Promise<string | null | undefined>;
-  getOrganizationTokenClaims: (organizationId: string) => Promise<{ scope?: string } | null>;
+  getOrganizationTokenClaims: (organizationId: string) => Promise<AccessTokenClaims | null | undefined>;
   clearAccessToken: () => Promise<void>;
 }
 
@@ -36,32 +37,19 @@ export const refreshTokensForTenant = async (
 
     let tokenResult;
     
-    if (isCloud) {
-      // For cloud: use organization tokens
-      const organizationId = getTenantOrganizationId(tenantId);
-      const token = await getOrganizationToken(organizationId);
-      
-      if (!token) {
-        return { success: false, error: 'Failed to obtain organization token' };
-      }
-
-      // Validate token claims
-      const claims = await getOrganizationTokenClaims(organizationId);
-      console.log('✅ Organization token refreshed for tenant:', tenantId, 'with scopes:', claims?.scope);
-      
-      tokenResult = { token, claims };
-    } else {
-      // For OSS: use management API tokens
-      const resourceIndicator = getManagementApiResourceIndicator(tenantId);
-      const token = await getAccessToken(resourceIndicator);
-      
-      if (!token) {
-        return { success: false, error: 'Failed to obtain management API token' };
-      }
-
-      console.log('✅ Management API token refreshed for tenant:', tenantId);
-      tokenResult = { token };
+    // Both cloud and OSS now use organization tokens for consistent behavior
+    const organizationId = getTenantOrganizationId(tenantId);
+    const token = await getOrganizationToken(organizationId);
+    
+    if (!token) {
+      return { success: false, error: 'Failed to obtain organization token' };
     }
+
+    // Validate token claims
+    const claims = await getOrganizationTokenClaims(organizationId);
+    console.log('✅ Organization token refreshed for tenant:', tenantId, 'with scopes:', claims?.scope);
+    
+    tokenResult = { token, claims };
 
     return { success: true };
   } catch (error) {
@@ -81,22 +69,17 @@ export const validateTenantAccess = async (
   isCloud: boolean,
   logtoMethods: LogtoMethods
 ): Promise<boolean> => {
-  const { isAuthenticated, getAccessToken, getOrganizationToken } = logtoMethods;
+  const { isAuthenticated, getOrganizationToken } = logtoMethods;
 
   if (!isAuthenticated) {
     return false;
   }
 
   try {
-    if (isCloud) {
-      const organizationId = getTenantOrganizationId(tenantId);
-      const token = await getOrganizationToken(organizationId);
-      return Boolean(token);
-    } else {
-      const resourceIndicator = getManagementApiResourceIndicator(tenantId);
-      const token = await getAccessToken(resourceIndicator);
-      return Boolean(token);
-    }
+    // Both cloud and OSS now use organization tokens for consistent behavior
+    const organizationId = getTenantOrganizationId(tenantId);
+    const token = await getOrganizationToken(organizationId);
+    return Boolean(token);
   } catch (error) {
     console.error('Failed to validate tenant access:', error);
     return false;
