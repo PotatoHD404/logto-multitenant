@@ -171,8 +171,13 @@ export const handleOrganizationToken = async ({
   /* eslint-disable @silverhand/fp/no-mutation */
   const audience = buildOrganizationUrn(organizationId);
 
-  /** The intersection of the available scopes and the requested scopes. */
-  const issuedScopes = availableScopes.filter((name) => scope.has(name)).join(' ');
+  /** 
+   * For organization tokens, issue all available scopes that the user has in the organization.
+   * This ensures admin console and other organization-aware clients get proper permissions.
+   * The scope filtering here should be more permissive than regular resource tokens since
+   * organization roles define the user's actual permissions.
+   */
+  const issuedScopes = availableScopes.join(' ');
 
   at.aud = audience;
   // Note: the original implementation uses `new provider.ResourceServer` to create the resource

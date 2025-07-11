@@ -1,4 +1,4 @@
-import { adminTenantId, getManagementApiResourceIndicator } from '@logto/schemas';
+import { adminTenantId } from '@logto/schemas';
 import Koa from 'koa';
 import Router from 'koa-router';
 
@@ -18,6 +18,12 @@ import userAssetsRoutes from './user-assets.js';
 import userRoutes from './user.js';
 import verificationCodeRoutes from './verification-code.js';
 
+/**
+ * Get the profile API resource indicator that matches the cloud version format.
+ * This ensures consistency between cloud and local OSS deployments.
+ */
+const getProfileApiResourceIndicator = () => 'https://admin.logto.app/me';
+
 export default function initMeApis(tenant: TenantContext): Koa {
   if (tenant.id !== adminTenantId) {
     throw new Error('`/me` routes should only be initialized in the admin tenant.');
@@ -26,7 +32,7 @@ export default function initMeApis(tenant: TenantContext): Koa {
   const meRouter = new Router<unknown, WithAuthContext & WithI18nContext>();
 
   meRouter.use(
-    koaAuth(tenant.envSet, getManagementApiResourceIndicator(adminTenantId, 'me')),
+    koaAuth(tenant.envSet, getProfileApiResourceIndicator()),
     async (ctx, next) => {
       assertThat(
         ctx.auth.type === 'user',

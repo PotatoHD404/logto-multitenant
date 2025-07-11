@@ -200,7 +200,7 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
    * The config object for the Ky instance.
    *
    * - In Cloud, it uses the Management API proxy endpoint with tenant organization tokens.
-   * - In OSS, it uses the current tenant's Management API with proper tenant-specific credentials.
+   * - In OSS, it uses organization tokens for multi-tenant access, similar to cloud.
    */
   const config = useMemo(
     () =>
@@ -211,9 +211,9 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
           }
         : {
             prefixUrl: tenantEndpoint,
-            // For local OSS, use the current tenant's Management API resource indicator
-            // This ensures proper tenant-specific authentication
-            resourceIndicator: getManagementApiResourceIndicator(currentTenantId),
+            // For local OSS multi-tenant, use organization tokens like cloud does
+            // This ensures proper organization-based authentication with tenant-specific scopes
+            resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
           },
     [currentTenantId, tenantEndpoint]
   );

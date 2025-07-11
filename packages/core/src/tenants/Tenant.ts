@@ -155,16 +155,16 @@ export default class Tenant implements TenantContext {
     // Mount APIs
     app.use(mount('/api', initApis(tenantContext)));
 
-    const { isPathBasedMultiTenancy, adminUrlSet, isCloud, isMultiTenancy } = EnvSet.values;
+    const { adminUrlSet, isCloud } = EnvSet.values;
 
     // Mount admin tenant APIs and app
     if (id === adminTenantId) {
       // Mount `/me` APIs for admin tenant
       app.use(mount('/me', initMeApis(tenantContext)));
 
-      // Mount Admin Console when needed
-      // Skip in multi-tenancy mode since Logto Cloud serves Admin Console in this case
-      if (!isMultiTenancy) {
+      // Mount Admin Console for local OSS
+      // In cloud, the admin console is served separately
+      if (!isCloud) {
         app.use(koaConsoleRedirectProxy(queries));
         app.use(
           mount(
@@ -181,11 +181,10 @@ export default class Tenant implements TenantContext {
       }
     }
 
-    // In OSS, no need for mounting demo app in the admin tenant since it may cause confusion
-    // while distinguishing "demo app from admin tenant" and "demo app from user tenant";
-    // on the cloud, we need to configure admin tenant sign-in experience, so a preview is needed for
-    // testing without signing out of the admin console.
-    if (id !== adminTenantId || isMultiTenancy) {
+    // Mount demo app for all tenants
+    // For admin tenant: only in cloud for preview purposes
+    // For user tenants: always mount for local OSS and cloud
+    if (id !== adminTenantId || isCloud) {
       // Mount demo app
       app.use(
         mount(
@@ -220,8 +219,11 @@ export default class Tenant implements TenantContext {
     this.app = app;
     this.provider = provider;
 
-    // For local OSS, implement hybrid mounting to support both custom domain and path-based routing
-    if (!isCloud && isMultiTenancy && this.id !== adminTenantId) {
+    // Multi-tenancy is enabled by default
+    // For local OSS: Support both custom domain and path-based routing simultaneously
+    // For cloud: Use standard mounting based on configuration
+    if (!isCloud && this.id !== adminTenantId) {
+      // Local OSS user tenant: Hybrid mounting for multi-tenancy
       // Mount without path prefix for custom domain requests
       const directMount = mount(this.app);
       
@@ -244,13 +246,13 @@ export default class Tenant implements TenantContext {
         }
       };
     } else {
-      // Use original mounting logic for cloud and admin tenant
-      this.run =
-        isPathBasedMultiTenancy &&
-        // If admin URL Set is specified, consider that URL first
-        !(adminUrlSet.deduplicated().length > 0 && this.id === adminTenantId)
-          ? mount('/' + this.id, this.app)
-          : mount(this.app);
+      // Admin tenant or cloud: Use standard mounting
+      // For admin tenant: Mount directly if admin URL set is configured, otherwise use path-based
+      const usePathBasedMount = !isCloud && 
+        this.id !== adminTenantId && 
+        !(adminUrlSet.deduplicated().length > 0 && this.id === adminTenantId);
+      
+      this.run = usePathBasedMount ? mount('/' + this.id, this.app) : mount(this.app);
     }
   }
 

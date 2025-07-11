@@ -18,7 +18,7 @@ export const getManagementApi = (tenantId: string) =>
   } satisfies ApiResource);
 
 export const meApi = Object.freeze({
-  indicator: getManagementApiResourceIndicator(adminTenantId, 'me'),
+  indicator: 'https://admin.logto.app/me',
   scopes: PredefinedScope,
 } satisfies ApiResource);
 

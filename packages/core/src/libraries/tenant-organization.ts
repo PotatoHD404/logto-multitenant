@@ -5,13 +5,14 @@
  * that represent user tenants for member management.
  */
 
-import { TenantRole, adminTenantId, getTenantRole, OrganizationInvitationStatus } from '@logto/schemas';
+import { TenantRole, adminTenantId, getTenantRole, OrganizationInvitationStatus, getTenantOrganizationId } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import type { CommonQueryMethods } from '@silverhand/slonik';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import type Queries from '#src/tenants/Queries.js';
-import { getTenantOrganizationId } from '#src/utils/tenant-organization.js';
+import { EnvSet } from '#src/env-set/index.js';
+import { sql } from '@silverhand/slonik';
 
 export type TenantOrganizationLibrary = ReturnType<typeof createTenantOrganizationLibrary>;
 
@@ -221,7 +222,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
           break;
         case 'manage:tenant':
           permissions.add('manage:tenant');
-          break;
+    
         default:
           // Include unknown scopes as-is
           permissions.add(scope);
@@ -229,6 +230,59 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     }
     
     return Array.from(permissions);
+  };
+
+  /**
+   * Provision existing admin users to a new tenant organization.
+   * This should be called when a new tenant is created in a multi-tenant OSS environment.
+   */
+  const provisionAdminUsersToNewTenant = async (tenantId: string) => {
+    const { isCloud } = EnvSet.values;
+    
+    // Only do this for local OSS multi-tenant setups
+    if (isCloud) {
+      return;
+    }
+
+    try {
+      const organizationId = await ensureTenantOrganization(tenantId);
+      
+      // Get all existing admin users from the admin tenant
+      const sharedPool = await EnvSet.sharedPool;
+      const adminUsers = await sharedPool.any<{ id: string }>(sql`
+        select distinct u.id
+        from users u
+        join users_roles ur on ur.user_id = u.id
+        join roles r on r.id = ur.role_id
+        where r.tenant_id = ${adminTenantId}
+        and (r.name = 'admin:admin' or r.name like '%:admin');
+      `);
+
+      // Add each admin user to the new tenant organization with admin role
+      for (const user of adminUsers) {
+        try {
+          // Add user to organization
+          await organizations.relations.users.insert({ 
+            organizationId, 
+            userId: user.id 
+          });
+          
+          // Assign admin role to user in organization
+          await organizations.relations.usersRoles.insert({
+            organizationId,
+            userId: user.id,
+            organizationRoleId: getTenantRole(TenantRole.Admin).id,
+          });
+        } catch (error) {
+          // Continue with other users if one fails
+          console.warn(`Failed to add admin user ${user.id} to organization ${organizationId}:`, error);
+        }
+      }
+
+      console.log(`Successfully provisioned ${adminUsers.length} admin users to tenant organization ${organizationId}`);
+    } catch (error) {
+      console.error(`Failed to provision admin users to tenant ${tenantId}:`, error);
+    }
   };
 
   const getTenantMembers = async (
@@ -338,6 +392,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     updateUserRole,
     getUserScopes,
     getTenantPermissions,
+    provisionAdminUsersToNewTenant,
     getTenantMembers,
     createInvitation,
     getTenantInvitations,

@@ -1,6 +1,6 @@
-import { TenantTag } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { sql, type CommonQueryMethods } from '@silverhand/slonik';
+import { TenantTag, adminTenantId, getTenantOrganizationId, getTenantRole, TenantRole } from '@logto/schemas';
 
 import { EnvSet } from '#src/env-set/index.js';
 
@@ -80,6 +80,74 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
     return Number((result as any).count);
   };
 
+  /**
+   * Create a tenant organization in the admin tenant for the new tenant.
+   * This allows admin users to manage the tenant through organization-based access control.
+   */
+  const createTenantOrganization = async (tenantId: string, tenantName: string) => {
+    const { isCloud } = EnvSet.values;
+    
+    // Only create tenant organizations for local OSS multi-tenant setup
+    if (isCloud) {
+      return;
+    }
+
+    const organizationId = getTenantOrganizationId(tenantId);
+    const organizationName = tenantId === adminTenantId ? 'Admin' : `Tenant ${tenantName}`;
+    const organizationDescription = `Organization for tenant ${tenantId}`;
+
+    try {
+      // Create the tenant organization
+      await pool.query(sql`
+        INSERT INTO organizations (id, tenant_id, name, description)
+        VALUES (${organizationId}, ${adminTenantId}, ${organizationName}, ${organizationDescription})
+        ON CONFLICT (id) DO UPDATE SET
+          name = excluded.name,
+          description = excluded.description;
+      `);
+
+      // Get all existing admin users from the admin tenant
+      const adminUsers = await pool.any<{ id: string }>(sql`
+        SELECT DISTINCT u.id
+        FROM users u
+        JOIN users_roles ur ON ur.user_id = u.id
+        JOIN roles r ON r.id = ur.role_id
+        WHERE u.tenant_id = ${adminTenantId}
+        AND r.tenant_id = ${adminTenantId}
+        AND r.type = 'User'
+        AND (r.name LIKE '%admin%' OR r.name = ${`${adminTenantId}:admin`});
+      `);
+
+      if (adminUsers.length > 0) {
+        // Add all admin users to the new tenant organization with admin role
+        await pool.query(sql`
+          INSERT INTO organization_user_relations (tenant_id, organization_id, user_id)
+          VALUES ${sql.join(
+            adminUsers.map(user => sql`(${adminTenantId}, ${organizationId}, ${user.id})`),
+            sql`, `
+          )}
+          ON CONFLICT (organization_id, user_id) DO NOTHING;
+        `);
+
+        await pool.query(sql`
+          INSERT INTO organization_role_user_relations (tenant_id, organization_id, organization_role_id, user_id)
+          VALUES ${sql.join(
+            adminUsers.map(user => sql`(${adminTenantId}, ${organizationId}, 'admin', ${user.id})`),
+            sql`, `
+          )}
+          ON CONFLICT (organization_id, organization_role_id, user_id) DO NOTHING;
+        `);
+
+        console.log(`Added ${adminUsers.length} admin users to tenant organization ${organizationId}`);
+      }
+
+      console.log(`Created tenant organization ${organizationId} for tenant ${tenantId}`);
+    } catch (error) {
+      console.error(`Failed to create tenant organization for ${tenantId}:`, error);
+      // Don't throw error to avoid breaking tenant creation
+    }
+  };
+
   const createTenant = async (data: CreateTenantData): Promise<TenantData> => {
     const id = generateStandardId();
     // For local OSS, use Production tag (no dev/prod distinction)
@@ -97,6 +165,9 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
     if (!tenant) {
       throw new Error('Failed to create tenant');
     }
+
+    // Automatically create tenant organization for multi-tenant access control
+    await createTenantOrganization(id, data.name);
 
     return tenant;
   };
