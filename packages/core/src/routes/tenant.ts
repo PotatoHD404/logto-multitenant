@@ -338,6 +338,72 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         // But we should log this as a critical issue for monitoring
       }
 
+      // Update existing OIDC grants to include the new tenant's Management API resources
+      // This ensures that already-authenticated admin-console sessions can access the new tenant
+      console.log('Updating existing OIDC grants to include new tenant Management API resources...');
+      try {
+        // Find all active grants for admin-console
+        const activeGrants = await sharedPool.any<{ id: string; payload: any }>(sql`
+          SELECT id, payload 
+          FROM oidc_model_instances 
+          WHERE tenant_id = ${adminTenantId}
+          AND model_name = 'Grant'
+          AND payload->>'clientId' = 'admin-console'
+          AND expires_at > NOW()
+        `);
+
+        // Find all Management API resources that admin-console should have access to
+        const allManagementApiResources = await sharedPool.any<{ indicator: string }>(sql`
+          SELECT DISTINCT indicator 
+          FROM resources 
+          WHERE tenant_id = ${adminTenantId}
+          AND (
+            indicator LIKE '%.logto.app/api' 
+            OR indicator = 'https://admin.logto.app/api'
+            OR indicator = 'https://admin.logto.app/me'
+            OR indicator = 'https://profile.logto.app/api'
+          )
+        `);
+
+        for (const grant of activeGrants) {
+          const payload = grant.payload;
+          let grantModified = false;
+          
+          // Initialize resources if not present
+          if (!payload.resources) {
+            payload.resources = {};
+            grantModified = true;
+          }
+          
+          // Add all Management API resources to the grant
+          for (const resource of allManagementApiResources) {
+            if (!payload.resources[resource.indicator]) {
+              // Different scopes for different resource types
+              if (resource.indicator === 'https://admin.logto.app/me' || resource.indicator === 'https://profile.logto.app/api') {
+                payload.resources[resource.indicator] = 'all';
+              } else {
+                payload.resources[resource.indicator] = 'all tenant:read tenant:write tenant:delete';
+              }
+              grantModified = true;
+            }
+          }
+          
+          // Update the grant in the database if modified
+          if (grantModified) {
+            await sharedPool.query(sql`
+              UPDATE oidc_model_instances 
+              SET payload = ${JSON.stringify(payload)}
+              WHERE id = ${grant.id}
+            `);
+            
+            console.log(`Updated grant ${grant.id} to include ${Object.keys(payload.resources).length} Management API resources`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to update existing grants:', error);
+        // Don't fail tenant creation if grant update fails
+      }
+
       ctx.status = 201;
       ctx.body = {
         id: newTenant.id,

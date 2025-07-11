@@ -71,7 +71,61 @@ const alteration: AlterationScript = {
       }
     }
     
-    console.log(`Granted ${scopesGranted} scopes to admin-console application`);
+    console.log(`Granted ${scopesGranted} scopes to admin-console application for ${managementApiResources.length} Management API resources`);
+    
+    // Update existing OIDC grants to include all Management API resources
+    // This ensures that already-authenticated admin-console sessions can access all existing tenants
+    console.log('Updating existing OIDC grants to include all Management API resources...');
+    
+    let grantsUpdated = 0;
+    
+    // Find all active grants for admin-console
+    const activeGrants = await pool.any<{ id: string; payload: any }>(sql`
+      SELECT id, payload 
+      FROM oidc_model_instances 
+      WHERE tenant_id = 'admin'
+      AND model_name = 'Grant'
+      AND payload->>'clientId' = 'admin-console'
+      AND expires_at > NOW()
+    `);
+    
+    for (const grant of activeGrants) {
+      const payload = grant.payload;
+      let grantModified = false;
+      
+      // Initialize resources if not present
+      if (!payload.resources) {
+        payload.resources = {};
+        grantModified = true;
+      }
+      
+      // Add all Management API resources to the grant
+      for (const resource of managementApiResources) {
+        if (!payload.resources[resource.indicator]) {
+          // Different scopes for different resource types
+          if (resource.indicator === 'https://admin.logto.app/me' || resource.indicator === 'https://profile.logto.app/api') {
+            payload.resources[resource.indicator] = 'all';
+          } else {
+            payload.resources[resource.indicator] = 'all tenant:read tenant:write tenant:delete';
+          }
+          grantModified = true;
+        }
+      }
+      
+      // Update the grant in the database if modified
+      if (grantModified) {
+        await pool.query(sql`
+          UPDATE oidc_model_instances 
+          SET payload = ${JSON.stringify(payload)}
+          WHERE id = ${grant.id}
+        `);
+        
+        grantsUpdated++;
+        console.log(`Updated grant ${grant.id} to include ${Object.keys(payload.resources).length} Management API resources`);
+      }
+    }
+    
+    console.log(`Updated ${grantsUpdated} existing grants to include Management API resources`);
   },
 
   down: async (pool) => {
@@ -100,4 +154,4 @@ const alteration: AlterationScript = {
   },
 };
 
-export default alteration; 
+export default alteration;
