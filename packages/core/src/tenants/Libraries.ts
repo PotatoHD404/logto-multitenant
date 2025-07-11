@@ -19,6 +19,7 @@ import { createSignInExperienceLibrary } from '#src/libraries/sign-in-experience
 import { createSocialLibrary } from '#src/libraries/social.js';
 import { createSsoConnectorLibrary } from '#src/libraries/sso-connector.js';
 import { type SubscriptionLibrary } from '#src/libraries/subscription.js';
+import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
 import { createUserLibrary } from '#src/libraries/user.js';
 import { createVerificationStatusLibrary } from '#src/libraries/verification-status.js';
 
@@ -69,6 +70,8 @@ export default class Libraries {
     this.queries,
     this.connectors
   );
+
+  tenantOrganizations = createTenantOrganizationLibrary(this.queries);
 
   customProfileFields = createCustomProfileFieldsLibrary(this.queries);
 

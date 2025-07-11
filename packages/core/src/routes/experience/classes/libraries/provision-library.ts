@@ -17,6 +17,7 @@ import {
 } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { condArray, conditional, conditionalArray, trySafe } from '@silverhand/essentials';
+import { sql } from '@silverhand/slonik';
 
 import { EnvSet } from '#src/env-set/index.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
@@ -266,13 +267,14 @@ export class ProvisionLibrary {
    * First admin user provision
    *
    * - For OSS, update the default sign-in experience to "sign-in only" once the first admin has been created.
-   * - Add the user to the default organization and assign the admin role.
+   * - Add the user to ALL tenant organizations and assign the admin role.
    */
   private async provisionForFirstAdminUser({ id }: User) {
     const { isCloud } = EnvSet.values;
 
     const {
       queries: { signInExperiences, organizations },
+      envSet,
     } = this.tenantContext;
 
     // In OSS, we need to limit sign-in experience to "sign-in only" once
@@ -281,13 +283,43 @@ export class ProvisionLibrary {
       signInMode: isCloud ? SignInMode.SignInAndRegister : SignInMode.SignIn,
     });
 
-    const organizationId = getTenantOrganizationId(defaultTenantId);
-    await organizations.relations.users.insert({ organizationId, userId: id });
-    await organizations.relations.usersRoles.insert({
-      organizationId,
-      userId: id,
-      organizationRoleId: getTenantRole(TenantRole.Admin).id,
-    });
+    // For multi-tenant OSS, add the first admin user to ALL tenant organizations
+    if (!isCloud) {
+             // Get all tenants
+       const sharedPool = await EnvSet.sharedPool;
+      const allTenants = await sharedPool.any<{ id: string }>(sql`
+        select id from tenants;
+      `);
+
+      // Add user to all tenant organizations with admin role
+      for (const tenant of allTenants) {
+        const organizationId = getTenantOrganizationId(tenant.id);
+        
+        try {
+          // Add user to organization
+          await organizations.relations.users.insert({ organizationId, userId: id });
+          
+          // Assign admin role to user in organization
+          await organizations.relations.usersRoles.insert({
+            organizationId,
+            userId: id,
+            organizationRoleId: getTenantRole(TenantRole.Admin).id,
+          });
+        } catch (error) {
+          // Continue with other organizations if one fails
+          console.warn(`Failed to add admin user to organization ${organizationId}:`, error);
+        }
+      }
+    } else {
+      // For cloud, only add to default tenant organization (original behavior)
+      const organizationId = getTenantOrganizationId(defaultTenantId);
+      await organizations.relations.users.insert({ organizationId, userId: id });
+      await organizations.relations.usersRoles.insert({
+        organizationId,
+        userId: id,
+        organizationRoleId: getTenantRole(TenantRole.Admin).id,
+      });
+    }
   }
 
   private readonly getInitialUserRoles = (

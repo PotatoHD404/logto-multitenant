@@ -89,8 +89,6 @@ export const getTenantId = async (
 ): Promise<[tenantId: string | undefined, isCustomDomain: boolean]> => {
   const {
     values: {
-      isMultiTenancy,
-      isPathBasedMultiTenancy,
       isProduction,
       isIntegrationTest,
       developmentTenantId,
@@ -102,52 +100,53 @@ export const getTenantId = async (
   } = EnvSet;
   const pool = await sharedPool;
 
+  // Admin tenant check - always first priority
   if (adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint))) {
     return [adminTenantId, false];
   }
 
+  // Development tenant check
   if ((!isProduction || isIntegrationTest) && developmentTenantId) {
     debugConsole.warn(`Found dev tenant ID ${developmentTenantId}.`);
-
     return [developmentTenantId, false];
   }
 
-  if (!isMultiTenancy) {
-    return [defaultTenantId, false];
-  }
-
-  // For local OSS, implement hybrid routing:
-  // 1. First try custom domain matching
-  // 2. If no custom domain found, fall back to path-based routing
+  // Multi-tenancy is enabled by default
+  // For local OSS: Support both custom domain AND path-based routing simultaneously
+  // For cloud: Use original cloud logic
   if (!isCloud) {
-    // Always try custom domain first in local OSS
+    // Local OSS: Hybrid multi-tenancy approach
+    // 1. First try custom domain matching
     const customDomainTenantId = await getTenantIdFromCustomDomain(url, pool);
-
     if (customDomainTenantId) {
       return [customDomainTenantId, true];
     }
 
-    // If no custom domain found, fall back to path-based routing for non-admin tenants
-    // This allows URLs like /tenant/tenant-id/... to work
+    // 2. Try path-based routing (works with default domain)
     const pathBasedTenantId = matchPathBasedTenantId(urlSet, url);
-    
     if (pathBasedTenantId) {
       return [pathBasedTenantId, false];
     }
 
-    // If neither custom domain nor path-based matching worked, return undefined
+    // 3. For root requests on default domain, return default tenant
+    if (url.origin === urlSet.endpoint.origin && url.pathname === '/') {
+      return [defaultTenantId, false];
+    }
+
+    // 4. No tenant found
     return [undefined, false];
   }
 
-  // For cloud environments, use the original logic
-  if (isPathBasedMultiTenancy) {
-    return [matchPathBasedTenantId(urlSet, url), false];
-  }
-
+  // Cloud environment: Use original cloud logic
   const customDomainTenantId = await getTenantIdFromCustomDomain(url, pool);
-
   if (customDomainTenantId) {
     return [customDomainTenantId, true];
+  }
+
+  // Cloud fallback: domain-based or path-based depending on configuration
+  const { isPathBasedMultiTenancy } = EnvSet.values;
+  if (isPathBasedMultiTenancy) {
+    return [matchPathBasedTenantId(urlSet, url), false];
   }
 
   return [matchDomainBasedTenantId(urlSet.endpoint, url), false];
