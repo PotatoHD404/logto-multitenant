@@ -40,7 +40,11 @@ const reservedRoutes = [
   ...Object.values(GlobalAnonymousRoute),
   ...Object.values(GlobalRoute),
   // OSS-specific pre-tenant routes
-  ...(!isCloud ? [`${ossConsolePath}/welcome`, `${ossConsolePath}/callback`] : []),
+  ...(!isCloud ? [
+    `${ossConsolePath}/welcome`, 
+    `${ossConsolePath}/callback`,
+    `${ossConsolePath}${GlobalRoute.Profile}`, // Profile route for OSS
+  ] : []),
 ];
 
 /**

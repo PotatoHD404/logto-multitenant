@@ -14,7 +14,7 @@ import { toast } from 'react-hot-toast';
 import AppError from '@/components/AppError';
 import AppLoading from '@/components/AppLoading';
 import { TenantsContext } from '@/contexts/TenantsProvider';
-import useApi from '@/hooks/use-api';
+import useApi, { useAdminApi } from '@/hooks/use-api';
 import useRedirectUri from '@/hooks/use-redirect-uri';
 import { saveRedirect } from '@/utils/storage';
 
@@ -38,6 +38,7 @@ function LocalOssInvitationHandler() {
   const redirectUri = useRedirectUri();
   const { invitationId = '' } = useParams();
   const api = useApi();
+  const adminApi = useAdminApi();
   const { navigateTenant, resetTenants } = useContext(TenantsContext);
   const [invitation, setInvitation] = useState<InvitationDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +97,7 @@ function LocalOssInvitationHandler() {
           toast.success(t('invitation.invitation_accepted'));
           
           // Refresh tenant list and navigate to the new tenant
-          const tenants = await api.get('api/tenants').json();
+          const tenants = await adminApi.get('api/tenants').json();
           resetTenants(tenants);
           navigateTenant(result.tenantId);
         } else {

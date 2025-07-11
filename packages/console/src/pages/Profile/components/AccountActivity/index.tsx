@@ -3,7 +3,7 @@ import useSWR from 'swr';
 import { format } from 'date-fns';
 
 import FormCard from '@/components/FormCard';
-import { meApi } from '@/consts';
+import { adminTenantEndpoint, meApi } from '@/consts';
 import { useStaticApi } from '@/hooks/use-api';
 import Table from '@/ds-components/Table';
 import type { Column } from '@/ds-components/Table/types';
@@ -34,7 +34,7 @@ const pageSize = 20;
 
 export default function AccountActivity() {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console.profile.account_activity' });
-  const api = useStaticApi({ prefixUrl: meApi.indicator, resourceIndicator: 'me' });
+  const api = useStaticApi({ prefixUrl: adminTenantEndpoint, resourceIndicator: meApi.indicator });
 
   const { data, error, isLoading } = useSWR<ActivityResponse>(
     buildUrl('activities', {
@@ -126,7 +126,8 @@ export default function AccountActivity() {
     <div className={styles.tableContainer}>
       <Table
         columns={columns}
-        data={activities}
+        rowGroups={[{ key: 'activities', data: activities }]}
+        rowIndexKey="id"
         isLoading={isLoading}
         placeholder={
           <div className={styles.emptyState}>
@@ -149,7 +150,7 @@ export default function AccountActivity() {
   );
 
   return (
-    <FormCard title="Account Activity" description="View recent activities and actions performed on your account.">
+    <FormCard title="profile.account_activity.title" description="profile.account_activity.description">
       {content}
     </FormCard>
   );

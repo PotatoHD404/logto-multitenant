@@ -3,7 +3,7 @@ import useSWR from 'swr';
 import { format } from 'date-fns';
 
 import FormCard from '@/components/FormCard';
-import { meApi } from '@/consts';
+import { adminTenantEndpoint, meApi } from '@/consts';
 import { useStaticApi } from '@/hooks/use-api';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import Button from '@/ds-components/Button';
@@ -33,7 +33,7 @@ const pageSize = 20;
 
 export default function SessionManagement() {
   const { t } = useTranslation(undefined, { keyPrefix: 'profile.session_management' });
-  const api = useStaticApi({ prefixUrl: meApi });
+  const api = useStaticApi({ prefixUrl: adminTenantEndpoint, resourceIndicator: meApi.indicator });
   const { show } = useConfirmModal();
 
   const { data: sessionsData, error, mutate } = useSWR<SessionsResponse>(
@@ -178,10 +178,10 @@ export default function SessionManagement() {
         <div className={styles.tableContainer}>
           <Table
             columns={columns}
-            data={sessions}
-            loading={isLoading}
-            pagination={false}
-            emptyPlaceholder={
+            rowGroups={[{ key: 'sessions', data: sessions }]}
+            rowIndexKey="id"
+            isLoading={isLoading}
+            placeholder={
               <div className={styles.empty}>
                 <p>No active sessions</p>
                 <p>You will see your active sessions here once you sign in on other devices.</p>

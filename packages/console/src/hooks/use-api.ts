@@ -203,8 +203,20 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
    * - In OSS, it uses organization tokens for multi-tenant access, similar to cloud.
    */
   const config = useMemo(
-    () =>
-      isCloud
+    () => {
+      // If no tenant ID is available (e.g., on reserved routes like profile), 
+      // fall back to the default tenant for OSS or don't use organization tokens
+      if (!currentTenantId) {
+        if (isCloud) {
+          throw new Error('Tenant ID is required for cloud environments');
+        }
+        return {
+          prefixUrl: tenantEndpoint,
+          resourceIndicator: getManagementApiResourceIndicator(defaultTenantId),
+        };
+      }
+
+      return isCloud
         ? {
             prefixUrl: appendPath(new URL(window.location.origin), 'm', currentTenantId),
             resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
@@ -214,7 +226,8 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
             // For local OSS multi-tenant, use organization tokens like cloud does
             // This ensures proper organization-based authentication with tenant-specific scopes
             resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
-          },
+          };
+    },
     [currentTenantId, tenantEndpoint]
   );
 

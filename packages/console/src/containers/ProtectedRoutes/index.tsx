@@ -10,7 +10,7 @@ import { searchKeys } from '@/consts';
 import { isCloud } from '@/consts/env';
 import { defaultTenantResponse } from '@/consts/tenants';
 import { TenantsContext } from '@/contexts/TenantsProvider';
-import useApi from '@/hooks/use-api';
+import useApi, { useAdminApi } from '@/hooks/use-api';
 import useRedirectUri from '@/hooks/use-redirect-uri';
 import { saveRedirect } from '@/utils/storage';
 
@@ -45,6 +45,7 @@ type LocalTenantResponse = {
 export default function ProtectedRoutes() {
   const cloudApi = useCloudApi();
   const localApi = useApi();
+  const adminApi = useAdminApi();
   const [searchParameters] = useSearchParams();
   const { isAuthenticated, isLoading, signIn } = useLogto();
   const { isInitComplete, resetTenants } = useContext(TenantsContext);
@@ -68,8 +69,8 @@ export default function ProtectedRoutes() {
             const data = await cloudApi.get('/api/tenants');
             resetTenants(data);
           } else {
-            // For local OSS, load tenants from the local API
-            const localTenants = await localApi.get('api/tenants').json<LocalTenantResponse[]>();
+            // For local OSS, load tenants from the admin API (not regular tenant API)
+            const localTenants = await adminApi.get('api/tenants').json<LocalTenantResponse[]>();
             // Convert local API response to match TenantResponse format
             const tenants: TenantResponse[] = localTenants.map((tenant) => ({
               ...defaultTenantResponse,
@@ -96,7 +97,7 @@ export default function ProtectedRoutes() {
 
       void loadTenants();
     }
-  }, [cloudApi, localApi, isAuthenticated, isInitComplete, resetTenants]);
+  }, [cloudApi, localApi, adminApi, isAuthenticated, isInitComplete, resetTenants]);
 
   if (!isInitComplete || !isAuthenticated) {
     return <AppLoading />;
