@@ -1,4 +1,4 @@
-import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, getManagementApiResourceIndicator, PredefinedScope } from '@logto/schemas';
+import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData, getManagementApiResourceIndicator, PredefinedScope } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { sql } from '@silverhand/slonik';
 import { object, string, nativeEnum, boolean } from 'zod';
@@ -11,6 +11,9 @@ import koaPagination from '#src/middleware/koa-pagination.js';
 import { createTenantAuthMiddleware } from '#src/middleware/koa-tenant-auth.js';
 import assertThat from '#src/utils/assert-that.js';
 import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
+
+// Import OIDC seeding functionality
+import { seedOidcConfigs } from '@logto/cli/lib/commands/database/seed/oidc-config.js';
 
 import type { ManagementApiRouter, RouterInitArgs, ManagementApiRouterContext } from './types.js';
 
@@ -190,107 +193,123 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       const databaseUser = `logto_tenant_${id}`;
       const databaseUserPassword = generateStandardId(32);
 
+      // Use the shared admin pool for tenant management operations
+      // This ensures we have the necessary permissions to create tenants
+      const sharedPool = await EnvSet.sharedPool;
+      
+      // Create tenant record using shared admin pool
+      const newTenant = await sharedPool.one<TenantDatabaseRow>(sql`
+        INSERT INTO tenants (id, name, tag, db_user, db_user_password, created_at, is_suspended)
+        VALUES (${id}, ${name}, ${tag}, ${databaseUser}, ${databaseUserPassword}, NOW(), false)
+        RETURNING id, name, tag, created_at, is_suspended
+      `);
+
+      // Seed OIDC configuration for the new tenant (privateKeys, cookieKeys)
       try {
-        // Use the shared admin pool for tenant management operations
-        // This ensures we have the necessary permissions to create tenants
-        const sharedPool = await EnvSet.sharedPool;
+        await seedOidcConfigs(sharedPool, newTenant.id);
+        console.log(`Successfully seeded OIDC configuration for tenant ${newTenant.id}`);
+      } catch (error) {
+        console.error(`Failed to seed OIDC configuration for tenant ${newTenant.id}:`, error);
+        // Don't throw error as this shouldn't block tenant creation
+      }
+
+      try {
+        // Create Management API resource in admin tenant (for admin management)
+        const adminData = createOssAdminData(newTenant.id);
         
-        // Create tenant record using shared admin pool
-        const tenant = await sharedPool.one<TenantDatabaseRow>(sql`
-          INSERT INTO tenants (id, name, tag, db_user, db_user_password, created_at, is_suspended)
-          VALUES (${id}, ${name}, ${tag}, ${databaseUser}, ${databaseUserPassword}, NOW(), false)
-          RETURNING id, name, tag, created_at, is_suspended
+        // Insert resource in admin tenant
+        await sharedPool.query(sql`
+          INSERT INTO resources (id, tenant_id, name, indicator, access_token_ttl)
+          VALUES (${adminData.resource.id}, ${adminData.resource.tenantId}, ${adminData.resource.name}, ${adminData.resource.indicator}, ${3600})
         `);
 
-        // Create Management API resource for the new tenant
-        try {
-          const adminData = createOssAdminData(tenant.id);
-          
-          // Insert the Management API resource
+        // Insert scopes in admin tenant
+        for (const scope of adminData.scopes) {
           await sharedPool.query(sql`
-            INSERT INTO resources (id, tenant_id, indicator, name, access_token_ttl, is_default)
-            VALUES (${adminData.resource.id}, ${adminData.resource.tenantId}, ${adminData.resource.indicator}, ${adminData.resource.name}, ${adminData.resource.accessTokenTtl}, ${adminData.resource.isDefault})
+            INSERT INTO scopes (id, tenant_id, resource_id, name, description)
+            VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
+          `);
+        }
+
+        // Create Management API resource in the new tenant's own context (for its OIDC provider)
+        const tenantOwnData = createAdminData(newTenant.id);
+        
+        // Insert resource in new tenant's own context
+        await sharedPool.query(sql`
+          INSERT INTO resources (id, tenant_id, name, indicator, access_token_ttl)
+          VALUES (${tenantOwnData.resource.id}, ${tenantOwnData.resource.tenantId}, ${tenantOwnData.resource.name}, ${tenantOwnData.resource.indicator}, ${3600})
+        `);
+
+        // Insert scopes in new tenant's own context
+        for (const scope of tenantOwnData.scopes) {
+          await sharedPool.query(sql`
+            INSERT INTO scopes (id, tenant_id, resource_id, name, description)
+            VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
+          `);
+        }
+        
+        // Grant the admin tenant 'user' role access to the new tenant's Management API
+        // This allows users in the admin tenant to manage the new tenant
+        try {
+          // Find the admin tenant 'user' role
+          const userRole = await sharedPool.maybeOne<{ id: string }>(sql`
+            SELECT id FROM roles WHERE tenant_id = ${adminTenantId} AND name = 'user'
           `);
           
-          // Insert the Management API scopes
-          for (const scope of adminData.scopes) {
-            await sharedPool.query(sql`
-              INSERT INTO scopes (id, tenant_id, resource_id, name, description)
-              VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
-            `);
-          }
-          
-          // Grant the admin tenant 'user' role access to the new tenant's Management API
-          // This allows users in the admin tenant to manage the new tenant
-          try {
-            // Find the admin tenant 'user' role
-            const userRole = await sharedPool.maybeOne<{ id: string }>(sql`
-              SELECT id FROM roles WHERE tenant_id = ${adminTenantId} AND name = 'user'
-            `);
-            
-            if (userRole) {
-              // Assign all new tenant Management API scopes to the user role
-              for (const scope of adminData.scopes) {
-                // Check if assignment already exists to avoid constraint violation
-                const existingAssignment = await sharedPool.maybeOne(sql`
-                  SELECT id FROM roles_scopes 
-                  WHERE tenant_id = ${adminTenantId} 
-                  AND role_id = ${userRole.id} 
-                  AND scope_id = ${scope.id}
+          if (userRole) {
+            // Assign all new tenant Management API scopes to the user role
+            for (const scope of adminData.scopes) {
+              // Check if assignment already exists to avoid constraint violation
+              const existingAssignment = await sharedPool.maybeOne(sql`
+                SELECT id FROM roles_scopes 
+                WHERE tenant_id = ${adminTenantId} 
+                AND role_id = ${userRole.id} 
+                AND scope_id = ${scope.id}
+              `);
+              
+              if (!existingAssignment) {
+                await sharedPool.query(sql`
+                  INSERT INTO roles_scopes (id, tenant_id, role_id, scope_id)
+                  VALUES (${generateStandardId()}, ${adminTenantId}, ${userRole.id}, ${scope.id})
                 `);
-                
-                if (!existingAssignment) {
-                  await sharedPool.query(sql`
-                    INSERT INTO roles_scopes (id, tenant_id, role_id, scope_id)
-                    VALUES (${generateStandardId()}, ${adminTenantId}, ${userRole.id}, ${scope.id})
-                  `);
-                }
               }
-              console.log(`Successfully granted user role access to tenant ${tenant.id} Management API`);
             }
-          } catch (error) {
-            console.error(`Failed to grant user role access to tenant ${tenant.id} Management API:`, error);
-            // Don't throw as this shouldn't block tenant creation
+            console.log(`Successfully granted user role access to tenant ${newTenant.id} Management API`);
           }
-          
-          console.log(`Successfully created Management API resource for tenant ${tenant.id}`);
         } catch (error) {
-          console.error(`Failed to create Management API resource for tenant ${tenant.id}:`, error);
-          // Don't throw error as this shouldn't block tenant creation
+          console.error(`Failed to grant user role access to tenant ${newTenant.id} Management API:`, error);
+          // Don't throw as this shouldn't block tenant creation
         }
-
-        // Initialize tenant organization in the admin tenant
-        // This creates an organization in the admin tenant that represents this tenant
-        // for user management purposes
-        try {
-          await tenantOrg.ensureTenantOrganization(tenant.id, tenant.name);
-          
-          // Assign the creating user as an admin of the new tenant
-          const userId = ctx.auth.id;
-          await tenantOrg.addUserToTenant(tenant.id, userId, TenantRole.Admin);
-        } catch (error) {
-          // If organization creation or user assignment fails, log the error but don't block tenant creation
-          // The organization and user assignment can be created later when needed
-          console.error(`Failed to initialize tenant organization or assign user for tenant ${tenant.id}:`, error);
-        }
-
-        ctx.status = 201;
-        ctx.body = {
-          id: tenant.id,
-          name: tenant.name,
-          tag: tenant.tag,
-          createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
-          isSuspended: tenant.is_suspended,
-        };
+        
+        console.log(`Successfully created Management API resource for tenant ${newTenant.id}`);
       } catch (error) {
-        if (error instanceof Error && error.message.includes('duplicate key')) {
-          throw new RequestError({
-            code: 'entity.create_failed',
-            status: 409,
-          });
-        }
-        throw error;
+        console.error(`Failed to create Management API resource for tenant ${newTenant.id}:`, error);
+        // Don't throw error as this shouldn't block tenant creation
       }
+
+      // Initialize tenant organization in the admin tenant
+      // This creates an organization in the admin tenant that represents this tenant
+      // for user management purposes
+      try {
+        await tenantOrg.ensureTenantOrganization(newTenant.id, newTenant.name);
+        
+        // Assign the creating user as an admin of the new tenant
+        const userId = ctx.auth.id;
+        await tenantOrg.addUserToTenant(newTenant.id, userId, TenantRole.Admin);
+      } catch (error) {
+        // If organization creation or user assignment fails, log the error but don't block tenant creation
+        // The organization and user assignment can be created later when needed
+        console.error(`Failed to initialize tenant organization or assign user for tenant ${newTenant.id}:`, error);
+      }
+
+      ctx.status = 201;
+      ctx.body = {
+        id: newTenant.id,
+        name: newTenant.name,
+        tag: newTenant.tag,
+        createdAt: newTenant.created_at ? newTenant.created_at.toISOString() : new Date().toISOString(),
+        isSuspended: newTenant.is_suspended,
+      };
 
       return next();
     }
