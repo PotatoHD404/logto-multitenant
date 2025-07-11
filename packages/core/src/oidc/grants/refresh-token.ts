@@ -25,7 +25,6 @@ import type { Provider } from 'oidc-provider';
 import { errors } from 'oidc-provider';
 import difference from 'oidc-provider/lib/helpers/_/difference.js';
 import filterClaims from 'oidc-provider/lib/helpers/filter_claims.js';
-import resolveResource from 'oidc-provider/lib/helpers/resolve_resource.js';
 import revoke from 'oidc-provider/lib/helpers/revoke.js';
 import validatePresence from 'oidc-provider/lib/helpers/validate_presence.js';
 import instance from 'oidc-provider/lib/helpers/weak_cache.js';
@@ -34,6 +33,7 @@ import { type EnvSet } from '#src/env-set/index.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
 
+import { findResource } from '../resource.js';
 import {
   handleClientCertificate,
   handleDPoP,
@@ -245,24 +245,32 @@ export const buildHandler: (
     });
     /* === End RFC 0001 === */
   } else {
-    const resource = await resolveResource(
-      ctx,
-      refreshToken,
-      { userinfo, resourceIndicators },
-      scope
-    );
+    // For resource indicators, check if the resource exists using our findResource function
+    // but then use the original logic for scope resolution
+    let resourceIndicator: string | undefined;
+    
+    if (params.resource) {
+      const requestedResource = typeof params.resource === 'string' ? params.resource : undefined;
+      if (requestedResource) {
+        // Validate that the resource exists using our custom findResource
+        const resource = await findResource(queries, requestedResource);
+        if (resource) {
+          resourceIndicator = requestedResource;
+        }
+      }
+    }
 
-    if (resource) {
+    if (resourceIndicator) {
       const resourceServerInfo = await resourceIndicators.getResourceServerInfo(
         ctx,
-        resource,
+        resourceIndicator,
         client
       );
       // @ts-expect-error -- code from oidc-provider
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-      at.resourceServer = new provider.ResourceServer(resource, resourceServerInfo);
+      at.resourceServer = new provider.ResourceServer(resourceIndicator, resourceServerInfo);
       at.scope = grant.getResourceScopeFiltered(
-        resource,
+        resourceIndicator,
         // @ts-expect-error -- code from oidc-provider
         [...scope].filter(Set.prototype.has.bind(at.resourceServer.scopes))
       );

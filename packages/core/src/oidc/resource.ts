@@ -85,6 +85,47 @@ export const findResourceScopes = async ({
     }
   }
 
+  // Handle management API resources
+  if (isManagementApiResource(indicator)) {
+    const tenantId = extractTenantIdFromManagementApiResource(indicator);
+    if (tenantId) {
+      // For management API resources, we need to get the management API resource from the database
+      // and then find scopes for that resource using the existing logic
+      const managementApiResource = await queries.resources.findResourceByIndicator(
+        getManagementApiResourceIndicator(tenantId)
+      );
+      
+      if (managementApiResource) {
+        // Use the existing scope resolution logic with the database resource
+        const { users: { findUserScopesForResourceIndicator }, applications: { findApplicationScopesForResourceIndicator } } = libraries;
+        
+        if (userId) {
+          return findUserScopesForResourceIndicator(
+            userId,
+            managementApiResource.indicator,
+            findFromOrganizations,
+            organizationId
+          );
+        }
+
+        if (applicationId && organizationId) {
+          return queries.organizations.relations.appsRoles.getApplicationResourceScopes(
+            organizationId,
+            applicationId,
+            managementApiResource.indicator
+          );
+        }
+
+        if (applicationId) {
+          return findApplicationScopesForResourceIndicator(applicationId, managementApiResource.indicator);
+        }
+      }
+      
+      // Fallback: return empty array if no specific scopes found
+      return [];
+    }
+  }
+
   const {
     users: { findUserScopesForResourceIndicator },
     applications: { findApplicationScopesForResourceIndicator },
