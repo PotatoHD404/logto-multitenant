@@ -103,17 +103,15 @@ function Profile() {
                     ]}
                   />
                 </FormCard>
-                {isCloud && (
-                  <FormCard title="profile.delete_account.title">
-                    <div className={styles.deleteAccount}>
-                      <div className={styles.description}>
-                        {t('profile.delete_account.description')}
-                      </div>
-                      <Button title="profile.delete_account.button" onClick={show} />
+                <FormCard title="profile.delete_account.title">
+                  <div className={styles.deleteAccount}>
+                    <div className={styles.description}>
+                      {t('profile.delete_account.description')}
                     </div>
-                    <DeleteAccountModal isOpen={showDeleteAccountModal} onClose={hide} />
-                  </FormCard>
-                )}
+                    <Button title="profile.delete_account.button" onClick={show} />
+                  </div>
+                  <DeleteAccountModal isOpen={showDeleteAccountModal} onClose={hide} />
+                </FormCard>
               </div>
             )}
           </div>

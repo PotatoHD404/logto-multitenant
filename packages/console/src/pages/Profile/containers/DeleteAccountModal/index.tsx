@@ -2,10 +2,12 @@ import { ReservedPlanId } from '@logto/schemas';
 import { useContext } from 'react';
 import ReactModal from 'react-modal';
 
+import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import modalStyles from '@/scss/modal.module.scss';
 
 import DeletionConfirmationModal from './components/DeletionConfirmationModal';
+import OssDeleteAccountModal from './components/OssDeleteAccountModal';
 import TenantsIssuesModal from './components/TenantsIssuesModal';
 
 type Props = {
@@ -14,6 +16,22 @@ type Props = {
 };
 
 export default function DeleteAccountModal({ isOpen, onClose }: Props) {
+  // For OSS, use a simpler delete account modal
+  if (!isCloud) {
+    return (
+      <ReactModal
+        shouldCloseOnEsc
+        isOpen={isOpen}
+        className={modalStyles.content}
+        overlayClassName={modalStyles.overlay}
+        onRequestClose={onClose}
+      >
+        <OssDeleteAccountModal onClose={onClose} />
+      </ReactModal>
+    );
+  }
+
+  // Cloud version with tenant management
   const { tenants } = useContext(TenantsContext);
   const paidPlans = tenants.filter(
     ({ planId }) => planId !== ReservedPlanId.Free && planId !== ReservedPlanId.Development

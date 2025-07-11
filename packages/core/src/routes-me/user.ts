@@ -18,11 +18,11 @@ export default function userRoutes<T extends AuthedMeRouter>(
 ) {
   const {
     queries: {
-      users: { findUserById, updateUserById },
+      users: { findUserById, updateUserById, deleteUserById },
       signInExperiences: { findDefaultSignInExperience },
     },
     libraries: {
-      users: { checkIdentifierCollision, verifyUserPassword },
+      users: { checkIdentifierCollision, verifyUserPassword, signOutUser },
       verificationStatuses: { createVerificationStatus, checkVerificationStatus },
     },
   } = tenant;
@@ -69,6 +69,26 @@ export default function userRoutes<T extends AuthedMeRouter>(
 
       const updatedUser = await updateUserById(userId, body);
       ctx.body = pick(updatedUser, ...userInfoSelectFields);
+
+      return next();
+    }
+  );
+
+  router.delete(
+    '/',
+    async (ctx, next) => {
+      const { id: userId } = ctx.auth;
+
+      const user = await findUserById(userId);
+      assertThat(!user.isSuspended, new RequestError({ code: 'user.suspended', status: 401 }));
+
+      // Sign out the user before deleting the account
+      await signOutUser(userId);
+      
+      // Delete the user account
+      await deleteUserById(userId);
+
+      ctx.status = 204;
 
       return next();
     }
