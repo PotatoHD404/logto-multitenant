@@ -9,10 +9,15 @@ import { koaManagementApiHooks } from '#src/middleware/koa-management-api-hooks.
 import koaTenantGuard from '#src/middleware/koa-tenant-guard.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 
-import koaAuth from '../middleware/koa-auth/index.js';
+import koaAuth, { verifyBearerTokenFromRequest } from '../middleware/koa-auth/index.js';
 import koaOidcAuth from '../middleware/koa-auth/koa-oidc-auth.js';
 import koaCors from '../middleware/koa-cors.js';
 import { buildOrganizationUrn } from '@logto/core-kit';
+import type { MiddlewareType } from 'koa';
+import type { IRouterParamContext } from 'koa-router';
+import type { WithAuthContext } from '../middleware/koa-auth/index.js';
+import RequestError from '../errors/RequestError/index.js';
+import assertThat from '../utils/assert-that.js';
 
 import { accountApiPrefix } from './account/constants.js';
 import accountRoutes from './account/index.js';
@@ -65,6 +70,48 @@ import verificationCodeRoutes from './verification-code.js';
 import wellKnownRoutes from './well-known/index.js';
 import wellKnownOpenApiRoutes from './well-known/well-known.openapi.js';
 
+/**
+ * Custom organization auth middleware for management API that accepts organization tokens
+ * without requiring the 'all' scope.
+ */
+function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
+  tenant: TenantContext
+): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
+  const organizationUrn = buildOrganizationUrn(getTenantOrganizationId(tenant.id));
+  
+  return async (ctx, next) => {
+    const { sub, clientId, scopes } = await verifyBearerTokenFromRequest(
+      tenant.envSet,
+      ctx.request,
+      organizationUrn,
+      tenant
+    );
+
+    // For organization tokens, validate that the user has appropriate scopes
+    // Don't require 'all' scope - organization tokens have specific scopes
+    const hasValidScopes = scopes.some(scope => 
+      scope === 'all' || 
+      scope.includes('manage:') || 
+      scope.includes('read:') || 
+      scope.includes('write:') || 
+      scope.includes('delete:')
+    );
+
+    assertThat(
+      hasValidScopes,
+      new RequestError({ code: 'auth.forbidden', status: 403 })
+    );
+
+    ctx.auth = {
+      type: sub === clientId ? 'app' : 'user',
+      id: sub,
+      scopes: new Set(scopes),
+    };
+
+    return next();
+  };
+}
+
 const createRouters = (tenant: TenantContext) => {
   const interactionRouter: AnonymousRouter = new Router();
   /** @deprecated */
@@ -75,9 +122,9 @@ const createRouters = (tenant: TenantContext) => {
   experienceApiRoutes(experienceRouter, tenant);
 
   const managementRouter: ManagementApiRouter = new Router();
-  // Use organization-based authentication for consistency with console frontend
-  // This ensures management API endpoints accept organization tokens instead of resource-based tokens
-  managementRouter.use(koaAuth(tenant.envSet, buildOrganizationUrn(getTenantOrganizationId(tenant.id))));
+  // Use custom organization auth middleware for management API
+  // This accepts organization tokens without requiring 'all' scope
+  managementRouter.use(koaOrganizationManagementAuth(tenant));
   managementRouter.use(koaTenantGuard(tenant.id, tenant.queries));
   managementRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
 

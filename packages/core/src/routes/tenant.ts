@@ -129,15 +129,15 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
   const { queries } = tenant;
   const tenantOrg = createTenantOrganizationLibrary(queries);
   
-  // Create flexible tenant management auth middleware
+  // Simple auth check - rely on management router's auth middleware for JWT verification
   const koaTenantManagementAuth: MiddlewareType<unknown, WithAuthContext<ManagementApiRouterContext>, unknown> = async (ctx, next) => {
-    // Ensure the user is authenticated
+    // Ensure the user is authenticated (JWT verification handled by management router)
     assertThat(ctx.auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
 
     const { scopes } = ctx.auth;
 
     // Check if user has any tenant management scope
-    // This allows cross-tenant access for users with appropriate permissions
+    // Organization tokens should have the necessary scopes for tenant management
     const hasTenantManagementScope = 
       scopes.has(PredefinedScope.All) ||
       scopes.has('manage:tenant') ||
@@ -150,7 +150,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       new RequestError({ 
         code: 'auth.forbidden', 
         status: 403,
-        data: { message: 'Missing required tenant management scopes' }
+        data: { message: 'Missing required tenant management scopes', availableScopes: Array.from(scopes) }
       })
     );
 
