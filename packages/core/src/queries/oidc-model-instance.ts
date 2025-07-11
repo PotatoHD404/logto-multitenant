@@ -12,6 +12,8 @@ import { buildInsertIntoWithPool } from '#src/database/insert-into.js';
 import { DeletionError } from '#src/errors/SlonikError/index.js';
 import { convertToIdentifiers, convertToTimestamp } from '#src/utils/sql.js';
 import { type EnvSet } from '#src/env-set/index.js';
+import { JwtBlacklistCache, JwtBlacklistCacheKey } from '#src/caches/jwt-blacklist.js';
+import { type CacheStore } from '#src/caches/types.js';
 
 export type WithConsumed<T> = T & { consumed?: boolean };
 export type QueryResult = Pick<OidcModelInstance, 'payload' | 'consumedAt'>;
@@ -74,7 +76,11 @@ const jwtBlacklistTable = convertToIdentifiers({
   }
 });
 
-export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?: EnvSet) => {
+export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?: EnvSet, cacheStore?: CacheStore) => {
+  
+  // Initialize JWT blacklist cache if cache store is available
+  const jwtBlacklistCache = cacheStore && envSet ? new JwtBlacklistCache(envSet.tenantId, cacheStore) : undefined;
+
   const upsertInstance = buildInsertIntoWithPool(pool)(OidcModelInstances, {
     onConflict: {
       fields: [fields.tenantId, fields.modelName, fields.id],
@@ -181,7 +187,7 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?
   };
 
   /**
-   * Add a JWT token to the blacklist
+   * Add a JWT token to the blacklist with cache invalidation
    */
   const addToJwtBlacklist = async (jti: string, userId: string, sessionUid: string, expiresAt: Date, tenantId?: string) => {
     await pool.query(sql`
@@ -204,12 +210,27 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?
       )
       on conflict (${jwtBlacklistTable.fields.jti}, ${jwtBlacklistTable.fields.tenantId}) do nothing
     `);
+
+    // Cache the blacklisted status for future lookups
+    if (jwtBlacklistCache) {
+      await jwtBlacklistCache.set(JwtBlacklistCacheKey.JwtBlacklist, jti, true, 
+        Math.floor((expiresAt.getTime() - Date.now()) / 1000)); // TTL in seconds until token expires
+    }
   };
 
   /**
-   * Check if a JWT token is blacklisted
+   * Check if a JWT token is blacklisted with Redis caching
    */
   const isJwtBlacklisted = async (jti: string) => {
+    // Try cache first if available
+    if (jwtBlacklistCache) {
+      const cached = await jwtBlacklistCache.get(JwtBlacklistCacheKey.JwtBlacklist, jti);
+      if (cached !== undefined) {
+        return cached;
+      }
+    }
+
+    // Fallback to database query
     const result = await pool.maybeOne<{ count: string }>(sql`
       select count(*) as count
       from ${jwtBlacklistTable.table}
@@ -217,7 +238,20 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?
         and ${jwtBlacklistTable.fields.expiresAt} > now()
     `);
     
-    return (result?.count ?? '0') !== '0';
+    const isBlacklisted = (result?.count ?? '0') !== '0';
+
+    // Cache the result with TTL if cache is available
+    if (jwtBlacklistCache) {
+      if (isBlacklisted) {
+        // If blacklisted, cache for a shorter time (15 minutes) to ensure expiration cleanup
+        await jwtBlacklistCache.set(JwtBlacklistCacheKey.JwtBlacklist, jti, true, 15 * 60);
+      } else {
+        // If not blacklisted, cache for a shorter time (5 minutes) to allow for quick invalidation if added
+        await jwtBlacklistCache.set(JwtBlacklistCacheKey.JwtBlacklist, jti, false, 5 * 60);
+      }
+    }
+
+    return isBlacklisted;
   };
 
   /**

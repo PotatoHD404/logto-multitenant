@@ -61,7 +61,7 @@ export default class Tenant implements TenantContext {
       // Custom endpoint is used for building OIDC issuer URL when the request is a custom domain
       await envSet.load(customDomain);
 
-      return new Tenant(envSet, id, new WellKnownCache(id, redisCache));
+      return new Tenant(envSet, id, new WellKnownCache(id, redisCache), redisCache);
     } catch (error) {
       consoleLog.error('Failed to create tenant:', id, error);
       throw error;
@@ -82,7 +82,8 @@ export default class Tenant implements TenantContext {
     public readonly envSet: EnvSet,
     public readonly id: string,
     public readonly wellKnownCache: WellKnownCache,
-    public readonly queries = new Queries(envSet.pool, wellKnownCache, id),
+    public readonly redisCache: CacheStore,
+    public readonly queries = new Queries(envSet.pool, wellKnownCache, id, envSet, redisCache),
     public readonly logtoConfigs = createLogtoConfigLibrary(queries),
     public readonly cloudConnection = createCloudConnectionLibrary(logtoConfigs),
     public readonly connectors = createConnectorLibrary(queries, cloudConnection),

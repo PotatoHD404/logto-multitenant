@@ -1,6 +1,8 @@
 import type { CommonQueryMethods } from '@silverhand/slonik';
 
 import { type WellKnownCache } from '#src/caches/well-known.js';
+import { type CacheStore } from '#src/caches/types.js';
+import { type EnvSet } from '#src/env-set/index.js';
 import { ApplicationSecretQueries } from '#src/queries/application-secrets.js';
 import createApplicationSignInExperienceQueries from '#src/queries/application-sign-in-experience.js';
 import { createApplicationQueries } from '#src/queries/application.js';
@@ -53,7 +55,7 @@ export default class Queries {
   customPhrases = createCustomPhraseQueries(this.pool, this.wellKnownCache);
   customProfileFields = createCustomProfileFieldsQueries(this.pool);
   logs = createLogQueries(this.pool);
-  oidcModelInstances = createOidcModelInstanceQueries(this.pool);
+  oidcModelInstances = createOidcModelInstanceQueries(this.pool, this.envSet, this.cacheStore);
   passcodes = createPasscodeQueries(this.pool);
   resources = createResourceQueries(this.pool);
   rolesScopes = createRolesScopesQueries(this.pool);
@@ -92,6 +94,8 @@ export default class Queries {
   constructor(
     public readonly pool: CommonQueryMethods,
     public readonly wellKnownCache: WellKnownCache,
-    public readonly tenantId: string
+    public readonly tenantId: string,
+    public readonly envSet?: EnvSet,
+    public readonly cacheStore?: CacheStore
   ) {}
 }
