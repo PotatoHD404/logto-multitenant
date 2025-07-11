@@ -1,7 +1,7 @@
 import { defaultTenantId, TenantTag, ossConsolePath } from '@logto/schemas';
 import { conditionalArray, noop } from '@silverhand/essentials';
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, createContext, useState } from 'react';
+import { useCallback, useMemo, createContext, useState, useEffect } from 'react';
 import { useMatch, useNavigate, useLocation } from 'react-router-dom';
 
 import { type TenantResponse } from '@/cloud/types/router';

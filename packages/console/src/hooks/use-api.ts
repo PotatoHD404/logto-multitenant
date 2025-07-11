@@ -210,10 +210,11 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
         if (isCloud) {
           throw new Error('Tenant ID is required for cloud environments');
         }
+        const organizationId = getTenantOrganizationId(defaultTenantId);
         return {
           prefixUrl: tenantEndpoint,
           // Use organization token for default tenant instead of resource-based token
-          resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(defaultTenantId)),
+          resourceIndicator: buildOrganizationUrn(organizationId),
         };
       }
 
@@ -224,8 +225,6 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
           }
         : {
             prefixUrl: tenantEndpoint,
-            // For local OSS multi-tenant, use organization tokens like cloud does
-            // This ensures proper organization-based authentication with tenant-specific scopes
             resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
           };
     },
@@ -248,17 +247,23 @@ export default useApi;
 /**
  * A hook to get a Ky instance specifically for admin tenant operations.
  * This is used for tenant management operations in OSS deployments.
- * Uses organization tokens for consistency with the main useApi hook.
+ * Uses the current tenant's organization token for proper access control.
  */
 export const useAdminApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}) => {
+  const { currentTenantId } = useContext(TenantsContext);
+  
   const config = useMemo(
-    () => ({
-      prefixUrl: adminTenantEndpoint,
-      // Use organization token for admin tenant operations instead of resource-based token
-      // This ensures consistency with the main useApi hook and cloud behavior
-      resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(adminTenantId)),
-    }),
-    []
+    () => {
+      // Use current tenant's organization token, fallback to default tenant if not available
+      const tenantId = currentTenantId || defaultTenantId;
+      return {
+        prefixUrl: adminTenantEndpoint,
+        // Use organization token for current tenant instead of hardcoded admin tenant
+        // This ensures proper access control based on user's tenant membership
+        resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(tenantId)),
+      };
+    },
+    [currentTenantId]
   );
 
   return useStaticApi({

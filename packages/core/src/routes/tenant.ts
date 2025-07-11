@@ -1,4 +1,4 @@
-import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData, getManagementApiResourceIndicator, PredefinedScope } from '@logto/schemas';
+import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData, getManagementApiResourceIndicator, PredefinedScope, getTenantOrganizationId } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { sql } from '@silverhand/slonik';
 import { object, string, nativeEnum, boolean } from 'zod';
@@ -16,6 +16,23 @@ import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organizat
 import { seedOidcConfigs } from '@logto/cli/lib/commands/database/seed/oidc-config.js';
 
 import type { ManagementApiRouter, RouterInitArgs, ManagementApiRouterContext } from './types.js';
+
+const tenantResponseGuard = object({
+  id: string(),
+  name: string(),
+  tag: nativeEnum(TenantTag),
+  createdAt: string(),
+  isSuspended: boolean().optional(),
+});
+
+// Helper function to convert tenant database row to LocalTenantResponse format
+const convertTenantToLocalTenantResponse = (tenant: any) => ({
+  id: tenant.id,
+  name: tenant.name,
+  tag: tenant.tag,
+  createdAt: tenant.createdAt ? new Date(tenant.createdAt).toISOString() : new Date().toISOString(),
+  isSuspended: tenant.isSuspended || false,
+});
 
 /**
  * Create admin data for OSS installations - only includes resource and scopes,
@@ -82,14 +99,6 @@ type TenantWithDatabaseUser = {
   db_user: string;
 };
 
-const tenantResponseGuard = object({
-  id: string(),
-  name: string(),
-  tag: nativeEnum(TenantTag),
-  createdAt: string(),
-  isSuspended: boolean().optional(),
-});
-
 const createTenantGuard = object({
   name: string().min(1).max(128),
   // For local OSS, use Production tag (no dev/prod distinction)
@@ -119,10 +128,12 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
   const { queries } = tenant;
   const tenantOrg = createTenantOrganizationLibrary(queries);
   
-  // Create tenant auth middleware with the ACTUAL current tenant ID from context
-  // This allows each tenant to have its own management context
+  // Use current tenant authentication for all operations
+  // Users access tenant APIs through their tenant context (e.g., t-default for default tenant)
   const { koaTenantReadAuth, koaTenantWriteAuth, koaTenantDeleteAuth } = createTenantAuthMiddleware(queries, tenant.id);
 
+  // List all tenants that the authenticated user has access to
+  // If user can authenticate to this tenant, show all tenants they're a member of
   router.get(
     '/tenants',
     koaPagination({ isOptional: true }),
@@ -133,56 +144,64 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     koaTenantReadAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { limit, offset, disabled } = ctx.pagination;
-
-      if (disabled) {
-              const sharedPool = await EnvSet.sharedPool;
-      const tenants = await sharedPool.any<TenantDatabaseRow>(sql`
+      const { auth } = ctx;
+      
+      assertThat(auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
+      
+      const { id: userId } = auth;
+      
+      // Get all tenants from database
+      const sharedPool = await EnvSet.sharedPool;
+      const allTenants = await sharedPool.any<TenantDatabaseRow>(sql`
         SELECT id, name, tag, created_at, is_suspended
         FROM tenants 
         ORDER BY created_at DESC
       `);
-        ctx.body = tenants.map((tenant) => ({
-          id: tenant.id,
-          name: tenant.name,
-          tag: tenant.tag,
-          createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
-          isSuspended: tenant.is_suspended,
-        }));
-        return next();
+      
+      // Filter tenants based on user's organization membership
+      const accessibleTenants = [];
+      for (const tenant of allTenants) {
+        try {
+          // Check if user is a member of this tenant's organization
+          const organizationId = getTenantOrganizationId(tenant.id);
+          const isMember = await queries.organizations.relations.users.exists({
+            organizationId,
+            userId,
+          });
+          
+          if (isMember) {
+            accessibleTenants.push(tenant);
+          }
+        } catch {
+          // If we can't check membership, skip this tenant
+          continue;
+        }
       }
-
-      const sharedPool = await EnvSet.sharedPool;
-      const [countResult, tenants] = await Promise.all([
-        sharedPool.one<CountResult>(
-          sql`SELECT COUNT(*) as count FROM tenants`
-        ),
-        sharedPool.any<TenantDatabaseRow>(sql`
-          SELECT id, name, tag, created_at, is_suspended
-          FROM tenants 
-          ORDER BY created_at DESC
-          LIMIT ${limit} OFFSET ${offset}
-        `),
-      ]);
-
-      ctx.pagination.totalCount = Number(countResult.count);
-      ctx.body = tenants.map((tenant) => ({
+      
+      // Apply pagination to filtered results
+      const totalCount = accessibleTenants.length;
+      const paginatedTenants = accessibleTenants.slice(offset, offset + limit);
+      
+      ctx.body = paginatedTenants.map((tenant) => ({
         id: tenant.id,
         name: tenant.name,
         tag: tenant.tag,
         createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
         isSuspended: tenant.is_suspended,
       }));
+      ctx.pagination = { limit, offset, totalCount };
 
       return next();
     }
   );
 
+  // Create new tenant - requires write access to current tenant
   router.post(
     '/tenants',
     koaGuard({
       body: createTenantGuard,
       response: tenantResponseGuard,
-      status: [201, 400, 409],
+      status: [201, 400, 403, 422],
     }),
     koaTenantWriteAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
@@ -315,6 +334,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     }
   );
 
+  // Get single tenant - use current tenant auth
   router.get(
     '/tenants/:id',
     koaGuard({
@@ -325,7 +345,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     koaTenantReadAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { id } = ctx.guard.params;
-
+      
       const sharedPool = await EnvSet.sharedPool;
       const tenant = await sharedPool.maybeOne<TenantDatabaseRow>(sql`
         SELECT id, name, tag, created_at, is_suspended
@@ -353,6 +373,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     }
   );
 
+  // Update tenant - use current tenant auth
   router.patch(
     '/tenants/:id',
     koaGuard({
@@ -427,6 +448,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     }
   );
 
+  // Delete tenant - use current tenant auth
   router.delete(
     '/tenants/:id',
     koaGuard({

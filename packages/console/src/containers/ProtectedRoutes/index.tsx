@@ -43,14 +43,15 @@ type LocalTenantResponse = {
  * Note that the `ProtectedRoutes` component should be put in a {@link https://reactrouter.com/en/main/start/concepts#pathless-routes | pathless route}.
  */
 export default function ProtectedRoutes() {
-  const cloudApi = useCloudApi();
-  const localApi = useApi();
-  const adminApi = useAdminApi();
-  const [searchParameters] = useSearchParams();
   const { isAuthenticated, isLoading, signIn } = useLogto();
   const { isInitComplete, resetTenants } = useContext(TenantsContext);
   const redirectUri = useRedirectUri();
   const match = useMatch('/accept/:invitationId');
+  const [searchParameters] = useSearchParams();
+
+  const localApi = useApi({ hideErrorToast: true });
+  const adminApi = useAdminApi({ hideErrorToast: true });
+  const cloudApi = useCloudApi({ hideErrorToast: true });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -69,10 +70,12 @@ export default function ProtectedRoutes() {
             const data = await cloudApi.get('/api/tenants');
             resetTenants(data);
           } else {
-            // For local OSS, load tenants from the admin API (not regular tenant API)
-            const localTenants = await adminApi.get('api/tenants').json<LocalTenantResponse[]>();
+            // For local OSS, use admin API with admin organization tokens
+            // This will show all tenants the user has access to based on organization membership
+            const tenants = await adminApi.get('/api/tenants').json<LocalTenantResponse[]>();
+            
             // Convert local API response to match TenantResponse format
-            const tenants: TenantResponse[] = localTenants.map((tenant) => ({
+            const tenantResponses: TenantResponse[] = tenants.map((tenant) => ({
               ...defaultTenantResponse,
               id: tenant.id,
               name: tenant.name,
@@ -80,24 +83,17 @@ export default function ProtectedRoutes() {
               createdAt: new Date(tenant.createdAt),
               isSuspended: tenant.isSuspended || false,
             }));
-            resetTenants(tenants);
+            resetTenants(tenantResponses);
           }
         } catch (error) {
-          console.error('Failed to fetch tenants:', error);
-          // If tenant fetching fails, fallback to default tenant for OSS
-          if (!isCloud) {
-            console.warn('Falling back to default tenant configuration');
-            resetTenants([defaultTenantResponse]);
-          } else {
-            // For cloud, we can't function without tenants, so re-throw
-            throw error;
-          }
+          console.error('Failed to load tenants:', error);
+          // Don't throw error as this shouldn't block the app
         }
       };
 
       void loadTenants();
     }
-  }, [cloudApi, localApi, adminApi, isAuthenticated, isInitComplete, resetTenants]);
+  }, [isAuthenticated, isInitComplete, cloudApi, adminApi, resetTenants]);
 
   if (!isInitComplete || !isAuthenticated) {
     return <AppLoading />;
