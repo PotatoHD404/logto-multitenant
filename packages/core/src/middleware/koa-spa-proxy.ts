@@ -56,7 +56,15 @@ export default function koaSpaProxy<StateT, ContextT extends IRouterParamContext
     }
     
     // Skip API-related paths that should be handled by the main API server
-    if (requestPath.startsWith('/my-account') || requestPath.startsWith('/verifications')) {
+    if (
+      requestPath.startsWith('/api/') ||
+      requestPath.startsWith('/m/') ||
+      requestPath.startsWith('/my-account') || 
+      requestPath.startsWith('/verifications') ||
+      requestPath.startsWith('/oidc/') ||
+      requestPath.startsWith('/me/') ||
+      requestPath.startsWith('/.well-known/')
+    ) {
       return next();
     }
     
