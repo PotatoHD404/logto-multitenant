@@ -152,8 +152,14 @@ export default class Tenant implements TenantContext {
     // Mount global well-known APIs
     app.use(mount('/.well-known', initPublicWellKnownApis(tenantContext)));
 
-    // Mount APIs
+    // Mount APIs (different sets for admin vs regular tenants)
     app.use(mount('/api', initApis(tenantContext)));
+
+    // Mount cross-tenant management API routing (admin tenant only)
+    // Pattern: /m/{tenantId}/api/... (same as cloud)
+    if (id === adminTenantId) {
+      app.use(mount(`/m/${id}/api`, initApis(tenantContext)));
+    }
 
     const { adminUrlSet, isCloud } = EnvSet.values;
 

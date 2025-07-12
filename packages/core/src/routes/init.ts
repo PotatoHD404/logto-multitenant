@@ -1,4 +1,4 @@
-import { getManagementApiResourceIndicator, getTenantOrganizationId } from '@logto/schemas';
+import { getManagementApiResourceIndicator, getTenantOrganizationId, adminTenantId } from '@logto/schemas';
 import Koa from 'koa';
 import Router from 'koa-router';
 
@@ -72,25 +72,25 @@ import wellKnownOpenApiRoutes from './well-known/well-known.openapi.js';
 
 /**
  * Custom organization auth middleware for management API that accepts organization tokens
- * without requiring the 'all' scope.
+ * and validates tenant-specific access.
  */
 function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
   tenant: TenantContext
 ): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
   return async (ctx, next) => {
+    // For organization tokens, construct the expected audience for this tenant
+    const expectedAudience = getTenantOrganizationId(tenant.id);
+    const organizationAudience = buildOrganizationUrn(expectedAudience);
     
-    // For tenant management, skip audience validation and rely on scope validation
-    // This allows cross-tenant access with organization tokens from any tenant
-    // Also skip tenant-specific blacklist check for cross-tenant tokens
+    // Verify JWT with the correct audience for this tenant
     const { sub, clientId, scopes } = await verifyBearerTokenFromRequest(
       tenant.envSet,
       ctx.request,
-      undefined, // No audience validation - accept any organization token
-      undefined // Skip tenant-specific blacklist check for cross-tenant access
+      organizationAudience, // Validate audience matches tenant organization
+      tenant // Pass tenant for blacklist check
     );
 
-    // For organization tokens, validate that the user has appropriate scopes
-    // Don't require 'all' scope - organization tokens have specific scopes
+    // Validate scopes - organization tokens have specific scopes
     const hasValidScopes = scopes.some(scope => 
       scope === 'all' || 
       scope.includes('manage:') || 
@@ -114,34 +114,35 @@ function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamCont
   };
 }
 
-const createRouters = (tenant: TenantContext) => {
+/**
+ * Create routers for admin tenant - organization-based multi-tenancy for managing all tenants
+ */
+const createAdminRouters = (tenant: TenantContext) => {
+  // Admin tenant interaction router (for admin console auth flows)
   const interactionRouter: AnonymousRouter = new Router();
   /** @deprecated */
   interactionRoutes(interactionRouter, tenant);
 
+  // Admin tenant experience router (for admin console sign-in experience)
   const experienceRouter: AnonymousRouter = new Router();
   experienceRouter.use(koaAuditLog(tenant.queries));
   experienceApiRoutes(experienceRouter, tenant);
 
+  // Management API router - organization-based multi-tenancy
   const managementRouter: ManagementApiRouter = new Router();
-  // Use custom organization auth middleware for management API
-  // This accepts organization tokens without requiring 'all' scope
   managementRouter.use(koaOrganizationManagementAuth(tenant));
   managementRouter.use(koaTenantGuard(tenant.id, tenant.queries));
   managementRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
 
-  // TODO: FIXME @sijie @darcy mount these routes in `applicationRoutes` instead
+  // All management routes for cross-tenant administration
   applicationRoutes(managementRouter, tenant);
   applicationRoleRoutes(managementRouter, tenant);
   applicationProtectedAppMetadataRoutes(managementRouter, tenant);
   applicationOrganizationRoutes(managementRouter, tenant);
   applicationSecretRoutes(managementRouter, tenant);
-
-  // Third-party application related routes
   applicationUserConsentScopeRoutes(managementRouter, tenant);
   applicationSignInExperienceRoutes(managementRouter, tenant);
   applicationUserConsentOrganizationRoutes(managementRouter, tenant);
-
   logtoConfigRoutes(managementRouter, tenant);
   connectorRoutes(managementRouter, tenant);
   resourceRoutes(managementRouter, tenant);
@@ -173,28 +174,22 @@ const createRouters = (tenant: TenantContext) => {
   tenantRoutes(managementRouter, tenant);
   tenantMemberRoutes(managementRouter, tenant);
 
-  // General anonymous router for publicly accessible APIs
+  // Anonymous routers for admin tenant
   const anonymousRouter: AnonymousRouter = new Router();
-
-  // Logto anonymous router for APIs that require Logto domain whitelist
-  // These APIs use koa-logto-anonymous-cors middleware to restrict access
-  // to only Logto-related domains (*.logto.io, *.logto.dev, etc.)
   const logtoAnonymousRouter: AnonymousRouter = new Router();
 
+  // Admin tenant user router (for admin console profile management)
   const userRouter: UserRouter = new Router();
   userRouter.use(koaOidcAuth(tenant));
-  // TODO(LOG-10147): Rename to koaApiHooks, this middleware is used for both management API and user API
   userRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
   accountRoutes(userRouter, tenant);
   verificationRoutes(userRouter, tenant);
 
-  // General anonymous APIs - publicly accessible
+  // Anonymous APIs for admin tenant
   wellKnownRoutes(anonymousRouter, tenant);
   statusRoutes(anonymousRouter, tenant);
   authnRoutes(anonymousRouter, tenant);
   samlApplicationAnonymousRoutes(anonymousRouter, tenant);
-
-  // Logto anonymous APIs - restricted to Logto domains only
   googleOneTapRoutes(logtoAnonymousRouter, tenant);
 
   wellKnownOpenApiRoutes(anonymousRouter, {
@@ -203,14 +198,12 @@ const createRouters = (tenant: TenantContext) => {
     userRouters: [userRouter],
   });
 
-  // The swagger.json should contain all API routers.
   swaggerRoutes(anonymousRouter, [
     managementRouter,
     anonymousRouter,
     logtoAnonymousRouter,
     experienceRouter,
     userRouter,
-    // TODO: interactionRouter should be removed from swagger.json
     interactionRouter,
   ]);
 
@@ -218,6 +211,60 @@ const createRouters = (tenant: TenantContext) => {
     experienceRouter,
     interactionRouter,
     managementRouter,
+    anonymousRouter,
+    logtoAnonymousRouter,
+    userRouter,
+  ];
+};
+
+/**
+ * Create routers for regular tenants - true multi-tenancy with tenant-scoped operations
+ */
+const createRegularRouters = (tenant: TenantContext) => {
+  // Regular tenant interaction router (for tenant-specific auth flows)
+  const interactionRouter: AnonymousRouter = new Router();
+  interactionRoutes(interactionRouter, tenant);
+
+  // Regular tenant experience router (for tenant-specific sign-in experience)
+  const experienceRouter: AnonymousRouter = new Router();
+  experienceRouter.use(koaAuditLog(tenant.queries));
+  experienceApiRoutes(experienceRouter, tenant);
+
+  // Anonymous routers for regular tenants
+  const anonymousRouter: AnonymousRouter = new Router();
+  const logtoAnonymousRouter: AnonymousRouter = new Router();
+
+  // Regular tenant user router (for end-user profile management)
+  const userRouter: UserRouter = new Router();
+  userRouter.use(koaOidcAuth(tenant));
+  userRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
+  accountRoutes(userRouter, tenant);
+  verificationRoutes(userRouter, tenant);
+
+  // Anonymous APIs for regular tenants
+  wellKnownRoutes(anonymousRouter, tenant);
+  statusRoutes(anonymousRouter, tenant);
+  authnRoutes(anonymousRouter, tenant);
+  samlApplicationAnonymousRoutes(anonymousRouter, tenant);
+  googleOneTapRoutes(logtoAnonymousRouter, tenant);
+
+  wellKnownOpenApiRoutes(anonymousRouter, {
+    experienceRouters: [experienceRouter, interactionRouter],
+    managementRouters: [anonymousRouter, logtoAnonymousRouter], // No management APIs
+    userRouters: [userRouter],
+  });
+
+  swaggerRoutes(anonymousRouter, [
+    anonymousRouter,
+    logtoAnonymousRouter,
+    experienceRouter,
+    userRouter,
+    interactionRouter,
+  ]);
+
+  return [
+    experienceRouter,
+    interactionRouter,
     anonymousRouter,
     logtoAnonymousRouter,
     userRouter,
@@ -235,7 +282,12 @@ export default function initApis(tenant: TenantContext): Koa {
   );
   apisApp.use(koaBodyEtag());
 
-  for (const router of createRouters(tenant)) {
+  // Use different router creation functions for admin vs regular tenants
+  const routers = tenant.id === adminTenantId 
+    ? createAdminRouters(tenant)
+    : createRegularRouters(tenant);
+
+  for (const router of routers) {
     apisApp.use(router.routes()).use(router.allowedMethods());
   }
 

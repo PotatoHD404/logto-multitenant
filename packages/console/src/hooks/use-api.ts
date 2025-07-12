@@ -200,7 +200,9 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
    * The config object for the Ky instance.
    *
    * - In Cloud, it uses the Management API proxy endpoint with tenant organization tokens.
-   * - In OSS, it uses organization tokens for multi-tenant access, similar to cloud.
+   * - In OSS, it supports both domain-based and path-based multi-tenancy:
+   *   - Domain-based: custom.localhost/api/connectors
+   *   - Path-based: localhost/api/{tenantId}/connectors
    */
   const config = useMemo(
     () => {
@@ -212,29 +214,38 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
         }
         const organizationId = getTenantOrganizationId(defaultTenantId);
         return {
-          prefixUrl: tenantEndpoint,
-          // Use organization token for default tenant instead of resource-based token
+          prefixUrl: appendPath(tenantEndpoint || new URL(window.location.origin), '/api'),
           resourceIndicator: buildOrganizationUrn(organizationId),
         };
       }
 
-      return isCloud
-        ? {
-            prefixUrl: appendPath(new URL(window.location.origin), 'm', currentTenantId),
-            resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
-          }
-        : {
-            prefixUrl: tenantEndpoint,
-            resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
-          };
+      if (isCloud) {
+        return {
+          prefixUrl: appendPath(new URL(window.location.origin), 'm', currentTenantId),
+          resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
+        };
+      }
+
+      // For OSS, determine routing approach based on current URL
+      const currentUrl = new URL(window.location.href);
+      const isCustomDomain = tenantEndpoint && currentUrl.origin !== tenantEndpoint.origin;
+      
+      if (isCustomDomain) {
+        // Custom domain routing: custom.localhost/api/connectors
+        return {
+          prefixUrl: appendPath(new URL(window.location.origin), '/api'),
+          resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
+        };
+      } else {
+        // Path-based routing: localhost/api/{tenantId}/connectors
+        return {
+          prefixUrl: appendPath(tenantEndpoint || new URL(window.location.origin), '/api', currentTenantId),
+          resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
+        };
+      }
     },
     [currentTenantId, tenantEndpoint]
   );
-
-  // Removed OSS tenant restriction to enable multi-tenancy in local deployments
-  // if (!isCloud && currentTenantId !== defaultTenantId) {
-  //   throw new Error('Only the default tenant is supported in OSS.');
-  // }
 
   return useStaticApi({
     ...props,
@@ -246,18 +257,24 @@ export default useApi;
 
 /**
  * A hook to get a Ky instance specifically for admin tenant operations.
- * This is used for tenant management operations in OSS deployments.
- * Uses the default tenant's organization token for initialization and tenant loading.
+ * This uses tenant-specific routing (/m/{tenantId}/api/...) for cross-tenant admin operations.
  */
-export const useAdminApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}) => {
+export const useAdminApi = (
+  tenantId?: string,
+  props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}
+) => {
+  const { currentTenantId } = useContext(TenantsContext);
+  
   const config = useMemo(
-    () => ({
-      prefixUrl: adminTenantEndpoint,
-      // Use default tenant organization token for admin operations
-      // This is used during initialization when currentTenantId is not yet available
-      resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(defaultTenantId)),
-    }),
-    []
+    () => {
+      const targetTenantId = tenantId || currentTenantId || defaultTenantId;
+      return {
+        // Use tenant-specific routing for admin operations
+        prefixUrl: appendPath(new URL(window.location.origin), 'm', targetTenantId, 'api'),
+        resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(targetTenantId)),
+      };
+    },
+    [tenantId, currentTenantId]
   );
 
   return useStaticApi({

@@ -43,8 +43,32 @@ const matchPathBasedTenantId = (urlSet: UrlSet, url: URL) => {
   const urlSegments = url.pathname.split('/');
   const endpointSegments = found.pathname.split('/');
 
-  return urlSegments[found.pathname === '/' ? 1 : endpointSegments.length];
+  const potentialTenantId = urlSegments[found.pathname === '/' ? 1 : endpointSegments.length];
+  
+  // Exclude reserved paths that shouldn't be treated as tenant IDs
+  if (potentialTenantId === 'api' || potentialTenantId === 'oidc' || potentialTenantId === '.well-known') {
+    return;
+  }
+
+  return potentialTenantId;
 };
+
+/**
+ * Match management API tenant routing pattern: /m/{tenantId}/api/...
+ * This supports both cloud and OSS environments.
+ */
+const matchManagementApiTenantId = (url: URL) => {
+  const pathSegments = url.pathname.split('/').filter(Boolean);
+  
+  // Check if the path starts with 'm' and has at least 3 segments: ['m', tenantId, 'api', ...]
+  if (pathSegments.length >= 3 && pathSegments[0] === 'm' && pathSegments[2] === 'api') {
+    return pathSegments[1];
+  }
+  
+  return undefined;
+};
+
+
 
 const cacheKey = 'custom-domain';
 const getDomainCacheKey = (url: URL | string) =>
@@ -105,6 +129,16 @@ export const getTenantId = async (
     return [adminTenantId, false];
   }
 
+  // Management API tenant routing check - second priority for both cloud and OSS
+  // Pattern: /m/{tenantId}/api/...
+  const managementApiTenantId = matchManagementApiTenantId(url);
+  if (managementApiTenantId) {
+    debugConsole.warn(`Found management API tenant ID ${managementApiTenantId} from URL path.`);
+    return [managementApiTenantId, false];
+  }
+
+
+
   // Development tenant check
   if ((!isProduction || isIntegrationTest) && developmentTenantId) {
     debugConsole.warn(`Found dev tenant ID ${developmentTenantId}.`);
@@ -119,34 +153,62 @@ export const getTenantId = async (
     // 1. First try custom domain matching
     const customDomainTenantId = await getTenantIdFromCustomDomain(url, pool);
     if (customDomainTenantId) {
+      // Security: Prevent admin tenant access via custom domain on regular servers
+      if (customDomainTenantId === adminTenantId) {
+        debugConsole.warn(`Blocked admin tenant access via custom domain on regular server: ${url.toString()}`);
+        return [undefined, false];
+      }
       return [customDomainTenantId, true];
     }
 
     // 2. Try path-based routing (works with default domain)
     const pathBasedTenantId = matchPathBasedTenantId(urlSet, url);
     if (pathBasedTenantId) {
+      // Security: Prevent admin tenant access via path-based routing on regular servers
+      // Admin tenant should ONLY be accessible on admin server endpoints
+      if (pathBasedTenantId === adminTenantId) {
+        debugConsole.warn(`Blocked admin tenant access via path-based routing on regular server: ${url.toString()}`);
+        return [undefined, false]; // Block admin tenant access
+      }
       return [pathBasedTenantId, false];
     }
 
-    // 3. For root requests on default domain, return default tenant
+    // 3. Handle plain /api/... requests (should use default tenant)
+    // This comes AFTER custom domain and path-based checks
+    if (url.pathname.startsWith('/api/')) {
+      return [defaultTenantId, false];
+    }
+
+    // 4. For root requests on default domain, return default tenant
     if (url.origin === urlSet.endpoint.origin && url.pathname === '/') {
       return [defaultTenantId, false];
     }
 
-    // 4. No tenant found
+    // 5. No tenant found
     return [undefined, false];
   }
 
   // Cloud environment: Use original cloud logic
   const customDomainTenantId = await getTenantIdFromCustomDomain(url, pool);
   if (customDomainTenantId) {
+    // Security: Prevent admin tenant access via custom domain in cloud too
+    if (customDomainTenantId === adminTenantId) {
+      debugConsole.warn(`Blocked admin tenant access via custom domain in cloud: ${url.toString()}`);
+      return [undefined, false];
+    }
     return [customDomainTenantId, true];
   }
 
   // Cloud fallback: domain-based or path-based depending on configuration
   const { isPathBasedMultiTenancy } = EnvSet.values;
   if (isPathBasedMultiTenancy) {
-    return [matchPathBasedTenantId(urlSet, url), false];
+    const pathBasedTenantId = matchPathBasedTenantId(urlSet, url);
+    // Security: Prevent admin tenant access via path-based routing in cloud too
+    if (pathBasedTenantId === adminTenantId) {
+      debugConsole.warn(`Blocked admin tenant access via path-based routing in cloud: ${url.toString()}`);
+      return [undefined, false];
+    }
+    return [pathBasedTenantId, false];
   }
 
   return [matchDomainBasedTenantId(urlSet.endpoint, url), false];
