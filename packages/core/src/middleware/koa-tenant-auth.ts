@@ -101,16 +101,15 @@ export const validateTenantAccess = async (
     return;
   }
 
-  // Validate required scopes for tenant management
-  const requiredScope = TENANT_OPERATION_SCOPES[operation];
-  const hasManagementScope = authScopes.has(requiredScope);
+  // Validate required scopes for tenant management using the same logic as hasRequiredTenantScope
+  const hasManagementScope = hasRequiredTenantScope(authScopes, operation);
   
   assertThat(
     hasManagementScope,
     new RequestError({ 
       code: 'auth.forbidden', 
       status: 403,
-      data: { message: `Missing required scope: ${requiredScope}` }
+      data: { message: `Missing required scope for ${operation} operation` }
     })
   );
 
