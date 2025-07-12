@@ -227,10 +227,10 @@ const createAdminRouters = (tenant: TenantContext) => {
   if (EnvSet.values.isDevFeaturesEnabled) {
     customProfileFieldsRoutes(managementRouter, tenant);
   }
-  // Remove tenant management routes from organization-based router
-  // Cross-tenant operations should only use crossTenantRouter with management API tokens
-  // tenantRoutes(managementRouter, tenant);
-  // tenantMemberRoutes(managementRouter, tenant);
+  // Remove only cross-tenant tenant listing routes from organization-based router
+  // Tenant member management is tenant-specific and should use organization tokens
+  // tenantRoutes(managementRouter, tenant); // Cross-tenant: listing all tenants
+  tenantMemberRoutes(managementRouter, tenant); // Tenant-specific: managing members of current tenant
 
   // Cross-tenant API router - management API tokens for direct /api/... access
   const crossTenantRouter: ManagementApiRouter = new Router();
@@ -238,9 +238,9 @@ const createAdminRouters = (tenant: TenantContext) => {
   crossTenantRouter.use(koaTenantGuard(tenant.id, tenant.queries));
   crossTenantRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
 
-  // Cross-tenant operations - only tenant management routes 
+  // Cross-tenant operations - only tenant listing routes 
   tenantRoutes(crossTenantRouter, tenant);
-  tenantMemberRoutes(crossTenantRouter, tenant);
+  // tenantMemberRoutes(crossTenantRouter, tenant); // This is tenant-specific, not cross-tenant
 
   // Anonymous routers for admin tenant
   const anonymousRouter: AnonymousRouter = new Router();

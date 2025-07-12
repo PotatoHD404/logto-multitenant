@@ -5,8 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import useSWR from 'swr';
 
-import useApi, { type RequestError } from '@/hooks/use-api';
-import useSwrFetcher from '@/hooks/use-swr-fetcher';
+import { type RequestError } from '@/hooks/use-api';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
 import { shouldRetryOnError } from '@/utils/request';
 
@@ -20,12 +19,9 @@ type Props = {
 function ApplicationName({ applicationId, isLink = false }: Props) {
   const isAdminConsole = applicationId === adminConsoleApplicationId;
 
-  const fetchApi = useApi({ hideErrorToast: ['entity.not_exists_with_id'] });
-  const fetcher = useSwrFetcher<Application>(fetchApi);
   const { data, error } = useSWR<Application, RequestError>(
     !isAdminConsole && `api/applications/${applicationId}`,
     {
-      fetcher,
       shouldRetryOnError: shouldRetryOnError({ ignore: [404] }),
     }
   );

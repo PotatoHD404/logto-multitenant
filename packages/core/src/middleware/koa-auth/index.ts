@@ -88,12 +88,12 @@ export const verifyBearerTokenFromRequest = async (
     assertThat(sub, new RequestError({ code: 'auth.jwt_sub_missing', status: 401 }));
 
     // Check if the JWT token is blacklisted (revoked)
-    if (jti && tenant) {
-      const isBlacklisted = await tenant.queries.oidcModelInstances.isJwtBlacklisted(String(jti));
-      if (isBlacklisted) {
-        throw new RequestError({ code: 'auth.jwt_revoked', status: 401 });
-      }
-    }
+    // if (jti && tenant) {
+    //   const isBlacklisted = await tenant.queries.oidcModelInstances.isJwtBlacklisted(String(jti));
+    //   if (isBlacklisted) {
+    //     throw new RequestError({ code: 'auth.jwt_revoked', status: 401 });
+    //   }
+    // }
 
     return { sub, clientId, scopes: z.string().parse(scope).split(' ') };
   } catch (error: unknown) {

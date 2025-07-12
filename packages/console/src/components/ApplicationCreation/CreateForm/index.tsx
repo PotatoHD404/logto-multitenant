@@ -21,8 +21,7 @@ import FormField from '@/ds-components/FormField';
 import ModalLayout from '@/ds-components/ModalLayout';
 import RadioGroup, { Radio } from '@/ds-components/RadioGroup';
 import TextInput from '@/ds-components/TextInput';
-import { type RequestError } from '@/hooks/use-api';
-import useApi from '@/hooks/use-api';
+import { type RequestError, useAdminApi } from '@/hooks/use-api';
 import useApplicationsUsage from '@/hooks/use-applications-usage';
 import useCurrentUser from '@/hooks/use-current-user';
 import TypeDescription from '@/pages/Applications/components/TypeDescription';
@@ -104,7 +103,9 @@ function CreateForm({
   });
 
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
-  const api = useApi();
+  
+  // Use admin API for application creation - this ensures proper cross-tenant routing
+  const adminApi = useAdminApi();
 
   const { hasMachineToMachineAppsReachedLimit } = useApplicationsUsage();
 
@@ -117,7 +118,7 @@ function CreateForm({
       const appCreationEndpoint =
         data.type === ApplicationType.SAML ? 'api/saml-applications' : 'api/applications';
 
-      const createdApp = await api.post(appCreationEndpoint, { json: data }).json<Application>();
+      const createdApp = await adminApi.post(appCreationEndpoint, { json: data }).json<Application>();
 
       // Report the conversion event after the application is created. Note that the conversion
       // should be set as count once since this will be reported multiple times.

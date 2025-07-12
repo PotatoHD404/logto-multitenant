@@ -278,7 +278,7 @@ export const useAdminApi = (
       // Both Cloud and OSS use the same /m/{tenantId}/api pattern
       // The console server handles the proxying to the core API
       return {
-        prefixUrl: appendPath(new URL(window.location.origin), 'm', targetTenantId, 'api'),
+        prefixUrl: appendPath(new URL(window.location.origin), 'm', targetTenantId),
         resourceIndicator: buildOrganizationUrn(targetTenantOrganizationId),
       };
     },
