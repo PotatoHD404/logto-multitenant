@@ -11,7 +11,7 @@ import { searchKeys } from '@/consts';
 import { isCloud } from '@/consts/env';
 import { defaultTenantResponse } from '@/consts/tenants';
 import { TenantsContext } from '@/contexts/TenantsProvider';
-import useApi, { useAdminApi } from '@/hooks/use-api';
+import useApi, { useAdminApi, useCrossTenantApi } from '@/hooks/use-api';
 import useRedirectUri from '@/hooks/use-redirect-uri';
 import { saveRedirect } from '@/utils/storage';
 
@@ -52,6 +52,7 @@ export default function ProtectedRoutes() {
 
   const localApi = useApi({ hideErrorToast: true });
   const adminApi = useAdminApi();
+  const crossTenantApi = useCrossTenantApi();
   const cloudApi = useCloudApi({ hideErrorToast: true });
 
   useEffect(() => {
@@ -71,9 +72,9 @@ export default function ProtectedRoutes() {
             const data = await cloudApi.get('/api/tenants');
             resetTenants(data);
           } else {
-            // For local OSS, use admin API to fetch tenants
-            // This uses admin tenant organization tokens to list all tenants
-            const tenants = await adminApi.get('tenants').json<LocalTenantResponse[]>();
+            // For local OSS, use cross-tenant API to fetch tenants
+            // This uses management API tokens for cross-tenant operations
+            const tenants = await crossTenantApi.get('tenants').json<LocalTenantResponse[]>();
             
             // Convert local API response to match TenantResponse format
             const tenantResponses: TenantResponse[] = tenants.map((tenant) => ({
@@ -104,7 +105,7 @@ export default function ProtectedRoutes() {
 
       void loadTenants();
     }
-  }, [isAuthenticated, isInitComplete, cloudApi, adminApi, resetTenants]);
+  }, [isAuthenticated, isInitComplete, cloudApi, crossTenantApi, resetTenants]);
 
   if (!isInitComplete || !isAuthenticated) {
     return <AppLoading />;

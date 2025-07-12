@@ -115,6 +115,60 @@ function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamCont
 }
 
 /**
+ * Management API auth middleware for cross-tenant operations.
+ * Uses management API tokens with tenant management scopes.
+ */
+function koaCrossTenantManagementAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
+  tenant: TenantContext
+): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
+  return async (ctx, next) => {
+    // For cross-tenant operations, use the admin tenant's management API resource indicator
+    // This ensures tokens issued by the admin tenant are accepted for cross-tenant operations
+    const managementApiAudience = getManagementApiResourceIndicator(adminTenantId);
+    
+    // Verify JWT with the admin tenant's management API audience
+    const { sub, clientId, scopes } = await verifyBearerTokenFromRequest(
+      tenant.envSet,
+      ctx.request,
+      managementApiAudience, // Validate audience matches admin tenant management API
+      tenant // Pass tenant for blacklist check
+    );
+
+    // Debug logging
+    console.log('Cross-tenant auth debug:', {
+      managementApiAudience,
+      scopes,
+      path: ctx.request.path,
+      method: ctx.request.method
+    });
+
+    // Validate scopes - management API tokens should have tenant management scopes
+    const hasValidScopes = scopes.some(scope => 
+      scope === 'all' || 
+      scope === 'create:tenant' ||
+      scope === 'manage:tenant:self' ||
+      scope.includes('tenant:') ||
+      scope.includes('manage:tenant')
+    );
+
+    console.log('Scope validation result:', { hasValidScopes, scopes });
+
+    assertThat(
+      hasValidScopes,
+      new RequestError({ code: 'auth.forbidden', status: 403 })
+    );
+
+    ctx.auth = {
+      type: sub === clientId ? 'app' : 'user',
+      id: sub,
+      scopes: new Set(scopes),
+    };
+
+    return next();
+  };
+}
+
+/**
  * Create routers for admin tenant - organization-based multi-tenancy for managing all tenants
  */
 const createAdminRouters = (tenant: TenantContext) => {
@@ -134,7 +188,7 @@ const createAdminRouters = (tenant: TenantContext) => {
   managementRouter.use(koaTenantGuard(tenant.id, tenant.queries));
   managementRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
 
-  // All management routes for cross-tenant administration
+  // All management routes for tenant-specific operations (organization-based auth)
   applicationRoutes(managementRouter, tenant);
   applicationRoleRoutes(managementRouter, tenant);
   applicationProtectedAppMetadataRoutes(managementRouter, tenant);
@@ -171,8 +225,19 @@ const createAdminRouters = (tenant: TenantContext) => {
   if (EnvSet.values.isDevFeaturesEnabled) {
     customProfileFieldsRoutes(managementRouter, tenant);
   }
+  // Include tenant management routes for organization-based operations (/m/{tenantId}/api/tenants)
   tenantRoutes(managementRouter, tenant);
   tenantMemberRoutes(managementRouter, tenant);
+
+  // Cross-tenant API router - management API tokens for direct /api/... access
+  const crossTenantRouter: ManagementApiRouter = new Router();
+  crossTenantRouter.use(koaCrossTenantManagementAuth(tenant));
+  crossTenantRouter.use(koaTenantGuard(tenant.id, tenant.queries));
+  crossTenantRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
+
+  // Cross-tenant operations - only tenant management routes 
+  tenantRoutes(crossTenantRouter, tenant);
+  tenantMemberRoutes(crossTenantRouter, tenant);
 
   // Anonymous routers for admin tenant
   const anonymousRouter: AnonymousRouter = new Router();
@@ -194,12 +259,13 @@ const createAdminRouters = (tenant: TenantContext) => {
 
   wellKnownOpenApiRoutes(anonymousRouter, {
     experienceRouters: [experienceRouter, interactionRouter],
-    managementRouters: [managementRouter, anonymousRouter, logtoAnonymousRouter],
+    managementRouters: [managementRouter, crossTenantRouter, anonymousRouter, logtoAnonymousRouter],
     userRouters: [userRouter],
   });
 
   swaggerRoutes(anonymousRouter, [
     managementRouter,
+    crossTenantRouter,
     anonymousRouter,
     logtoAnonymousRouter,
     experienceRouter,
@@ -211,6 +277,7 @@ const createAdminRouters = (tenant: TenantContext) => {
     experienceRouter,
     interactionRouter,
     managementRouter,
+    crossTenantRouter,
     anonymousRouter,
     logtoAnonymousRouter,
     userRouter,

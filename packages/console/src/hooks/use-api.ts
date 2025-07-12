@@ -290,3 +290,28 @@ export const useAdminApi = (
     ...config,
   });
 };
+
+/**
+ * A hook to get a Ky instance for cross-tenant management operations.
+ * Uses management API tokens for operations like listing all tenants, creating tenants, etc.
+ * These operations are available directly at /api/tenants on the admin port.
+ */
+export const useCrossTenantApi = (
+  tenantId: string = adminTenantId,
+  props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}
+) => {
+  const config = useMemo(
+    () => ({
+      // Cross-tenant operations are available directly at /api on admin port
+      prefixUrl: appendPath(new URL(window.location.origin), 'api'),
+      // Use management API resource indicator for cross-tenant operations
+      resourceIndicator: getManagementApiResourceIndicator(tenantId),
+    }),
+    [tenantId]
+  );
+
+  return useStaticApi({
+    ...props,
+    ...config,
+  });
+};
