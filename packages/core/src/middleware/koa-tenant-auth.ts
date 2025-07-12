@@ -34,7 +34,42 @@ export const hasRequiredTenantScope = (
 
   // Check for specific tenant management scope
   const requiredScope = TENANT_OPERATION_SCOPES[operation];
-  return scopes.has(requiredScope);
+  if (scopes.has(requiredScope)) {
+    return true;
+  }
+
+  // Check for organization-specific scopes that can fulfill the operation
+  switch (operation) {
+    case 'read':
+      return scopes.has('read:data') || scopes.has('manage:tenant');
+    case 'write':
+      return scopes.has('write:data') || scopes.has('manage:tenant');
+    case 'delete':
+      return scopes.has('delete:data') || scopes.has('manage:tenant');
+    default:
+      return false;
+  }
+};
+
+/**
+ * Check if the authenticated user has admin tenant permissions for tenant creation.
+ * Tenant creation should only be allowed for users with admin tenant access.
+ */
+export const hasAdminTenantCreatePermission = async (
+  scopes: Set<string>,
+  userId: string,
+  queries: Queries
+): Promise<boolean> => {
+  // Users with 'all' scope can create tenants
+  if (scopes.has(PredefinedScope.All)) {
+    return true;
+  }
+
+  // Check if user has admin tenant organization membership with manage:tenant scope
+  const tenantOrg = createTenantOrganizationLibrary(queries);
+  const adminTenantScopes = await tenantOrg.getUserScopes('admin', userId);
+  
+  return adminTenantScopes.includes('manage:tenant');
 };
 
 /**
@@ -183,10 +218,40 @@ export default function koaTenantAuth<StateT, ContextT extends IRouterParamConte
 }
 
 /**
+ * Special middleware for tenant creation that requires admin tenant permissions only.
+ * This is different from regular tenant operations which can be performed by organization members.
+ */
+export function koaTenantCreateAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
+  queries: Queries
+): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
+  return async (ctx, next) => {
+    // Ensure the user is authenticated
+    assertThat(ctx.auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
+
+    const { scopes, id: userId } = ctx.auth;
+
+    // Check if user has admin tenant permissions for tenant creation
+    const hasPermission = await hasAdminTenantCreatePermission(scopes, userId, queries);
+    
+    assertThat(
+      hasPermission,
+      new RequestError({ 
+        code: 'auth.forbidden', 
+        status: 403,
+        data: { message: 'Tenant creation requires admin tenant permissions' }
+      })
+    );
+
+    return next();
+  };
+}
+
+/**
  * Create tenant auth middleware factories that accept tenant context
  */
 export const createTenantAuthMiddleware = (queries: Queries, currentTenantId: string) => ({
   koaTenantReadAuth: koaTenantAuth('read', currentTenantId, queries),
   koaTenantWriteAuth: koaTenantAuth('write', currentTenantId, queries),
-  koaTenantDeleteAuth: koaTenantAuth('delete', currentTenantId, queries)
+  koaTenantDeleteAuth: koaTenantAuth('delete', currentTenantId, queries),
+  koaTenantCreateAuth: koaTenantCreateAuth(queries)
 }); 

@@ -19,15 +19,19 @@ const useRedirectUri = (flow: 'signIn' | 'signOut' = 'signIn') => {
       ...conditionalArray(
         !isCloud && ossConsolePath,
         // For signIn callback, always use /callback (pre-tenant flow)
-        // For signOut, include tenant ID if available (post-tenant flow)
+        // For signOut, use tenant-independent path to avoid dynamic tenant ID issues
+        // The console routing will handle redirecting to the appropriate tenant
         !isCloud && flow === 'signOut' && currentTenantId,
         flow === 'signIn' ? 'callback' : ''
       )
     )
   );
   
-  // For OSS sign-in callback, ensure we always use /console/callback regardless of current route
-  const finalPath = !isCloud && flow === 'signIn' ? `${ossConsolePath}/callback` : path;
+  // For OSS, use tenant-independent paths for both sign-in and sign-out
+  // This avoids the issue of needing to pre-register all possible tenant IDs
+  const finalPath = !isCloud ? 
+    (flow === 'signIn' ? `${ossConsolePath}/callback` : `${ossConsolePath}/admin`) : 
+    path;
   
   const url = useMemo(() => new URL(finalPath, window.location.origin), [finalPath]);
 

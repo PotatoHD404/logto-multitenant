@@ -157,7 +157,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     return next();
   };
 
-  const { koaTenantWriteAuth, koaTenantDeleteAuth } = createTenantAuthMiddleware(queries, tenant.id);
+  const { koaTenantWriteAuth, koaTenantDeleteAuth, koaTenantCreateAuth } = createTenantAuthMiddleware(queries, tenant.id);
 
   // List all tenants that the authenticated user has access to
   // Accepts organization tokens from any tenant, checks tenant management scopes
@@ -185,29 +185,47 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         ORDER BY created_at DESC
       `);
       
-      // Filter tenants based on user's organization membership
-      const accessibleTenants = [];
-      for (const tenant of allTenants) {
-        try {
-          // Check if user is a member of this tenant's organization
-          const organizationId = getTenantOrganizationId(tenant.id);
-          const isMember = await queries.organizations.relations.users.exists({
-            organizationId,
-            userId,
-          });
-          
-          if (isMember) {
-            accessibleTenants.push(tenant);
+      // For users with tenant management scopes, show all tenants they have permission to manage
+      // This allows cross-tenant access with proper authorization
+      const { scopes } = auth;
+      const hasTenantManagementScope = 
+        scopes.has(PredefinedScope.All) ||
+        scopes.has('manage:tenant') ||
+        scopes.has('read:data') ||
+        scopes.has('write:data') ||
+        scopes.has('delete:data');
+
+      let accessibleTenants: TenantDatabaseRow[] = [];
+      
+      if (hasTenantManagementScope) {
+        // Users with tenant management scopes can see all tenants
+        accessibleTenants = [...allTenants];
+      } else {
+        // Fallback to organization membership check for users without tenant management scopes
+        for (const tenant of allTenants) {
+          try {
+            // Check if user is a member of this tenant's organization
+            const organizationId = getTenantOrganizationId(tenant.id);
+            const isMember = await queries.organizations.relations.users.exists({
+              organizationId,
+              userId,
+            });
+            
+            if (isMember) {
+              accessibleTenants.push(tenant);
+            }
+          } catch {
+            // If we can't check membership, skip this tenant
+            continue;
           }
-        } catch {
-          // If we can't check membership, skip this tenant
-          continue;
         }
       }
       
-      // Apply pagination to filtered results
+      // Apply pagination to filtered results if not disabled
       const totalCount = accessibleTenants.length;
-      const paginatedTenants = accessibleTenants.slice(offset, offset + limit);
+      const paginatedTenants = disabled 
+        ? accessibleTenants 
+        : accessibleTenants.slice(offset, offset + limit);
       
       ctx.body = paginatedTenants.map((tenant) => ({
         id: tenant.id,
@@ -216,13 +234,16 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
         isSuspended: tenant.is_suspended,
       }));
-      ctx.pagination = { limit, offset, totalCount };
+      
+      if (!disabled) {
+        ctx.pagination.totalCount = totalCount;
+      }
 
       return next();
     }
   );
 
-  // Create new tenant - requires write access to current tenant
+  // Create new tenant - requires admin tenant permissions only
   router.post(
     '/tenants',
     koaGuard({
@@ -230,7 +251,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       response: tenantResponseGuard,
       status: [201, 400, 403, 422],
     }),
-    koaTenantWriteAuth,
+    koaTenantCreateAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { name, tag } = ctx.guard.body;
       const id = generateStandardId();

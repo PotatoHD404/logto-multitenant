@@ -38,6 +38,7 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
   // Add specific console pages that can be used for logout redirects
   const consolePages = [
     '', // Base console path
+    '/admin', // Admin page (main admin console page)
     '/profile', // Profile page
     '/sign-in-experience', // Sign in experience page
     '/applications', // Applications page
@@ -62,12 +63,20 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
 
   // Add tenant-specific logout redirect URIs for OSS
   if (!EnvSet.values.isCloud) {
-    const tenantSpecificUrls = adminUrlSet.deduplicated().flatMap((url) => [
-      // Add common tenant IDs that might be used
-      appendPath(url, '/console/default').href,
-      // Add wildcard pattern for any tenant ID (this covers dynamic tenant IDs)
-      // Note: We can't know all possible tenant IDs at build time, but 'default' is the most common
-    ]);
+    // For OSS, we need to support dynamic tenant IDs in logout redirect URIs.
+    // Since we can't pre-register all possible tenant IDs, we'll use a more flexible approach:
+    // 1. Add the base console path (for tenant-independent routes)
+    // 2. Add common tenant IDs (default, admin)
+    // 3. The console should ideally use tenant-independent logout flows when possible
+    
+    const basePaths = adminUrlSet.deduplicated().map((url) => appendPath(url, '/console').href);
+    postLogoutRedirectUris.push(...basePaths);
+    
+    // Add common tenant IDs that are likely to be used
+    const commonTenantIds = ['default', 'admin'];
+    const tenantSpecificUrls = adminUrlSet.deduplicated().flatMap((url) => 
+      commonTenantIds.map(tenantId => appendPath(url, `/console/${tenantId}`).href)
+    );
     postLogoutRedirectUris.push(...tenantSpecificUrls);
   }
 

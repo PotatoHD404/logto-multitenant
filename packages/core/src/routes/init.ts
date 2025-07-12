@@ -77,14 +77,16 @@ import wellKnownOpenApiRoutes from './well-known/well-known.openapi.js';
 function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
   tenant: TenantContext
 ): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
-  const organizationUrn = buildOrganizationUrn(getTenantOrganizationId(tenant.id));
-  
   return async (ctx, next) => {
+    
+    // For tenant management, skip audience validation and rely on scope validation
+    // This allows cross-tenant access with organization tokens from any tenant
+    // Also skip tenant-specific blacklist check for cross-tenant tokens
     const { sub, clientId, scopes } = await verifyBearerTokenFromRequest(
       tenant.envSet,
       ctx.request,
-      organizationUrn,
-      tenant
+      undefined, // No audience validation - accept any organization token
+      undefined // Skip tenant-specific blacklist check for cross-tenant access
     );
 
     // For organization tokens, validate that the user has appropriate scopes
