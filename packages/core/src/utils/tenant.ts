@@ -131,10 +131,11 @@ export const getTenantId = async (
 
   // Management API tenant routing check - second priority for both cloud and OSS
   // Pattern: /m/{tenantId}/api/...
+  // These requests should be handled by the ADMIN tenant, not the target tenant
   const managementApiTenantId = matchManagementApiTenantId(url);
   if (managementApiTenantId) {
-    debugConsole.warn(`Found management API tenant ID ${managementApiTenantId} from URL path.`);
-    return [managementApiTenantId, false];
+    debugConsole.warn(`Found management API pattern for tenant ${managementApiTenantId}, routing to admin tenant.`);
+    return [adminTenantId, false];
   }
 
 

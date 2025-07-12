@@ -13,7 +13,7 @@ import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
-import useApi, { useAdminApi } from '@/hooks/use-api';
+import useApi, { useCrossTenantApi } from '@/hooks/use-api';
 import { trySubmitSafe } from '@/utils/form';
 
 import DeleteCard from './DeleteCard';
@@ -38,7 +38,7 @@ function TenantBasicSettings() {
     access: { canManageTenant },
   } = useCurrentTenantScopes();
   const cloudApi = useCloudApi();
-  const adminApi = useAdminApi();
+  const crossTenantApi = useCrossTenantApi();
   const {
     currentTenant,
     currentTenantId,
@@ -74,8 +74,8 @@ function TenantBasicSettings() {
       reset({ profile: { name, tag } });
       updateTenant(currentTenantId, data);
           } else {
-        // For local OSS, use the admin tenant API
-        const updatedTenant = await adminApi.patch(`api/tenants/${currentTenantId}`, { json: data }).json<LocalTenantResponse>();
+        // For local OSS, use the cross-tenant API
+        const updatedTenant = await crossTenantApi.patch(`tenants/${currentTenantId}`, { json: data }).json<LocalTenantResponse>();
         reset({ profile: { name: updatedTenant.name, tag: updatedTenant.tag } });
         updateTenant(currentTenantId, { name: updatedTenant.name, tag: updatedTenant.tag });
       }
@@ -147,8 +147,8 @@ function TenantBasicSettings() {
       if (isCloud) {
         await cloudApi.delete(`/api/tenants/:tenantId`, { params: { tenantId: currentTenantId } });
       } else {
-        // For local OSS, use the admin tenant API for deletion
-        await adminApi.delete(`api/tenants/${currentTenantId}`);
+        // For local OSS, use the cross-tenant API for deletion
+        await crossTenantApi.delete(`tenants/${currentTenantId}`);
       }
       setIsDeletionModalOpen(false);
       removeTenant(currentTenantId);

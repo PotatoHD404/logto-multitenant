@@ -1,12 +1,8 @@
-import { type SnakeCaseOidcConfig } from '@logto/schemas';
-import useSWR from 'swr';
-
-import { openIdProviderConfigPath } from '@/consts/oidc';
 import CodeEditor from '@/ds-components/CodeEditor';
-import { type RequestError } from '@/hooks/use-api';
+import useOidcConfig from '@/hooks/use-oidc-config';
 
 export default function AiPluginJson() {
-  const { data } = useSWR<SnakeCaseOidcConfig, RequestError>(openIdProviderConfigPath);
+  const { data } = useOidcConfig();
   const authorizationEndpoint = data?.authorization_endpoint ?? '[LOADING]';
   const authorizationUrl = data?.token_endpoint ?? '[LOADING]';
 

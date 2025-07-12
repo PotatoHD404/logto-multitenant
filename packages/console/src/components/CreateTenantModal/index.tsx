@@ -14,7 +14,7 @@ import ModalLayout from '@/ds-components/ModalLayout';
 import TextInput from '@/ds-components/TextInput';
 import { isCloud } from '@/consts/env';
 import { defaultTenantResponse } from '@/consts/tenants';
-import useApi, { useAdminApi } from '@/hooks/use-api';
+import useApi, { useCrossTenantApi } from '@/hooks/use-api';
 import useTheme from '@/hooks/use-theme';
 import modalStyles from '@/scss/modal.module.scss';
 import { trySubmitSafe } from '@/utils/form';
@@ -46,15 +46,15 @@ function CreateTenantModal({ isOpen, onClose }: Props) {
   } = methods;
 
   const cloudApi = useCloudApi();
-  const adminApi = useAdminApi();
+  const crossTenantApi = useCrossTenantApi();
 
   const createTenant = async ({ name, tag }: CreateTenantData) => {
     if (isCloud) {
       const newTenant = await cloudApi.post('/api/tenants', { body: { name, tag } });
       onClose(newTenant);
     } else {
-      // For local OSS, use the admin tenant API
-      const newTenant = await adminApi.post('api/tenants', { json: { name, tag } }).json<TenantResponse>();
+      // For local OSS, use the cross-tenant API for tenant creation
+      const newTenant = await crossTenantApi.post('tenants', { json: { name, tag } }).json<TenantResponse>();
       onClose(newTenant);
     }
   };

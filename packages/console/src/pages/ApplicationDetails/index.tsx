@@ -1,12 +1,12 @@
-import { type ApplicationResponse, type SnakeCaseOidcConfig } from '@logto/schemas';
+import { type ApplicationResponse } from '@logto/schemas';
 import { useParams } from 'react-router-dom';
 import useSWR from 'swr';
 
 import DetailsPage from '@/components/DetailsPage';
 import PageMeta from '@/components/PageMeta';
-import { openIdProviderConfigPath } from '@/consts/oidc';
 import { Daisy } from '@/ds-components/Spinner';
 import type { RequestError } from '@/hooks/use-api';
+import useOidcConfig from '@/hooks/use-oidc-config';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
 
 import ApplicationDetailsContent from './ApplicationDetailsContent';
@@ -23,7 +23,7 @@ function ApplicationDetails() {
     id && `api/applications/${id}`
   );
   const secrets = useSWR<ApplicationSecretRow[], RequestError>(`api/applications/${id}/secrets`);
-  const oidcConfig = useSWR<SnakeCaseOidcConfig, RequestError>(openIdProviderConfigPath);
+  const oidcConfig = useOidcConfig();
 
   const isLoading =
     (!data && !error) ||

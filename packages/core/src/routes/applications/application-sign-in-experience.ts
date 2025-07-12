@@ -47,7 +47,15 @@ function applicationSignInExperienceRoutes<T extends ManagementApiRouter>(
         body,
       } = ctx.guard;
 
-      await findApplicationById(applicationId);
+      const application = await findApplicationById(applicationId);
+
+      // Only third-party applications can have custom sign-in experiences
+      if (!application.isThirdParty) {
+        throw new RequestError({
+          code: 'application.third_party_application_only',
+          status: 422,
+        });
+      }
 
       const applicationSignInExperience =
         await safeFindSignInExperienceByApplicationId(applicationId);
@@ -81,14 +89,22 @@ function applicationSignInExperienceRoutes<T extends ManagementApiRouter>(
         applicationId: string(),
       }),
       response: ApplicationSignInExperiences.guard,
-      status: [200, 404],
+      status: [200, 404, 422],
     }),
     async (ctx, next) => {
       const {
         params: { applicationId },
       } = ctx.guard;
 
-      await findApplicationById(applicationId);
+      const application = await findApplicationById(applicationId);
+
+      // Only third-party applications can have custom sign-in experiences
+      if (!application.isThirdParty) {
+        throw new RequestError({
+          code: 'application.third_party_application_only',
+          status: 422,
+        });
+      }
 
       const applicationSignInExperience =
         await safeFindSignInExperienceByApplicationId(applicationId);

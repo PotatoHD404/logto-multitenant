@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import FormCard, { FormCardSkeleton } from '@/components/FormCard';
 import { latestProPlanId } from '@/consts/subscriptions';
+import { isCloud } from '@/consts/env';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import CardTitle from '@/ds-components/CardTitle';
@@ -30,7 +31,10 @@ function CustomizeJwt() {
 
   const { getDocumentationUrl } = useDocumentationUrl();
 
-  const showPaywall = planId === ReservedPlanId.Free;
+  // For OSS, custom JWT should always be enabled
+  // For cloud, check the subscription quota and plan
+  const isCustomJwtEnabled = !isCloud || customJwtEnabled;
+  const showPaywall = isCloud && planId === ReservedPlanId.Free;
 
   const [deleteModalTokenType, setDeleteModalTokenType] = useState<LogtoJwtTokenKeyType>();
 
@@ -46,7 +50,7 @@ function CustomizeJwt() {
   return (
     <main className={styles.mainContent}>
       <CardTitle
-        paywall={cond(!isPaidTenant && latestProPlanId)}
+        paywall={cond(isCloud && !isPaidTenant && latestProPlanId)}
         title="jwt_claims.title"
         subtitle="jwt_claims.description"
         learnMoreLink={{
@@ -55,7 +59,7 @@ function CustomizeJwt() {
         }}
         className={styles.header}
       />
-      <UpsellNotice isVisible={showPaywall} className={styles.inlineNotice} />
+      {isCloud && <UpsellNotice isVisible={showPaywall} className={styles.inlineNotice} />}
       <div className={styles.container}>
         {isLoading && (
           <>
@@ -77,7 +81,7 @@ function CustomizeJwt() {
                   />
                 ) : (
                   <CreateButton
-                    isDisabled={showPaywall}
+                    isDisabled={!isCustomJwtEnabled}
                     tokenType={LogtoJwtTokenKeyType.AccessToken}
                   />
                 )}
@@ -95,7 +99,7 @@ function CustomizeJwt() {
                   />
                 ) : (
                   <CreateButton
-                    isDisabled={showPaywall}
+                    isDisabled={!isCustomJwtEnabled}
                     tokenType={LogtoJwtTokenKeyType.ClientCredentials}
                   />
                 )}

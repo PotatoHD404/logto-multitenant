@@ -1,16 +1,13 @@
-import { type SnakeCaseOidcConfig } from '@logto/schemas';
 import { useContext } from 'react';
-import useSWR from 'swr';
 
 import { GuideContext } from '@/components/Guide';
-import { openIdProviderConfigPath } from '@/consts/oidc';
 import CopyToClipboard from '@/ds-components/CopyToClipboard';
-import { type RequestError } from '@/hooks/use-api';
+import useOidcConfig from '@/hooks/use-oidc-config';
 
 export default function EnvironmentVariables() {
   const { app } = useContext(GuideContext);
   const { id, secret } = app ?? {};
-  const { data } = useSWR<SnakeCaseOidcConfig, RequestError>(openIdProviderConfigPath);
+  const { data } = useOidcConfig();
   const authorizationEndpoint = data?.authorization_endpoint ?? '[LOADING]';
   const tokenEndpoint = data?.token_endpoint ?? '[LOADING]';
   const userinfoEndpoint = data?.userinfo_endpoint ?? '[LOADING]';

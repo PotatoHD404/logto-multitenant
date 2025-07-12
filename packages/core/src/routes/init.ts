@@ -170,6 +170,8 @@ function koaCrossTenantManagementAuth<StateT, ContextT extends IRouterParamConte
   };
 }
 
+
+
 /**
  * Create routers for admin tenant - organization-based multi-tenancy for managing all tenants
  */
@@ -320,7 +322,7 @@ const createRegularRouters = (tenant: TenantContext) => {
 
   wellKnownOpenApiRoutes(anonymousRouter, {
     experienceRouters: [experienceRouter, interactionRouter],
-    managementRouters: [anonymousRouter, logtoAnonymousRouter], // No management APIs
+    managementRouters: [anonymousRouter, logtoAnonymousRouter], // No management APIs for regular tenants
     userRouters: [userRouter],
   });
 

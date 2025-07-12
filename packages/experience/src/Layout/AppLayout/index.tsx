@@ -1,7 +1,6 @@
 import classNames from 'classnames';
 import { Outlet } from 'react-router-dom';
 
-import LogtoSignature from '@/components/LogtoSignature';
 import usePlatform from '@/hooks/use-platform';
 import { layoutClassNames } from '@/utils/consts';
 
@@ -17,7 +16,6 @@ const AppLayout = () => {
         {!isMobile && <CustomContent className={layoutClassNames.customContent} />}
         <main className={classNames(styles.main, layoutClassNames.mainContent)}>
           <Outlet />
-          <LogtoSignature className={classNames(styles.signature, layoutClassNames.signature)} />
         </main>
       </div>
     </div>

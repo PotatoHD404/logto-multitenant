@@ -3,7 +3,6 @@ import {
   DomainStatus,
   type Application,
   type CustomDomain as CustomDomainType,
-  type SnakeCaseOidcConfig,
 } from '@logto/schemas';
 import { cond } from '@silverhand/essentials';
 import classNames from 'classnames';
@@ -19,7 +18,6 @@ import FormCard from '@/components/FormCard';
 import OpenExternalLink from '@/components/OpenExternalLink';
 import { protectedApp, protectedAppLocalDev, protectOriginServer } from '@/consts';
 import { isCloud } from '@/consts/env';
-import { openIdProviderConfigPath } from '@/consts/oidc';
 import Button from '@/ds-components/Button';
 import CopyToClipboard from '@/ds-components/CopyToClipboard';
 import FlipOnRtl from '@/ds-components/FlipOnRtl';
@@ -30,6 +28,7 @@ import TextInput from '@/ds-components/TextInput';
 import TextLink from '@/ds-components/TextLink';
 import useApi, { type RequestError } from '@/hooks/use-api';
 import useDocumentationUrl from '@/hooks/use-documentation-url';
+import useOidcConfig from '@/hooks/use-oidc-config';
 import AddDomainForm from '@/pages/TenantSettings/TenantDomainSettings/AddDomainForm';
 import CustomDomain from '@/pages/TenantSettings/TenantDomainSettings/CustomDomain';
 
@@ -48,9 +47,7 @@ const routes = Object.freeze(['/register', '/sign-in', '/sign-in-callback', '/si
 function ProtectedAppSettings({ data }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { getDocumentationUrl } = useDocumentationUrl();
-  const { data: oidcConfig } = useSWRImmutable<SnakeCaseOidcConfig, RequestError>(
-    openIdProviderConfigPath
-  );
+  const { data: oidcConfig } = useOidcConfig();
   const {
     data: customDomains = [],
     isLoading: isLoadingCustomDomain,

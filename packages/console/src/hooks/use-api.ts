@@ -226,23 +226,11 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
         };
       }
 
-      // For OSS, determine routing approach based on current URL
-      const currentUrl = new URL(window.location.href);
-      const isCustomDomain = tenantEndpoint && currentUrl.origin !== tenantEndpoint.origin;
-      
-      if (isCustomDomain) {
-        // Custom domain routing: custom.localhost/api/connectors
-        return {
-          prefixUrl: appendPath(new URL(window.location.origin), '/api'),
-          resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
-        };
-      } else {
-        // Path-based routing: localhost/api/{tenantId}/connectors
-        return {
-          prefixUrl: appendPath(tenantEndpoint || new URL(window.location.origin), '/api', currentTenantId),
-          resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
-        };
-      }
+      // For OSS, use the /m/{tenantId}/api pattern that matches the server routing
+      return {
+        prefixUrl: appendPath(new URL(window.location.origin), 'm', currentTenantId),
+        resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
+      };
     },
     [currentTenantId, tenantEndpoint]
   );
@@ -302,7 +290,8 @@ export const useCrossTenantApi = (
 ) => {
   const config = useMemo(
     () => ({
-      // Cross-tenant operations are available directly at /api on admin port
+      // Cross-tenant operations are available directly at /api/... on the admin port
+      // These use management API tokens, not organization tokens
       prefixUrl: appendPath(new URL(window.location.origin), 'api'),
       // Use management API resource indicator for cross-tenant operations
       resourceIndicator: getManagementApiResourceIndicator(tenantId),
