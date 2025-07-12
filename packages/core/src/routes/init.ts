@@ -127,11 +127,13 @@ function koaCrossTenantManagementAuth<StateT, ContextT extends IRouterParamConte
     const managementApiAudience = getManagementApiResourceIndicator(adminTenantId);
     
     // Verify JWT with the admin tenant's management API audience
+    // Skip tenant context to avoid blacklist check against wrong tenant
+    // (JWT issued by admin tenant but processed in default tenant context)
     const { sub, clientId, scopes } = await verifyBearerTokenFromRequest(
       tenant.envSet,
       ctx.request,
       managementApiAudience, // Validate audience matches admin tenant management API
-      tenant // Pass tenant for blacklist check
+      undefined // Skip blacklist check for cross-tenant operations
     );
 
     // Debug logging
@@ -225,9 +227,10 @@ const createAdminRouters = (tenant: TenantContext) => {
   if (EnvSet.values.isDevFeaturesEnabled) {
     customProfileFieldsRoutes(managementRouter, tenant);
   }
-  // Include tenant management routes for organization-based operations (/m/{tenantId}/api/tenants)
-  tenantRoutes(managementRouter, tenant);
-  tenantMemberRoutes(managementRouter, tenant);
+  // Remove tenant management routes from organization-based router
+  // Cross-tenant operations should only use crossTenantRouter with management API tokens
+  // tenantRoutes(managementRouter, tenant);
+  // tenantMemberRoutes(managementRouter, tenant);
 
   // Cross-tenant API router - management API tokens for direct /api/... access
   const crossTenantRouter: ManagementApiRouter = new Router();
