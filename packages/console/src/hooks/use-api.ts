@@ -256,8 +256,9 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
 export default useApi;
 
 /**
- * A hook to get a Ky instance specifically for admin tenant operations.
- * This uses tenant-specific routing (/m/{tenantId}/api/...) for cross-tenant admin operations.
+ * A hook to get a Ky instance specifically for tenant management operations.
+ * Uses tenant-specific routing (/m/{tenantId}/api/...) for cross-tenant admin operations.
+ * This properly uses organization tokens for the specific tenant being managed.
  */
 export const useAdminApi = (
   tenantId?: string,
@@ -268,10 +269,17 @@ export const useAdminApi = (
   const config = useMemo(
     () => {
       const targetTenantId = tenantId || currentTenantId || defaultTenantId;
+      
+      // Use the organization token for the specific tenant being managed
+      // Each tenant has a corresponding organization t-{tenantId} in the admin tenant
+      // The user must have proper permissions in that organization
+      const targetTenantOrganizationId = getTenantOrganizationId(targetTenantId);
+      
+      // Both Cloud and OSS use the same /m/{tenantId}/api pattern
+      // The console server handles the proxying to the core API
       return {
-        // Use tenant-specific routing for admin operations
         prefixUrl: appendPath(new URL(window.location.origin), 'm', targetTenantId, 'api'),
-        resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(targetTenantId)),
+        resourceIndicator: buildOrganizationUrn(targetTenantOrganizationId),
       };
     },
     [tenantId, currentTenantId]

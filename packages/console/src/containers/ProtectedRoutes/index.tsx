@@ -1,4 +1,5 @@
 import { useLogto } from '@logto/react';
+import { TenantTag } from '@logto/schemas';
 import { yes, conditional } from '@silverhand/essentials';
 import { useContext, useEffect } from 'react';
 import { Outlet, useMatch, useSearchParams } from 'react-router-dom';
@@ -70,9 +71,9 @@ export default function ProtectedRoutes() {
             const data = await cloudApi.get('/api/tenants');
             resetTenants(data);
           } else {
-            // For local OSS, use admin API with admin organization tokens
-            // This will show all tenants the user has access to based on organization membership
-            const tenants = await adminApi.get('api/tenants').json<LocalTenantResponse[]>();
+            // For local OSS, use admin API to fetch tenants
+            // This uses admin tenant organization tokens to list all tenants
+            const tenants = await adminApi.get('tenants').json<LocalTenantResponse[]>();
             
             // Convert local API response to match TenantResponse format
             const tenantResponses: TenantResponse[] = tenants.map((tenant) => ({
@@ -87,7 +88,17 @@ export default function ProtectedRoutes() {
           }
         } catch (error) {
           console.error('Failed to load tenants:', error);
-          // Don't throw error as this shouldn't block the app
+          // For OSS, if tenant loading fails, still allow access to default tenant
+          if (!isCloud) {
+            resetTenants([{
+              ...defaultTenantResponse,
+              id: 'default',
+              name: 'Default',
+              tag: TenantTag.Development,
+              createdAt: new Date(),
+              isSuspended: false,
+            }]);
+          }
         }
       };
 

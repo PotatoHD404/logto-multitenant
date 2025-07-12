@@ -155,11 +155,30 @@ export default class Tenant implements TenantContext {
     // Mount APIs (different sets for admin vs regular tenants)
     app.use(mount('/api', initApis(tenantContext)));
 
-    // Mount cross-tenant management API routing (admin tenant only)
+    // Mount cross-tenant management API routing for OSS multi-tenancy
     // Pattern: /m/{tenantId}/api/... (same as cloud)
-    if (id === adminTenantId) {
-      app.use(mount(`/m/${id}/api`, initApis(tenantContext)));
-    }
+    // Mount cross-tenant management API routing for OSS multi-tenancy
+    // Pattern: /m/{tenantId}/api/... (same as cloud)
+    // ALL management APIs should only be accessible through admin port (3002)
+    const adminPortGuard = async (ctx: any, next: any) => {
+      // Check if request is coming through admin port
+      const { adminUrlSet } = EnvSet.values;
+      const requestPort = ctx.request.socket?.localPort;
+      const isAdminPortRequest = adminUrlSet.deduplicated().some(url => 
+        String(url.port) === String(requestPort)
+      );
+      
+      if (!isAdminPortRequest) {
+        ctx.status = 404;
+        return;
+      }
+      
+      await next();
+    };
+
+    // Apply admin port guard to all management APIs
+    app.use(mount(`/m/${id}/api`, adminPortGuard));
+    app.use(mount(`/m/${id}/api`, initApis(tenantContext)));
 
     const { adminUrlSet, isCloud } = EnvSet.values;
 
