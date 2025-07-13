@@ -30,8 +30,28 @@ export default function koaSpaSessionGuard<
     const requestPath = ctx.request.path;
     const isPreview = ctx.request.URL.searchParams.get('preview');
 
-    const isSessionRequiredPath =
-      requestPath === '/' || guardedPath.some((path) => requestPath.startsWith(path));
+    // Check if this is a session-required path, accounting for tenant-prefixed paths
+    const isSessionRequiredPath = (() => {
+      // Root path always requires session
+      if (requestPath === '/') {
+        return true;
+      }
+
+      // Check direct paths (admin tenant or non-tenant-prefixed)
+      if (guardedPath.some((path) => requestPath.startsWith(path))) {
+        return true;
+      }
+
+      // Check tenant-prefixed paths: /{tenantId}/sign-in, /{tenantId}/register, etc.
+      const pathSegments = requestPath.split('/').filter(Boolean);
+      if (pathSegments.length >= 2) {
+        // Remove the first segment (potential tenant ID) and check the rest
+        const pathWithoutTenantId = '/' + pathSegments.slice(1).join('/');
+        return guardedPath.some((path) => pathWithoutTenantId.startsWith(path));
+      }
+
+      return false;
+    })();
 
     if (isSessionRequiredPath && !isPreview) {
       try {

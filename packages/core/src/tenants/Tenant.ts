@@ -149,28 +149,8 @@ export default class Tenant implements TenantContext {
     // Sign-in experience callback via form submission
     mountCallbackRouter(app);
 
-    // Mount cross-tenant management API routing for OSS multi-tenancy
-    // Pattern: /m/{tenantId}/api/... (same as cloud)
-    // ALL management APIs should only be accessible through admin port (3002)
-    const adminPortGuard = async (ctx: any, next: any) => {
-      // Check if request is coming through admin port
-      const { adminUrlSet } = EnvSet.values;
-      const requestPort = ctx.request.socket?.localPort;
-      const isAdminPortRequest = adminUrlSet.deduplicated().some(url => 
-        String(url.port) === String(requestPort)
-      );
-      
-      if (!isAdminPortRequest) {
-        ctx.status = 404;
-        return;
-      }
-      
-      await next();
-    };
-
     // Mount management API pattern /m/{tenantId}/api for each tenant
     // Since getTenantId now returns the actual tenant ID, each tenant handles its own requests
-    app.use(adminPortGuard);
     app.use(mount(`/m/${id}/api`, initApis(tenantContext)));
 
     // Mount global well-known APIs

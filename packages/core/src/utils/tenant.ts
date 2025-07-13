@@ -124,16 +124,16 @@ export const getTenantId = async (
   } = EnvSet;
   const pool = await sharedPool;
 
-  // Management API tenant routing check - second priority for both cloud and OSS
+  // Management API tenant routing check - only apply on admin endpoints
   // Pattern: /m/{tenantId}/api/...
   // These requests should be handled by the TARGET TENANT!
   const managementApiTenantId = matchManagementApiTenantId(url);
-  if (managementApiTenantId) {
-    debugConsole.warn(`Found management API pattern for tenant ${managementApiTenantId}, routing to admin tenant.`);
+  if (managementApiTenantId && adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint))) {
+    debugConsole.warn(`Found management API pattern for tenant ${managementApiTenantId}, routing to target tenant.`);
     return [managementApiTenantId, false];
   }
 
-  // Admin tenant check - always first priority
+  // Admin tenant check
   if (adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint))) {
     return [adminTenantId, false];
   }
@@ -176,14 +176,14 @@ export const getTenantId = async (
 
     // 3. Handle plain /api/... requests (should use default tenant)
     // This comes AFTER custom domain and path-based checks
-    if (url.pathname.startsWith('/api/')) {
-      return [defaultTenantId, false];
-    }
+    // if (url.pathname.startsWith('/api/')) {
+    //   return [defaultTenantId, false];
+    // }
 
     // 4. For root requests on default domain, return default tenant
-    if (url.origin === urlSet.endpoint.origin && url.pathname === '/') {
-      return [defaultTenantId, false];
-    }
+    // if (url.origin === urlSet.endpoint.origin && url.pathname === '/') {
+    //   return [defaultTenantId, false];
+    // }
 
     // 5. No tenant found
     return [undefined, false];
