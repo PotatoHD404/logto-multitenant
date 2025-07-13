@@ -1,18 +1,15 @@
-import { InteractionEvent } from '@logto/schemas';
+import {
+  type InteractionEvent,
+  type IdentificationApiPayload,
+  type UpdateProfileApiPayload,
+} from '@logto/schemas';
 
 import { createTenantApi } from '../api';
 
 import { createTenantExperienceApiRoutes, type VerificationResponse } from './const';
 
-type InteractionPayload = {
-  interactionEvent: InteractionEvent;
-  verificationId?: string;
-  context?: Record<string, unknown>;
-  captchaToken?: string;
-};
-
-type SubmitInteractionPayload = {
-  verificationId: string;
+type SubmitInteractionResponse = {
+  redirectTo: string;
 };
 
 export const initInteraction = async (
@@ -38,54 +35,35 @@ export const updateInteractionEvent = async (
   const api = createTenantApi(tenantId);
   const routes = createTenantExperienceApiRoutes(tenantId);
   
-  return api.put(routes.prefix, {
+  return api.put(`${routes.prefix}/interaction-event`, {
     json: {
       interactionEvent,
     },
   });
 };
 
-export const identifyUser = async (payload: InteractionPayload, tenantId?: string) => {
+export const identifyUser = async (payload: IdentificationApiPayload = {}, tenantId?: string) => {
   const api = createTenantApi(tenantId);
   const routes = createTenantExperienceApiRoutes(tenantId);
   
-  return api
-    .put(routes.identification, {
-      json: payload,
-    })
-    .json<VerificationResponse>();
+  return api.post(routes.identification, { json: payload });
 };
 
-export const submitInteraction = async (payload: SubmitInteractionPayload, tenantId?: string) => {
+export const submitInteraction = async (tenantId?: string) => {
   const api = createTenantApi(tenantId);
   const routes = createTenantExperienceApiRoutes(tenantId);
   
-  return api
-    .post(routes.submit, {
-      json: payload,
-    })
-    .json<{ redirectTo: string }>();
+  return api.post(routes.submit).json<SubmitInteractionResponse>();
 };
 
-export const identifyAndSubmitInteraction = async (
-  payload: SubmitInteractionPayload,
-  tenantId?: string
-) => {
-  const api = createTenantApi(tenantId);
-  const routes = createTenantExperienceApiRoutes(tenantId);
-  
-  return api
-    .post(routes.identification, {
-      json: payload,
-    })
-    .json<{ redirectTo: string }>();
+export const identifyAndSubmitInteraction = async (payload?: IdentificationApiPayload, tenantId?: string) => {
+  await identifyUser(payload, tenantId);
+  return submitInteraction(tenantId);
 };
 
-export const updateProfile = async (payload: Record<string, unknown>, tenantId?: string) => {
+export const updateProfile = async (payload: UpdateProfileApiPayload, tenantId?: string) => {
   const api = createTenantApi(tenantId);
   const routes = createTenantExperienceApiRoutes(tenantId);
   
-  return api.patch(routes.profile, {
-    json: payload,
-  });
+  return api.post(routes.profile, { json: payload });
 };

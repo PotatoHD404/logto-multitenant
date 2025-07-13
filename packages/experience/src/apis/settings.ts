@@ -7,19 +7,9 @@ import type { LanguageInfo } from '@logto/schemas';
 import { conditionalString } from '@silverhand/essentials';
 
 import type { SignInExperienceResponse } from '@/types';
+import { searchKeys } from '@/utils/search-parameters';
 
 import { createTenantApi } from './api';
-
-const searchKeys = Object.freeze({
-  organizationId: 'organization_id',
-  directSignIn: 'direct_sign_in',
-  firstScreen: 'first_screen',
-  identifier: 'identifier',
-  socialConnectorId: 'social_connector_id',
-  organizationInvitationId: 'organization_invitation_id',
-  socialConnectorTarget: 'social_connector_target',
-  ssoConnectorId: 'sso_connector_id',
-} as const);
 
 const buildSearchParameters = (data: Record<string, unknown>) => {
   const result = new URLSearchParams();
@@ -34,6 +24,13 @@ const buildSearchParameters = (data: Record<string, unknown>) => {
 
   return result;
 };
+
+// A simple camelCase utility to prevent the need to add a dependency.
+const camelCase = (string: string): string =>
+  string.replaceAll(
+    /_([^_])([^_]*)/g,
+    (_, letter: string, rest: string) => letter.toUpperCase() + rest.toLowerCase()
+  );
 
 export const getSignInExperience = async <T extends SignInExperienceResponse>(
   tenantId?: string
@@ -80,10 +77,6 @@ export const getPhrases = async ({
       }),
     });
 };
-
-function camelCase(string: string): string {
-  return string.replaceAll(/_[a-z]/g, (match) => match[1]!.toUpperCase());
-}
 
 export const getTermsOfUse = async (tenantId?: string) => {
   const api = createTenantApi(tenantId);
