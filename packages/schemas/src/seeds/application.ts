@@ -18,20 +18,38 @@ export const adminConsoleApplicationId = 'admin-console';
 
 export const demoAppApplicationId = 'demo-app';
 
-export const buildDemoAppDataForTenant = (tenantId: string): Application => ({
-  tenantId,
-  id: demoAppApplicationId,
-  name: 'Live Preview',
-  secret: 'N/A',
-  description: 'Preview for Sign-in Experience.',
-  type: ApplicationType.SPA,
-  oidcClientMetadata: { redirectUris: [], postLogoutRedirectUris: [] },
-  customClientMetadata: {},
-  protectedAppMetadata: null,
-  isThirdParty: false,
-  createdAt: 0,
-  customData: {},
-});
+export const buildDemoAppDataForTenant = (tenantId: string): Application => {
+  // For local OSS multi-tenant setup, include redirect URIs for different routing patterns
+  const baseUrl = 'http://localhost:3001';
+  const demoAppPath = '/demo-app';
+  
+  const redirectUris = [
+    // Direct routing (custom domain or admin tenant)
+    `${baseUrl}${demoAppPath}`,
+    // Tenant-based routing (/t/{tenantId}/...)
+    `${baseUrl}/t/${tenantId}${demoAppPath}`,
+    // Path-based routing (/{tenantId}/...)
+    `${baseUrl}/${tenantId}${demoAppPath}`,
+  ];
+
+  return {
+    tenantId,
+    id: demoAppApplicationId,
+    name: 'Live Preview',
+    secret: 'N/A',
+    description: 'Preview for Sign-in Experience.',
+    type: ApplicationType.SPA,
+    oidcClientMetadata: { 
+      redirectUris,
+      postLogoutRedirectUris: redirectUris
+    },
+    customClientMetadata: {},
+    protectedAppMetadata: null,
+    isThirdParty: false,
+    createdAt: 0,
+    customData: {},
+  };
+};
 
 export const createDefaultAdminConsoleApplication = (): Readonly<CreateApplication> =>
   Object.freeze({

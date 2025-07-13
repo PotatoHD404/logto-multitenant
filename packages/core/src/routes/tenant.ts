@@ -1,4 +1,4 @@
-import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData, getManagementApiResourceIndicator, PredefinedScope, getTenantOrganizationId, createDefaultSignInExperience, createDefaultAdminConsoleConfig, createDefaultAccountCenter, LogtoConfigs, SignInExperiences, AccountCenters } from '@logto/schemas';
+import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData, getManagementApiResourceIndicator, PredefinedScope, getTenantOrganizationId, createDefaultSignInExperience, createDefaultAdminConsoleConfig, createDefaultAccountCenter, LogtoConfigs, SignInExperiences, AccountCenters, buildDemoAppDataForTenant, Applications } from '@logto/schemas';
 import { generateStandardId, generateTenantId} from '@logto/shared';
 import { sql } from '@silverhand/slonik';
 import { object, string, nativeEnum, boolean } from 'zod';
@@ -309,6 +309,10 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         // Create default account center
         const accountCenter = createDefaultAccountCenter(newTenant.id);
         await sharedPool.query(insertInto(accountCenter, AccountCenters.table));
+
+        // Create demo app application with proper redirect URIs for multi-tenant setup
+        const demoApp = buildDemoAppDataForTenant(newTenant.id);
+        await sharedPool.query(insertInto(demoApp, Applications.table));
 
         console.log(`Successfully seeded default configurations for tenant ${newTenant.id}`);
       } catch (error) {

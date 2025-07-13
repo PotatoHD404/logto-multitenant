@@ -1,7 +1,7 @@
 import { adminTenantId, experience } from '@logto/schemas';
 import { ConsoleLog } from '@logto/shared';
 import type { MiddlewareType } from 'koa';
-import Koa from 'koa';
+import Koa, { type Context, type Next } from 'koa';
 import compose from 'koa-compose';
 import koaCompress from 'koa-compress';
 import mount from 'koa-mount';
@@ -227,28 +227,53 @@ export default class Tenant implements TenantContext {
     // For local OSS: Support both custom domain and path-based routing simultaneously
     // For cloud: Use standard mounting based on configuration
     if (!isCloud && this.id !== adminTenantId) {
-      // Local OSS user tenant: Hybrid mounting for multi-tenancy
-      // Mount without path prefix for custom domain requests
-      const directMount = mount(this.app);
-      
-      // Mount with path prefix for path-based requests
-      const pathMount = mount('/' + this.id, this.app);
-      
-      // Create a hybrid middleware that handles both cases
-      this.run = async (ctx, next) => {
+      // Local OSS user tenant: Use path rewriting middleware for multi-tenancy support
+      const pathRewriteMiddleware = async (ctx: Context, next: Next) => {
         // Check if this is a custom domain request by examining the URL
-        // If the URL doesn't contain the tenant ID in the path, treat it as custom domain
         const pathSegments = ctx.URL.pathname.split('/').filter(Boolean);
+        
+        // Check for tenant-based routing pattern: /t/{tenantId}/...
+        const isTenantBasedRouting = pathSegments.length >= 2 && pathSegments[0] === 't' && pathSegments[1] === this.id;
+        
+        if (isTenantBasedRouting) {
+          // For tenant-based routing, rewrite the path by removing /t/{tenantId}
+          const originalPath = ctx.path;
+          const newPath = '/' + pathSegments.slice(2).join('/');
+          ctx.path = newPath;
+          
+          try {
+            await next();
+          } finally {
+            // Restore original path
+            ctx.path = originalPath;
+          }
+          return;
+        }
+        
+        // Check if this is a custom domain request
+        // If the URL doesn't contain the tenant ID in the path, treat it as custom domain
         const isCustomDomainRequest = pathSegments.length === 0 || pathSegments[0] !== this.id;
         
         if (isCustomDomainRequest) {
-          // Use direct mount for custom domain requests
-          return directMount(ctx, next);
+          // Direct processing for custom domain requests
+          return next();
         } else {
-          // Use path-based mount for path-based requests
-          return pathMount(ctx, next);
+          // For path-based requests, rewrite the path by removing the tenant ID
+          const originalPath = ctx.path;
+          const newPath = '/' + pathSegments.slice(1).join('/');
+          ctx.path = newPath;
+          
+          try {
+            await next();
+          } finally {
+            // Restore original path
+            ctx.path = originalPath;
+          }
         }
       };
+      
+      // Use compose to create the middleware
+      this.run = compose([pathRewriteMiddleware, mount(this.app)]);
     } else {
       // Admin tenant or cloud: Use standard mounting
       // For admin tenant: Mount directly if admin URL set is configured, otherwise use path-based
