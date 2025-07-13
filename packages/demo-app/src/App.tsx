@@ -200,10 +200,23 @@ const App = () => {
   const params = new URL(window.location.href).searchParams;
   const config = getLocalData('config');
 
+  // Extract tenant ID from URL path if present
+  const getTenantSpecificEndpoint = () => {
+    const { origin, pathname } = window.location;
+    const tenantMatch = pathname.match(/^\/t\/([^\/]+)/);
+    
+    if (tenantMatch) {
+      const tenantId = tenantMatch[1];
+      return `${origin}/t/${tenantId}`;
+    }
+    
+    return origin;
+  };
+
   return (
     <LogtoProvider
       config={{
-        endpoint: window.location.origin,
+        endpoint: getTenantSpecificEndpoint(),
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- We need to fall back for empty string
         appId: params.get('app_id') || config.appId || demoAppApplicationId,
         // eslint-disable-next-line no-restricted-syntax
