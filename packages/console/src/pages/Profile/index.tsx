@@ -84,8 +84,8 @@ function Profile() {
                 )}
                 {/* MFA Section - only show when MFA is available for the user */}
                 {isMfaAvailableForUser && <MfaSection />}
-                <SessionManagement />
-                <AccountActivity />
+                {/* <SessionManagement /> */}
+                {/* <AccountActivity /> */}
                 <FormCard title="profile.password.title">
                   <CardContent
                     title="profile.password.password_setting"

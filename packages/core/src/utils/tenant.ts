@@ -124,17 +124,17 @@ export const getTenantId = async (
   } = EnvSet;
   const pool = await sharedPool;
 
-  // Admin tenant check - always first priority
-  if (adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint))) {
-    return [adminTenantId, false];
-  }
-
   // Management API tenant routing check - second priority for both cloud and OSS
   // Pattern: /m/{tenantId}/api/...
-  // These requests should be handled by the ADMIN tenant, not the target tenant
+  // These requests should be handled by the TARGET TENANT!
   const managementApiTenantId = matchManagementApiTenantId(url);
   if (managementApiTenantId) {
     debugConsole.warn(`Found management API pattern for tenant ${managementApiTenantId}, routing to admin tenant.`);
+    return [managementApiTenantId, false];
+  }
+
+  // Admin tenant check - always first priority
+  if (adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint))) {
     return [adminTenantId, false];
   }
 

@@ -168,39 +168,10 @@ export default class Tenant implements TenantContext {
       await next();
     };
 
-    // Only mount management API routes on admin tenant instance - MUST BE BEFORE API MOUNTING
-    if (id === adminTenantId) {
-      // Mount management APIs for all tenants using a catch-all pattern
-      // This allows the admin tenant to handle requests like /m/any-tenant-id/api/...
-      app.use(adminPortGuard);
-      
-      // Mount a middleware that intercepts /m/{tenantId}/api/... requests
-      // This must be BEFORE the API mounting so it can rewrite paths
-      app.use(async (ctx: any, next: any) => {
-        const urlPath = ctx.path;
-        
-        // Check if this is a management API request: /m/{tenantId}/api/...
-        const managementApiMatch = urlPath.match(/^\/m\/([^\/]+)\/api(.*)$/);
-        
-        if (managementApiMatch) {
-          const [, tenantId, apiPath] = managementApiMatch;
-          
-          // Store the requested tenant ID for use in auth middleware
-          ctx.targetTenantId = tenantId;
-          
-          // Rewrite the path to /api/... so it can be handled by the admin APIs
-          const newPath = `/api${apiPath}`;
-          const query = ctx.search || '';
-          
-          ctx.path = newPath;
-          ctx.url = newPath + query;
-          
-          // Continue to the next middleware (which should be the admin APIs)
-        }
-        
-        return next();
-      });
-    }
+    // Mount management API pattern /m/{tenantId}/api for each tenant
+    // Since getTenantId now returns the actual tenant ID, each tenant handles its own requests
+    app.use(adminPortGuard);
+    app.use(mount(`/m/${id}/api`, initApis(tenantContext)));
 
     // Mount global well-known APIs
     app.use(mount('/.well-known', initPublicWellKnownApis(tenantContext)));
