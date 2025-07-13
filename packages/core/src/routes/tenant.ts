@@ -1,5 +1,5 @@
-import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData, getManagementApiResourceIndicator, PredefinedScope, getTenantOrganizationId } from '@logto/schemas';
-import { generateStandardId } from '@logto/shared';
+import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData, getManagementApiResourceIndicator, PredefinedScope, getTenantOrganizationId, createDefaultSignInExperience, createDefaultAdminConsoleConfig, createDefaultAccountCenter, LogtoConfigs, SignInExperiences, AccountCenters } from '@logto/schemas';
+import { generateStandardId, generateTenantId} from '@logto/shared';
 import { sql } from '@silverhand/slonik';
 import { object, string, nativeEnum, boolean } from 'zod';
 import type { Next, MiddlewareType } from 'koa';
@@ -13,8 +13,14 @@ import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
 import assertThat from '#src/utils/assert-that.js';
 import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
 
+// Import database utilities for proper tenant creation
+import { createTenantDatabaseMetadata } from '@logto/core-kit';
+import { getDatabaseName } from '@logto/cli/lib/queries/database.js';
+
 // Import OIDC seeding functionality
 import { seedOidcConfigs } from '@logto/cli/lib/commands/database/seed/oidc-config.js';
+import { seedPreConfiguredManagementApiAccessRole } from '@logto/cli/lib/commands/database/seed/roles.js';
+import { insertInto } from '@logto/cli/lib/database.js';
 
 import type { ManagementApiRouter, RouterInitArgs, ManagementApiRouterContext } from './types.js';
 
@@ -254,21 +260,29 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     koaTenantCreateAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { name, tag } = ctx.guard.body;
-      const id = generateStandardId();
-
-      // Generate database credentials for the tenant
-      const databaseUser = `logto_tenant_${id}`;
-      const databaseUserPassword = generateStandardId(32);
+      const id = generateTenantId();
 
       // Use the shared admin pool for tenant management operations
       // This ensures we have the necessary permissions to create tenants
       const sharedPool = await EnvSet.sharedPool;
+
+      // Get database name and generate proper database credentials
+      const database = await getDatabaseName(sharedPool, true);
+      const { parentRole, role, password } = createTenantDatabaseMetadata(database, id);
       
       // Create tenant record using shared admin pool
       const newTenant = await sharedPool.one<TenantDatabaseRow>(sql`
         INSERT INTO tenants (id, name, tag, db_user, db_user_password, created_at, is_suspended)
-        VALUES (${id}, ${name}, ${tag}, ${databaseUser}, ${databaseUserPassword}, NOW(), false)
+        VALUES (${id}, ${name}, ${tag}, ${role}, ${password}, NOW(), false)
         RETURNING id, name, tag, created_at, is_suspended
+      `);
+
+      // Create the actual PostgreSQL database user/role
+      // This is the missing step that was causing the authentication error
+      await sharedPool.query(sql`
+        CREATE ROLE ${sql.identifier([role])} WITH INHERIT LOGIN
+          PASSWORD '${sql.raw(password)}'
+          IN ROLE ${sql.identifier([parentRole])};
       `);
 
       // Seed OIDC configuration for the new tenant (privateKeys, cookieKeys)
@@ -277,6 +291,28 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         console.log(`Successfully seeded OIDC configuration for tenant ${newTenant.id}`);
       } catch (error) {
         console.error(`Failed to seed OIDC configuration for tenant ${newTenant.id}:`, error);
+        // Don't throw error as this shouldn't block tenant creation
+      }
+
+      // Seed essential default data for the new tenant
+      try {
+        const { isCloud } = EnvSet.values;
+        
+        // Create default sign-in experience
+        const signInExperience = createDefaultSignInExperience(newTenant.id, isCloud);
+        await sharedPool.query(insertInto(signInExperience, SignInExperiences.table));
+
+        // Create default admin console configuration
+        const adminConsoleConfig = createDefaultAdminConsoleConfig(newTenant.id);
+        await sharedPool.query(insertInto(adminConsoleConfig, LogtoConfigs.table));
+
+        // Create default account center
+        const accountCenter = createDefaultAccountCenter(newTenant.id);
+        await sharedPool.query(insertInto(accountCenter, AccountCenters.table));
+
+        console.log(`Successfully seeded default configurations for tenant ${newTenant.id}`);
+      } catch (error) {
+        console.error(`Failed to seed default configurations for tenant ${newTenant.id}:`, error);
         // Don't throw error as this shouldn't block tenant creation
       }
 
@@ -351,6 +387,15 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         console.log(`Successfully created Management API resource for tenant ${newTenant.id}`);
       } catch (error) {
         console.error(`Failed to create Management API resource for tenant ${newTenant.id}:`, error);
+        // Don't throw error as this shouldn't block tenant creation
+      }
+
+      // Seed pre-configured management API access role
+      try {
+        await seedPreConfiguredManagementApiAccessRole(sharedPool, newTenant.id);
+        console.log(`Successfully created pre-configured Management API access role for tenant ${newTenant.id}`);
+      } catch (error) {
+        console.error(`Failed to create pre-configured Management API access role for tenant ${newTenant.id}:`, error);
         // Don't throw error as this shouldn't block tenant creation
       }
 

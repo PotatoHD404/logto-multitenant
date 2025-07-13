@@ -27,6 +27,8 @@ const buildIdGenerator: BuildIdGenerator = (size: number, includingUppercase = t
  */
 export const generateStandardId = buildIdGenerator(21, false);
 
+export const generateTenantId = buildIdGenerator(19, false);
+
 /**
  * Generate a standard short id with 12 characters, including lowercase letters and numbers.
  *
