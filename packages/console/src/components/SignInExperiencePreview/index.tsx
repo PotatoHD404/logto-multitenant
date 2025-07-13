@@ -10,6 +10,7 @@ import useSWR from 'swr';
 
 import PhoneInfo from '@/assets/images/phone-info.svg?react';
 import { AppDataContext } from '@/contexts/AppDataProvider';
+import { TenantsContext } from '@/contexts/TenantsProvider';
 import type { RequestError } from '@/hooks/use-api';
 import useUiLanguages from '@/hooks/use-ui-languages';
 import { type SignInExperiencePageManagedData } from '@/pages/SignInExperience/types';
@@ -49,6 +50,7 @@ function SignInExperiencePreview({
 
   const { customPhrases } = useUiLanguages();
   const { tenantEndpoint } = useContext(AppDataContext);
+  const { currentTenantId } = useContext(TenantsContext);
   const endpoint = endpointInput ?? tenantEndpoint;
   const previewRef = useRef<HTMLIFrameElement>(null);
   const { data: allConnectors } = useSWR<ConnectorResponse[], RequestError>('api/connectors');
@@ -164,7 +166,7 @@ function SignInExperiencePreview({
               ref={previewRef}
               // Allow all sandbox rules
               sandbox={undefined}
-              src={new URL('/sign-in?preview=true', endpoint).toString()}
+              src={new URL(`/t/${currentTenantId}/sign-in?preview=true`, endpoint).toString()}
               tabIndex={-1}
               title={t('sign_in_exp.preview.title')}
             />

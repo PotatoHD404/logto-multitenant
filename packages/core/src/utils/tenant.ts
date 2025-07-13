@@ -33,6 +33,28 @@ const matchDomainBasedTenantId = (pattern: URL, url: URL) => {
   }
 };
 
+/**
+ * Match tenant-based routing pattern: /t/{tenantId}/...
+ * This is used for path-based multi-tenancy to distinguish from custom domain routing.
+ */
+const matchTenantBasedRouting = (url: URL) => {
+  const pathSegments = url.pathname.split('/').filter(Boolean);
+  
+  // Check if the path starts with 't' and has at least 2 segments: ['t', tenantId, ...]
+  if (pathSegments.length >= 2 && pathSegments[0] === 't') {
+    const tenantId = pathSegments[1];
+    
+    // Exclude reserved paths that shouldn't be treated as tenant IDs
+    if (tenantId === 'api' || tenantId === 'oidc' || tenantId === '.well-known') {
+      return;
+    }
+    
+    return tenantId;
+  }
+  
+  return undefined;
+};
+
 const matchPathBasedTenantId = (urlSet: UrlSet, url: URL) => {
   const found = urlSet.deduplicated().find((value) => isEndpointOf(url, value));
 
@@ -146,12 +168,23 @@ export const getTenantId = async (
     return [developmentTenantId, false];
   }
 
-  // Multi-tenancy is enabled by default
-  // For local OSS: Support both custom domain AND path-based routing simultaneously
-  // For cloud: Use original cloud logic
+  // Multi-tenancy routing - enable by default for local OSS environments
   if (!isCloud) {
-    // Local OSS: Hybrid multi-tenancy approach
-    // 1. First try custom domain matching
+    // Local OSS: Enhanced multi-tenancy with proper routing order
+    
+    // 1. First, check for tenant-based routing pattern: /t/{tenantId}/...
+    // This takes precedence to distinguish from custom domain routing
+    const tenantBasedTenantId = matchTenantBasedRouting(url);
+    if (tenantBasedTenantId) {
+      // Security: Prevent admin tenant access via tenant-based routing on regular servers
+      if (tenantBasedTenantId === adminTenantId) {
+        debugConsole.warn(`Blocked admin tenant access via tenant-based routing on regular server: ${url.toString()}`);
+        return [undefined, false];
+      }
+      return [tenantBasedTenantId, false];
+    }
+
+    // 2. Then, try custom domain matching
     const customDomainTenantId = await getTenantIdFromCustomDomain(url, pool);
     if (customDomainTenantId) {
       // Security: Prevent admin tenant access via custom domain on regular servers
@@ -162,31 +195,20 @@ export const getTenantId = async (
       return [customDomainTenantId, true];
     }
 
-    // 2. Try path-based routing (works with default domain)
-    const pathBasedTenantId = matchPathBasedTenantId(urlSet, url);
-    if (pathBasedTenantId) {
-      // Security: Prevent admin tenant access via path-based routing on regular servers
-      // Admin tenant should ONLY be accessible on admin server endpoints
-      if (pathBasedTenantId === adminTenantId) {
-        debugConsole.warn(`Blocked admin tenant access via path-based routing on regular server: ${url.toString()}`);
-        return [undefined, false]; // Block admin tenant access
-      }
-      return [pathBasedTenantId, false];
+    // 3. For direct API access without tenant prefix, use default tenant
+    // This handles requests like /api/... or /oidc/... 
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/oidc/') || url.pathname.startsWith('/.well-known/')) {
+      return [defaultTenantId, false];
     }
 
-    // 3. Handle plain /api/... requests (should use default tenant)
-    // This comes AFTER custom domain and path-based checks
-    // if (url.pathname.startsWith('/api/')) {
-    //   return [defaultTenantId, false];
-    // }
-
-    // 4. For root requests on default domain, return default tenant
-    // if (url.origin === urlSet.endpoint.origin && url.pathname === '/') {
-    //   return [defaultTenantId, false];
-    // }
+    // 4. For sign-in experience routes without tenant prefix, use default tenant
+    // This handles requests like /sign-in?preview=true
+    if (url.pathname.startsWith('/sign-in') || url.pathname.startsWith('/register') || url.pathname.startsWith('/forgot-password') || url.pathname === '/') {
+      return [defaultTenantId, false];
+    }
 
     // 5. No tenant found
-    return [undefined, false];
+    return [defaultTenantId, false];
   }
 
   // Cloud environment: Use original cloud logic
