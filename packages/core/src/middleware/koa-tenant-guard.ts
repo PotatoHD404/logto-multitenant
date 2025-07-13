@@ -16,10 +16,22 @@ export default function koaTenantGuard<StateT, ContextT extends IRouterParamCont
       return next();
     }
 
-    const { isSuspended } = await tenants.findTenantSuspendStatusById(tenantId);
+    // Use the target tenant ID if available (for /m/{tenantId}/api routes)
+    // or fall back to the current tenant ID
+    const targetTenantId = (ctx as any).targetTenantId || tenantId;
+    
+    try {
+      const { isSuspended } = await tenants.findTenantSuspendStatusById(targetTenantId);
 
-    if (isSuspended) {
-      throw new RequestError('subscription.tenant_suspended', 403);
+      if (isSuspended) {
+        throw new RequestError('subscription.tenant_suspended', 403);
+      }
+    } catch (error) {
+      // If tenant doesn't exist, throw 404
+      if (error instanceof Error && error.message.includes('not found')) {
+        throw new RequestError('entity.not_found', 404);
+      }
+      throw error;
     }
 
     await next();
