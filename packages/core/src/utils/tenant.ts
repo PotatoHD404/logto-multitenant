@@ -124,13 +124,22 @@ export const getTenantId = async (
   } = EnvSet;
   const pool = await sharedPool;
 
-  // Management API tenant routing check - only apply on admin endpoints
+  // Management API tenant routing check
   // Pattern: /m/{tenantId}/api/...
-  // These requests should be handled by the TARGET TENANT!
+  // These requests should ONLY be accessible on admin endpoints!
   const managementApiTenantId = matchManagementApiTenantId(url);
-  if (managementApiTenantId && adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint))) {
-    debugConsole.warn(`Found management API pattern for tenant ${managementApiTenantId}, routing to target tenant.`);
-    return [managementApiTenantId, false];
+  if (managementApiTenantId) {
+    const isOnAdminEndpoint = adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint));
+    
+    if (isOnAdminEndpoint) {
+      // Allow management API access on admin endpoints
+      debugConsole.warn(`Found management API pattern for tenant ${managementApiTenantId}, routing to target tenant.`);
+      return [managementApiTenantId, false];
+    } else {
+      // Block management API access on non-admin endpoints
+      debugConsole.warn(`Blocked management API pattern on non-admin endpoint: ${url.toString()}`);
+      return [undefined, false];
+    }
   }
 
   // Admin tenant check
