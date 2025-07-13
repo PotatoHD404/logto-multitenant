@@ -78,17 +78,15 @@ function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamCont
   tenant: TenantContext
 ): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
   return async (ctx, next) => {
-    // For organization tokens, use the target tenant ID if available (for /m/{tenantId}/api routes)
-    // or fall back to the current tenant ID
-    const targetTenantId = (ctx as any).targetTenantId || tenant.id;
-    const expectedAudience = getTenantOrganizationId(targetTenantId);
+    // For organization tokens, construct the expected audience for this tenant
+    const expectedAudience = getTenantOrganizationId(tenant.id);
     const organizationAudience = buildOrganizationUrn(expectedAudience);
     
-    // Verify JWT with the correct audience for the target tenant
+    // Verify JWT with the correct audience for this tenant
     const { sub, clientId, scopes } = await verifyBearerTokenFromRequest(
       tenant.envSet,
       ctx.request,
-      organizationAudience, // Validate audience matches target tenant organization
+      organizationAudience, // Validate audience matches tenant organization
       tenant // Pass tenant for blacklist check
     );
 
@@ -111,9 +109,6 @@ function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamCont
       id: sub,
       scopes: new Set(scopes),
     };
-
-    // Store the target tenant ID for use in downstream middleware
-    (ctx as any).targetTenantId = targetTenantId;
 
     return next();
   };

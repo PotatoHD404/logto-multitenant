@@ -149,6 +149,14 @@ export default class Tenant implements TenantContext {
     // Sign-in experience callback via form submission
     mountCallbackRouter(app);
 
+    // Mount global well-known APIs
+    app.use(mount('/.well-known', initPublicWellKnownApis(tenantContext)));
+
+    // Mount APIs (different sets for admin vs regular tenants)
+    app.use(mount('/api', initApis(tenantContext)));
+
+    // Mount cross-tenant management API routing for OSS multi-tenancy
+    // Pattern: /m/{tenantId}/api/... (same as cloud)
     // Mount cross-tenant management API routing for OSS multi-tenancy
     // Pattern: /m/{tenantId}/api/... (same as cloud)
     // ALL management APIs should only be accessible through admin port (3002)
@@ -168,45 +176,9 @@ export default class Tenant implements TenantContext {
       await next();
     };
 
-    // Only mount management API routes on admin tenant instance - MUST BE BEFORE API MOUNTING
-    if (id === adminTenantId) {
-      // Mount management APIs for all tenants using a catch-all pattern
-      // This allows the admin tenant to handle requests like /m/any-tenant-id/api/...
-      app.use(adminPortGuard);
-      
-      // Mount a middleware that intercepts /m/{tenantId}/api/... requests
-      // This must be BEFORE the API mounting so it can rewrite paths
-      app.use(async (ctx: any, next: any) => {
-        const urlPath = ctx.path;
-        
-        // Check if this is a management API request: /m/{tenantId}/api/...
-        const managementApiMatch = urlPath.match(/^\/m\/([^\/]+)\/api(.*)$/);
-        
-        if (managementApiMatch) {
-          const [, tenantId, apiPath] = managementApiMatch;
-          
-          // Store the requested tenant ID for use in auth middleware
-          ctx.targetTenantId = tenantId;
-          
-          // Rewrite the path to /api/... so it can be handled by the admin APIs
-          const newPath = `/api${apiPath}`;
-          const query = ctx.search || '';
-          
-          ctx.path = newPath;
-          ctx.url = newPath + query;
-          
-          // Continue to the next middleware (which should be the admin APIs)
-        }
-        
-        return next();
-      });
-    }
-
-    // Mount global well-known APIs
-    app.use(mount('/.well-known', initPublicWellKnownApis(tenantContext)));
-
-    // Mount APIs (different sets for admin vs regular tenants)
-    app.use(mount('/api', initApis(tenantContext)));
+    // Apply admin port guard to all management APIs
+    app.use(mount(`/m/${id}/api`, adminPortGuard));
+    app.use(mount(`/m/${id}/api`, initApis(tenantContext)));
 
     const { adminUrlSet, isCloud } = EnvSet.values;
 
