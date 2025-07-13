@@ -7,8 +7,8 @@ import { getI18nResource } from '@/i18n/utils';
 // Call once globally
 i18next.use(initReactI18next);
 
-const initI18n = async (initialLanguage?: string) => {
-  const { resources, lng } = await getI18nResource(initialLanguage);
+const initI18n = async (tenantId?: string, initialLanguage?: string) => {
+  const { resources, lng } = await getI18nResource(initialLanguage, tenantId);
 
   const options: InitOptions = {
     resources,

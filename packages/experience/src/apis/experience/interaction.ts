@@ -1,42 +1,91 @@
-import {
-  type InteractionEvent,
-  type IdentificationApiPayload,
-  type UpdateProfileApiPayload,
-} from '@logto/schemas';
+import { InteractionEvent } from '@logto/schemas';
 
-import api from '../api';
+import { createTenantApi } from '../api';
 
-import { experienceApiRoutes } from './const';
+import { createTenantExperienceApiRoutes, type VerificationResponse } from './const';
 
-type SubmitInteractionResponse = {
-  redirectTo: string;
+type InteractionPayload = {
+  interactionEvent: InteractionEvent;
+  verificationId?: string;
+  context?: Record<string, unknown>;
+  captchaToken?: string;
 };
 
-export const initInteraction = async (interactionEvent: InteractionEvent, captchaToken?: string) =>
-  api.put(`${experienceApiRoutes.prefix}`, {
+type SubmitInteractionPayload = {
+  verificationId: string;
+};
+
+export const initInteraction = async (
+  interactionEvent: InteractionEvent,
+  captchaToken?: string,
+  tenantId?: string
+) => {
+  const api = createTenantApi(tenantId);
+  const routes = createTenantExperienceApiRoutes(tenantId);
+  
+  return api.put(routes.prefix, {
     json: {
       interactionEvent,
       captchaToken,
     },
   });
+};
 
-export const identifyUser = async (payload: IdentificationApiPayload = {}) =>
-  api.post(experienceApiRoutes.identification, { json: payload });
-
-export const submitInteraction = async () =>
-  api.post(`${experienceApiRoutes.submit}`).json<SubmitInteractionResponse>();
-
-export const updateProfile = async (payload: UpdateProfileApiPayload) =>
-  api.post(experienceApiRoutes.profile, { json: payload });
-
-export const updateInteractionEvent = async (interactionEvent: InteractionEvent) =>
-  api.put(`${experienceApiRoutes.prefix}/interaction-event`, {
+export const updateInteractionEvent = async (
+  interactionEvent: InteractionEvent,
+  tenantId?: string
+) => {
+  const api = createTenantApi(tenantId);
+  const routes = createTenantExperienceApiRoutes(tenantId);
+  
+  return api.put(routes.prefix, {
     json: {
       interactionEvent,
     },
   });
+};
 
-export const identifyAndSubmitInteraction = async (payload?: IdentificationApiPayload) => {
-  await identifyUser(payload);
-  return submitInteraction();
+export const identifyUser = async (payload: InteractionPayload, tenantId?: string) => {
+  const api = createTenantApi(tenantId);
+  const routes = createTenantExperienceApiRoutes(tenantId);
+  
+  return api
+    .put(routes.identification, {
+      json: payload,
+    })
+    .json<VerificationResponse>();
+};
+
+export const submitInteraction = async (payload: SubmitInteractionPayload, tenantId?: string) => {
+  const api = createTenantApi(tenantId);
+  const routes = createTenantExperienceApiRoutes(tenantId);
+  
+  return api
+    .post(routes.submit, {
+      json: payload,
+    })
+    .json<{ redirectTo: string }>();
+};
+
+export const identifyAndSubmitInteraction = async (
+  payload: SubmitInteractionPayload,
+  tenantId?: string
+) => {
+  const api = createTenantApi(tenantId);
+  const routes = createTenantExperienceApiRoutes(tenantId);
+  
+  return api
+    .post(routes.identification, {
+      json: payload,
+    })
+    .json<{ redirectTo: string }>();
+};
+
+export const updateProfile = async (payload: Record<string, unknown>, tenantId?: string) => {
+  const api = createTenantApi(tenantId);
+  const routes = createTenantExperienceApiRoutes(tenantId);
+  
+  return api.patch(routes.profile, {
+    json: payload,
+  });
 };

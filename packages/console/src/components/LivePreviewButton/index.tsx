@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import ExternalLinkIcon from '@/assets/icons/external-link.svg?react';
 import { AppDataContext } from '@/contexts/AppDataProvider';
+import { TenantsContext } from '@/contexts/TenantsProvider';
 import type { Props as ButtonProps, ButtonType } from '@/ds-components/Button';
 import Button from '@/ds-components/Button';
 import FlipOnRtl from '@/ds-components/FlipOnRtl';
@@ -20,6 +21,7 @@ type Props = {
 
 function LivePreviewButton({ size, type, isDisabled }: Props) {
   const { tenantEndpoint } = useContext(AppDataContext);
+  const { currentTenantId } = useContext(TenantsContext);
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
 
   return (
@@ -40,7 +42,8 @@ function LivePreviewButton({ size, type, isDisabled }: Props) {
           </FlipOnRtl>
         }
         onClick={() => {
-          window.open(new URL('/demo-app', tenantEndpoint), '_blank');
+          // Use tenant-aware path structure for demo-app
+          window.open(new URL(`/t/${currentTenantId}/demo-app`, tenantEndpoint), '_blank');
         }}
       />
     </Tooltip>

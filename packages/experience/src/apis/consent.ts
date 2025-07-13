@@ -1,11 +1,13 @@
 import { type ConsentInfoResponse } from '@logto/schemas';
 
-import api from './api';
+import { createTenantApi } from './api';
 
-export const consent = async (organizationId?: string) => {
+export const consent = async (organizationId?: string, tenantId?: string) => {
   type Response = {
     redirectTo: string;
   };
+
+  const api = createTenantApi(tenantId);
 
   return api
     .post('/api/interaction/consent', {
@@ -16,6 +18,8 @@ export const consent = async (organizationId?: string) => {
     .json<Response>();
 };
 
-export const getConsentInfo = async () => {
+export const getConsentInfo = async (tenantId?: string) => {
+  const api = createTenantApi(tenantId);
+  
   return api.get('/api/interaction/consent').json<ConsentInfoResponse>();
 };

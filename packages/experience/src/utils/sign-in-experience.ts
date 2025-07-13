@@ -24,7 +24,7 @@ const parseSignInExperienceResponse = (
   };
 };
 
-export const getSignInExperienceSettings = async (): Promise<SignInExperienceResponse> => {
+export const getSignInExperienceSettings = async (tenantId?: string): Promise<SignInExperienceResponse> => {
   if (isObject(logtoSsr)) {
     const { data, ...rest } = logtoSsr.signInExperience;
 
@@ -39,7 +39,7 @@ export const getSignInExperienceSettings = async (): Promise<SignInExperienceRes
     }
   }
 
-  const response = await getSignInExperience<SignInExperienceResponse>();
+  const response = await getSignInExperience<SignInExperienceResponse>(tenantId);
   return parseSignInExperienceResponse(response);
 };
 

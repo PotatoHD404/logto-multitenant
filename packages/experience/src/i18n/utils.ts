@@ -8,7 +8,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 import { getPhrases as getPhrasesApi } from '@/apis/settings';
 
-const getPhrases = async (language?: string) => {
+const getPhrases = async (language?: string, tenantId?: string) => {
   // Directly use the server-side phrases if it's already fetched
   if (isObject(logtoSsr) && (!language || logtoSsr.phrases.lng === language)) {
     return { phrases: logtoSsr.phrases.data, lng: logtoSsr.phrases.lng };
@@ -18,6 +18,7 @@ const getPhrases = async (language?: string) => {
   const response = await getPhrasesApi({
     localLanguage: Array.isArray(detectedLanguage) ? detectedLanguage.join(' ') : detectedLanguage,
     language,
+    tenantId,
   });
 
   const remotePhrases = await response.json<LocalePhrase>();
@@ -31,10 +32,11 @@ const getPhrases = async (language?: string) => {
 };
 
 export const getI18nResource = async (
-  language?: string
+  language?: string,
+  tenantId?: string
 ): Promise<{ resources: Resource; lng: string }> => {
   try {
-    const { phrases, lng } = await getPhrases(language);
+    const { phrases, lng } = await getPhrases(language, tenantId);
 
     return {
       resources: { [lng]: phrases },
