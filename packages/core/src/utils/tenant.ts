@@ -138,8 +138,6 @@ export const getTenantId = async (
     return [adminTenantId, false];
   }
 
-
-
   // Development tenant check
   if ((!isProduction || isIntegrationTest) && developmentTenantId) {
     debugConsole.warn(`Found dev tenant ID ${developmentTenantId}.`);
@@ -147,7 +145,7 @@ export const getTenantId = async (
   }
 
   // Multi-tenancy is enabled by default
-  // For local OSS: Support both custom domain AND path-based routing simultaneously
+  // For local OSS: Support both custom domain AND path-based routing AND domain-based routing simultaneously
   // For cloud: Use original cloud logic
   if (!isCloud) {
     // Local OSS: Hybrid multi-tenancy approach
@@ -163,29 +161,42 @@ export const getTenantId = async (
     }
 
     // 2. Try path-based routing (works with default domain)
-    const pathBasedTenantId = matchPathBasedTenantId(urlSet, url);
-    if (pathBasedTenantId) {
-      // Security: Prevent admin tenant access via path-based routing on regular servers
-      // Admin tenant should ONLY be accessible on admin server endpoints
-      if (pathBasedTenantId === adminTenantId) {
-        debugConsole.warn(`Blocked admin tenant access via path-based routing on regular server: ${url.toString()}`);
-        return [undefined, false]; // Block admin tenant access
+    // const pathBasedTenantId = matchPathBasedTenantId(urlSet, url);
+    // if (pathBasedTenantId) {
+    //   // Security: Prevent admin tenant access via path-based routing on regular servers
+    //   // Admin tenant should ONLY be accessible on admin server endpoints
+    //   if (pathBasedTenantId === adminTenantId) {
+    //     debugConsole.warn(`Blocked admin tenant access via path-based routing on regular server: ${url.toString()}`);
+    //     return [undefined, false]; // Block admin tenant access
+    //   }
+    //   return [pathBasedTenantId, false];
+    // }
+
+    // 3. Try domain-based routing (extract tenant ID from subdomain)
+    // First try standard domain-based matching (if endpoint has wildcard)
+    const domainBasedTenantId = matchDomainBasedTenantId(urlSet.endpoint, url);
+    if (domainBasedTenantId) {
+      // Security: Prevent admin tenant access via domain-based routing on regular servers
+      if (domainBasedTenantId === adminTenantId) {
+        debugConsole.warn(`Blocked admin tenant access via domain-based routing on regular server: ${url.toString()}`);
+        return [undefined, false];
       }
-      return [pathBasedTenantId, false];
+      return [domainBasedTenantId, false];
     }
 
-    // 3. Handle plain /api/... requests (should use default tenant)
+
+    // 5. Handle plain /api/... requests (should use default tenant)
     // This comes AFTER custom domain and path-based checks
     // if (url.pathname.startsWith('/api/')) {
     //   return [defaultTenantId, false];
     // }
 
-    // 4. For root requests on default domain, return default tenant
+    // 6. For root requests on default domain, return default tenant
     // if (url.origin === urlSet.endpoint.origin && url.pathname === '/') {
     //   return [defaultTenantId, false];
     // }
 
-    // 5. No tenant found
+    // 7. No tenant found
     return [undefined, false];
   }
 

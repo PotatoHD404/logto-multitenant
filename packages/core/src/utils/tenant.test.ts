@@ -178,4 +178,26 @@ describe('getTenantId()', () => {
     findActiveDomain.mockResolvedValueOnce({ domain: 'logto.mock.com', tenantId: 'mock' });
     await expect(getTenantIdFirstElement(new URL('https://logto.mock.com'))).resolves.toBe('mock');
   });
+
+  it('should resolve tenant ID from subdomain for local OSS', async () => {
+    process.env = {
+      ...backupEnv,
+      NODE_ENV: 'production',
+      PORT: '3001',
+      ENDPOINT: 'http://localhost:3001',
+    };
+    findActiveDomain.mockResolvedValueOnce(undefined);
+    
+    // Test tenant1.localhost:3001 -> tenant1
+    await expect(getTenantIdFirstElement(new URL('http://tenant1.localhost:3001'))).resolves.toBe('tenant1');
+    
+    // Test myapp.localhost:3001 -> myapp
+    await expect(getTenantIdFirstElement(new URL('http://myapp.localhost:3001/api/test'))).resolves.toBe('myapp');
+    
+    // Test regular localhost:3001 -> undefined (no tenant ID)
+    await expect(getTenantIdFirstElement(new URL('http://localhost:3001'))).resolves.toBe(undefined);
+    
+    // Test that admin tenant is blocked
+    await expect(getTenantIdFirstElement(new URL('http://admin.localhost:3001'))).resolves.toBe(undefined);
+  });
 });
