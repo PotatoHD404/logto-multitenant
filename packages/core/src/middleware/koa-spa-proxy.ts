@@ -49,7 +49,11 @@ export default function koaSpaProxy<StateT, ContextT extends IRouterParamContext
       });
 
   // Break down complex function into smaller functions
-  const shouldSkipRequest = (requestPath: string, prefix: string, mountedApps: string[]): boolean => {
+  const shouldSkipRequest = (
+    requestPath: string,
+    prefix: string,
+    mountedApps: string[]
+  ): boolean => {
     // Skip if the request is for another app
     if (!prefix && mountedApps.some((app) => app !== prefix && requestPath.startsWith(`/${app}`))) {
       return true;

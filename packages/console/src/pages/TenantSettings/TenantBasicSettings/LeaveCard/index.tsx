@@ -29,7 +29,9 @@ function LeaveCard() {
       confirmButtonText: 'tenants.leave_tenant_modal.leave_button',
     });
 
-    if (!confirm || !user) return;
+    if (!confirm || !user) {
+      return;
+    }
 
     setIsLoading(true);
     try {

@@ -101,7 +101,7 @@ function Members() {
           colSpan: 2,
           render: (user: TenantMemberResponse | LocalTenantMemberResponse) => {
             const role =
-              'role' in user ? user.role : user.organizationRoles[0]?.name ?? 'collaborator';
+              'role' in user ? user.role : (user.organizationRoles[0]?.name ?? 'collaborator');
             return <span>{t(role === 'admin' ? 'admin' : 'collaborator')}</span>;
           },
         },

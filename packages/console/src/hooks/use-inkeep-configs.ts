@@ -176,7 +176,7 @@ const useInkeepConfigs = () => {
           ],
         },
       }) satisfies InkeepSettings,
-    [theme, t]
+    [theme, t, isRtl]
   );
 };
 

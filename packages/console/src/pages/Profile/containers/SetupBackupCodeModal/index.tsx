@@ -38,8 +38,10 @@ function SetupBackupCodeModal() {
 
   // Check if user has other MFA factors (TOTP or WebAuthn) configured
   const hasOtherMfaFactors =
-    mfaVerifications?.some((verification) => verification.type === MfaFactor.TOTP || verification.type === MfaFactor.WebAuthn) ??
-    false;
+    mfaVerifications?.some(
+      (verification) =>
+        verification.type === MfaFactor.TOTP || verification.type === MfaFactor.WebAuthn
+    ) ?? false;
 
   // Generate backup codes on mount (only if user has other MFA factors)
   useEffect(() => {

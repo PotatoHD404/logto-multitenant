@@ -43,11 +43,7 @@ const TENANT_MEMBER_OPERATION_TENANT_SCOPES: Record<string, TenantManagementScop
  * 2. Tenant-specific access (user must be a member of the tenant organization)
  * 3. Granular member operation permissions (TenantScope)
  */
-function koaTenantMemberAuth<
-  StateT,
-  ContextT extends IRouterParamContext,
-  ResponseBodyT,
->(
+function koaTenantMemberAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
   operation: string,
   queries: Queries
 ): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
@@ -58,7 +54,7 @@ function koaTenantMemberAuth<
     assertThat(ctx.auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
 
     const { scopes, id: userId } = ctx.auth;
-    const tenantId = ctx.params.tenantId!;
+    const tenantId = ctx.params.tenantId;
 
     assertThat(tenantId, new RequestError({ code: 'request.invalid_input', status: 400 }));
 
@@ -78,7 +74,7 @@ function koaTenantMemberAuth<
       // Check for system tenant protection
       if (operation === 'remove' || operation === 'update-role') {
         assertThat(
-          !isProtectedFromDeletion(tenantId),
+          !isProtectedFromDeletion(tenantId!),
           new RequestError({ code: 'auth.forbidden', status: 403 })
         );
       }
@@ -88,7 +84,7 @@ function koaTenantMemberAuth<
 
     // Level 2: Check if user is a member of the specific tenant organization
     // Level 3: Check tenant-specific member operation permissions
-    const userScopes = await tenantOrg.getUserScopes(tenantId, userId);
+    const userScopes = await tenantOrg.getUserScopes(tenantId!, userId);
     const requiredScopes = TENANT_MEMBER_OPERATION_SCOPES[operation];
     const hasSpecificPermission = requiredScopes
       ? requiredScopes.every((scope) => userScopes.includes(scope))
@@ -110,7 +106,7 @@ function koaTenantMemberAuth<
     // Additional protection for system tenants
     if (operation === 'remove' || operation === 'update-role') {
       assertThat(
-        !isProtectedFromDeletion(tenantId),
+        !isProtectedFromDeletion(tenantId!),
         new RequestError({ code: 'auth.forbidden', status: 403 })
       );
     }

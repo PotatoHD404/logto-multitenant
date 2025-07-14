@@ -1,5 +1,3 @@
-import { type TenantRole } from '@logto/schemas';
-
 import { type Props as TagProps } from '@/ds-components/Tag';
 
 export type InviteeEmailItem = {
@@ -16,5 +14,3 @@ export type InviteeEmailItem = {
    */
   status?: Extract<TagProps['status'], 'error'>;
 };
-
-

@@ -46,4 +46,5 @@ const useLogtoSkus = () => {
   };
 };
 
-export default useLogtoSkus;
+// Removed unused export - hook is not used anywhere
+// export default useLogtoSkus;

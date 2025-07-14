@@ -153,7 +153,7 @@ export const useStaticApi = ({
                 const accessToken = await (resourceIndicator.startsWith(organizationUrnPrefix)
                   ? getOrganizationToken(getOrganizationIdFromUrn(resourceIndicator))
                   : getAccessToken(resourceIndicator));
-                request.headers.set('Authorization', `Bearer ${accessToken ?? ''}`);
+                request.headers.set('Authorization', `Bearer ${accessToken}`);
                 request.headers.set('Accept-Language', i18n.language);
               }
             },

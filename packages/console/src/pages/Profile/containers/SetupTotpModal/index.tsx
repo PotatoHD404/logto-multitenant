@@ -38,7 +38,7 @@ function SetupTotpModal() {
   const { navigate } = useTenantPathname();
   const { show: showModal } = useConfirmModal();
   const { mutate: mutateMfa } = useCurrentUserMfa();
-  const [totpSecret, setTotpSecret] = useState<TotpSecret | undefined>(null);
+  const [totpSecret, setTotpSecret] = useState<TotpSecret | undefined>(undefined);
   const [isShowingSecret, setIsShowingSecret] = useState(true);
   const [isQrCodeFormat, setIsQrCodeFormat] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -105,7 +105,7 @@ function SetupTotpModal() {
   }, [totpSecret]);
 
   const handleSubmit = useCallback(async () => {
-    if (!totpSecret || code.length !== 6 || code.some((c) => !c)) {
+    if (!totpSecret || code.length !== 6 || code.some((codeDigit) => !codeDigit)) {
       setError(t('profile.set_up_mfa.invalid_code'));
       return;
     }

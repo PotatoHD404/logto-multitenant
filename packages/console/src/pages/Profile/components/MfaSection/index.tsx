@@ -78,7 +78,9 @@ function MfaSection() {
 
   // Create unified data for all MFA factors
   const mfaFactorsData = allFactors.map((factor) => {
-    const existingVerification = mfaVerifications?.find((verification) => verification.type === factor.type);
+    const existingVerification = mfaVerifications?.find(
+      (verification) => verification.type === factor.type
+    );
     const isConfigured = Boolean(existingVerification);
 
     return {

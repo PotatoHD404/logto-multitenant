@@ -18,7 +18,7 @@ type Props = {
 export default function DeleteAccountModal({ isOpen, onClose }: Props) {
   // Cloud version with tenant management
   const { tenants } = useContext(TenantsContext);
-  
+
   // For OSS, use a simpler delete account modal
   if (!isCloud) {
     return (
