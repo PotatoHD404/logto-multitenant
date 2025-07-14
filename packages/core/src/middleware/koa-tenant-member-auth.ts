@@ -43,7 +43,7 @@ const TENANT_MEMBER_OPERATION_TENANT_SCOPES: Record<string, TenantManagementScop
  * 2. Tenant-specific access (user must be a member of the tenant organization)
  * 3. Granular member operation permissions (TenantScope)
  */
-export default function koaTenantMemberAuth<
+function koaTenantMemberAuth<
   StateT,
   ContextT extends IRouterParamContext,
   ResponseBodyT,

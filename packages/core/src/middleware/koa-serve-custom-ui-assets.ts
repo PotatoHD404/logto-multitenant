@@ -27,16 +27,23 @@ export default function koaServeCustomUiAssets(customUiAssetId: string) {
     assertThat(tenantId, 'session.not_found', 404);
 
     // Support multiple storage providers for local deployments
-    let downloadFile: any;
-    let isFileExisted: any;
-    let getFileProperties: any;
+    let downloadFile: (
+      key: string,
+      start?: number,
+      count?: number
+    ) => Promise<{ contentLength?: number; readableStreamBody?: unknown; contentType?: string }>;
+    let isFileExisted: (key: string) => Promise<boolean>;
+    let getFileProperties: (key: string) => Promise<{ contentLength?: number }>;
 
     if (experienceBlobsProviderConfig.provider === 'AzureStorage') {
       const { container, connectionString } = experienceBlobsProviderConfig;
       const azureStorage = buildAzureStorage(connectionString, container);
-      downloadFile = azureStorage.downloadFile;
-      isFileExisted = azureStorage.isFileExisted;
-      getFileProperties = azureStorage.getFileProperties;
+      const downloadFileLocal = azureStorage.downloadFile;
+      const isFileExistedLocal = azureStorage.isFileExisted;
+      const getFilePropertiesLocal = azureStorage.getFileProperties;
+      downloadFile = downloadFileLocal;
+      isFileExisted = isFileExistedLocal;
+      getFileProperties = getFilePropertiesLocal;
     } else {
       // For other storage providers, serving is not currently supported
       // Local deployments should use Azure Storage for full functionality

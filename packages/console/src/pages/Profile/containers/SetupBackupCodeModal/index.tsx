@@ -25,7 +25,7 @@ function SetupBackupCodeModal() {
   const { navigate } = useTenantPathname();
   const { show: showModal } = useConfirmModal();
   const { mutate: mutateMfa, mfaVerifications } = useCurrentUserMfa();
-  const [backupCodes, setBackupCodes] = useState<BackupCodes | undefined>(null);
+  const [backupCodes, setBackupCodes] = useState<BackupCodes | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -38,7 +38,7 @@ function SetupBackupCodeModal() {
 
   // Check if user has other MFA factors (TOTP or WebAuthn) configured
   const hasOtherMfaFactors =
-    mfaVerifications?.some((v) => v.type === MfaFactor.TOTP || v.type === MfaFactor.WebAuthn) ??
+    mfaVerifications?.some((verification) => verification.type === MfaFactor.TOTP || verification.type === MfaFactor.WebAuthn) ??
     false;
 
   // Generate backup codes on mount (only if user has other MFA factors)
@@ -53,7 +53,7 @@ function SetupBackupCodeModal() {
         const response = await api.post('me/mfa-verifications', {
           json: { type: MfaFactor.BackupCode },
         });
-        const data = await response.json();
+        const data = await response.json<BackupCodes>();
         setBackupCodes(data);
       } catch (error: unknown) {
         void handleError(error, async (_, message) => {

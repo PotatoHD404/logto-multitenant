@@ -170,7 +170,7 @@ function LocalOssInvitationHandler() {
         <p>{t('invitation.accepting_invitation')}</p>
         <p>
           {t('invitation.joining_tenant', {
-            tenantName: invitation.tenantName || invitation.tenantId,
+            tenantName: invitation.tenantName ?? invitation.tenantId,
           })}
         </p>
       </div>

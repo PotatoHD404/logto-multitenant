@@ -113,12 +113,10 @@ export class RedisClusterCache extends RedisCacheBase {
   constructor(connectionUrl: URL) {
     super();
 
-    /* eslint-disable @silverhand/fp/no-mutating-methods */
     const hosts = [
       ...(connectionUrl.host ? [connectionUrl.host] : []),
       ...connectionUrl.searchParams.getAll('host'),
     ];
-    /* eslint-enable @silverhand/fp/no-mutating-methods */
 
     const rootNodes = hosts.map((host) => {
       return {

@@ -17,7 +17,4 @@ export type InviteeEmailItem = {
   status?: Extract<TagProps['status'], 'error'>;
 };
 
-export type InviteMemberForm = {
-  emails: InviteeEmailItem[];
-  role: TenantRole;
-};
+

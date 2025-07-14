@@ -101,7 +101,7 @@ const useInkeepConfigs = () => {
     (): InkeepSettings =>
       ({
         baseSettings: {
-          apiKey: inkeepApiKey || '',
+          apiKey: inkeepApiKey ?? '',
           primaryBrandColor: theme === 'dark' ? '#7958ff' : '#5d34f2',
           organizationDisplayName: 'Logto',
           colorMode: {

@@ -45,32 +45,34 @@ async function processExpiredInvitations(
 ): Promise<void> {
   const expiredInvitations = await getPendingExpiredInvitations();
 
-  for (const invitation of expiredInvitations) {
-    try {
-      // Get tenant and inviter details
-      const tenant = await queries.tenants.findTenantSuspendStatusById(
-        invitation.organizationId.replace(/^t-/, '')
-      );
-      const inviter = await queries.users.findUserById(invitation.inviterId);
-
-      if (tenant && inviter) {
-        await sendNotificationToInviter(
-          {
-            inviterEmail: inviter.primaryEmail ?? undefined,
-            type: 'invitation_expired', // Assuming a fixed type for this context
-            tenantName: `Tenant ${tenantId}`, // Use tenant ID as fallback name
-            inviteeEmail: invitation.invitee,
-            role: TenantRole.Collaborator, // Default role, should be determined from invitation
-            accepterName: undefined, // No accepter for expired invitations
-            accepterEmail: undefined, // No accepter for expired invitations
-          },
-          connectorLibrary
+  await Promise.all(
+    expiredInvitations.map(async (invitation) => {
+      try {
+        // Get tenant and inviter details
+        const tenant = await queries.tenants.findTenantSuspendStatusById(
+          invitation.organizationId.replace(/^t-/, '')
         );
+        const inviter = await queries.users.findUserById(invitation.inviterId);
+
+        if (tenant && inviter) {
+          await sendNotificationToInviter(
+            {
+              inviterEmail: inviter.primaryEmail ?? undefined,
+              type: 'invitation_expired', // Assuming a fixed type for this context
+              tenantName: `Tenant ${tenantId}`, // Use tenant ID as fallback name
+              inviteeEmail: invitation.invitee,
+              role: TenantRole.Collaborator, // Default role, should be determined from invitation
+              accepterName: undefined, // No accepter for expired invitations
+              accepterEmail: undefined, // No accepter for expired invitations
+            },
+            connectorLibrary
+          );
+        }
+      } catch (error) {
+        unknownConsole.error('Failed to process expired invitation:', invitation.id, error);
       }
-    } catch (error) {
-      unknownConsole.error('Failed to process expired invitation:', invitation.id, error);
-    }
-  }
+    })
+  );
 }
 
 /**

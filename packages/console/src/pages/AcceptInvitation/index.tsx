@@ -26,11 +26,6 @@ function AcceptInvitation() {
   const cloudApi = useCloudApi();
   const { navigateTenant, resetTenants } = useContext(TenantsContext);
 
-  // For local OSS, use the dedicated handler
-  if (!isCloud) {
-    return <LocalOssInvitationHandler />;
-  }
-
   // The request is only made when the user has signed-in and the invitation ID is available.
   // The response data is returned only when the current user matches the invitee email. Otherwise, it returns 404.
   const { data: invitation, error } = useSWR<InvitationResponse, RequestError>(
@@ -56,6 +51,11 @@ function AcceptInvitation() {
       navigateTenant(getTenantIdFromOrganizationId(organizationId));
     })();
   }, [cloudApi, error, invitation, navigateTenant, resetTenants, t]);
+
+  // For local OSS, use the dedicated handler
+  if (!isCloud) {
+    return <LocalOssInvitationHandler />;
+  }
 
   // No invitation returned, indicating the current signed-in user is not the invitee.
   if (error?.status === 403) {

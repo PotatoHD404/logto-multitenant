@@ -78,7 +78,7 @@ function MfaSection() {
 
   // Create unified data for all MFA factors
   const mfaFactorsData = allFactors.map((factor) => {
-    const existingVerification = mfaVerifications?.find((v) => v.type === factor.type);
+    const existingVerification = mfaVerifications?.find((verification) => verification.type === factor.type);
     const isConfigured = Boolean(existingVerification);
 
     return {
@@ -88,7 +88,7 @@ function MfaSection() {
         : factor.type === MfaFactor.WebAuthn
           ? 'profile.set_up_mfa.webauthn_name'
           : 'profile.set_up_mfa.backup_code_name') as AdminConsoleKey,
-      value: existingVerification?.createdAt || null,
+      value: existingVerification?.createdAt ?? undefined,
       renderer: (value: string | undefined) => {
         if (value) {
           return (
@@ -105,11 +105,11 @@ function MfaSection() {
       action:
         isConfigured && existingVerification
           ? {
-              name: 'general.delete' as any,
+              name: 'general.delete' as const,
               handler: async () => handleDelete(existingVerification),
             }
           : {
-              name: 'profile.set_up_mfa.setup' as any,
+              name: 'profile.set_up_mfa.setup' as const,
               handler: async () => {
                 handleSetupMfa(factor.type);
               },

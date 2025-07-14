@@ -20,7 +20,7 @@ const base64UrlToArrayBuffer = (base64url: string): ArrayBuffer => {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+    bytes[i] = binaryString.codePointAt(i) ?? 0;
   }
   return bytes.buffer;
 };
@@ -30,7 +30,7 @@ const arrayBufferToBase64Url = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
   let binary = '';
   for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]!);
+    binary += String.fromCodePoint(bytes[i] ?? 0);
   }
   return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 };
@@ -143,7 +143,7 @@ function SetupWebAuthnModal() {
         response: {
           clientDataJSON: arrayBufferToBase64Url(response_data.clientDataJSON),
           attestationObject: arrayBufferToBase64Url(response_data.attestationObject),
-          transports: response_data.getTransports() || [],
+          transports: response_data.getTransports() ?? [],
         },
         type: publicKeyCredential.type,
       };

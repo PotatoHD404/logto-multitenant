@@ -86,9 +86,7 @@ function TenantBasicSettings() {
 
   const onSubmit = handleSubmit(
     trySubmitSafe(async (formData: TenantSettingsForm) => {
-      if (isSubmitting) {
-        return;
-      }
+          if (isSubmitting) return;
 
       const {
         profile: { name, tag },
@@ -128,9 +126,7 @@ function TenantBasicSettings() {
   };
 
   const onDelete = async () => {
-    if (isDeleting) {
-      return;
-    }
+    if (isDeleting) return;
 
     // Double-check system tenant protection
     if (currentTenantId === 'default' || currentTenantId === 'admin') {

@@ -61,7 +61,7 @@ function Welcome() {
       } else {
         // For OSS, navigate to the first available tenant or default
         const firstTenant = tenants[0];
-        const tenantIdToNavigate = firstTenant?.id || defaultTenantId;
+        const tenantIdToNavigate = firstTenant?.id ?? defaultTenantId;
         navigateTenant(tenantIdToNavigate);
       }
     }

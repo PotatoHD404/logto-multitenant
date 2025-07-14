@@ -48,15 +48,15 @@ export default function koaSpaProxy<StateT, ContextT extends IRouterParamContext
         },
       });
 
-  return async (ctx, next) => {
-    const requestPath = ctx.request.path;
+  // Break down complex function into smaller functions
+  const shouldSkipRequest = (requestPath: string, prefix: string, mountedApps: string[]): boolean => {
     // Skip if the request is for another app
     if (!prefix && mountedApps.some((app) => app !== prefix && requestPath.startsWith(`/${app}`))) {
-      return next();
+      return true;
     }
 
     // Skip API-related paths that should be handled by the main API server
-    if (
+    return (
       requestPath.startsWith('/api/') ||
       requestPath.startsWith('/m/') ||
       requestPath.startsWith('/my-account') ||
@@ -64,13 +64,44 @@ export default function koaSpaProxy<StateT, ContextT extends IRouterParamContext
       requestPath.startsWith('/oidc/') ||
       requestPath.startsWith('/me/') ||
       requestPath.startsWith('/.well-known/')
-    ) {
-      return next();
+    );
+  };
+
+  const shouldServeCustomUi = async (
+    queries: Queries,
+    packagePath: string
+  ): Promise<{ shouldServe: boolean; customUiAssets?: any }> => {
+    if (packagePath !== 'experience') {
+      return { shouldServe: false };
     }
 
     const { customUiAssets } = await queries.signInExperiences.findDefaultSignInExperience();
-    // If user has uploaded custom UI assets, serve them instead of native experience UI
-    if (customUiAssets && packagePath === 'experience') {
+    return { shouldServe: Boolean(customUiAssets), customUiAssets };
+  };
+
+  const shouldFallbackToRoot = async (
+    requestPath: string,
+    distributionPath: string
+  ): Promise<boolean> => {
+    if (requestPath.startsWith('/assets/')) {
+      return false;
+    }
+
+    const spaDistributionFiles = await fs.readdir(distributionPath);
+    return !spaDistributionFiles.some((file) => requestPath.startsWith('/' + file));
+  };
+
+  return async (ctx, next) => {
+    const requestPath = ctx.request.path;
+
+    // Skip if the request should be handled by other middleware
+    if (shouldSkipRequest(requestPath, prefix, mountedApps)) {
+      return next();
+    }
+
+    // Check if we should serve custom UI assets
+    const { shouldServe, customUiAssets } = await shouldServeCustomUi(queries, packagePath);
+    if (shouldServe && customUiAssets) {
       const serve = serveCustomUiAssets(customUiAssets.id);
       return serve(ctx, next);
     }
@@ -79,15 +110,8 @@ export default function koaSpaProxy<StateT, ContextT extends IRouterParamContext
       return spaProxy(ctx, next);
     }
 
-    const spaDistributionFiles = await fs.readdir(distributionPath);
-
     // Fall back to root if the request is not for a SPA distribution file
-    // We should exclude the `/assets` folder here since it should return 404 if the file is not
-    // found
-    if (
-      !requestPath.startsWith('/assets/') &&
-      !spaDistributionFiles.some((file) => requestPath.startsWith('/' + file))
-    ) {
+    if (await shouldFallbackToRoot(requestPath, distributionPath)) {
       ctx.request.path = '/';
     }
 

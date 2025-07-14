@@ -54,7 +54,7 @@ export const hasRequiredTenantScope = (scopes: Set<string>, operation: string): 
  * Check if the authenticated user has admin tenant permissions for tenant creation.
  * Tenant creation should only be allowed for users with admin tenant access.
  */
-export const hasAdminTenantCreatePermission = async (
+const hasAdminTenantCreatePermission = async (
   scopes: Set<string>,
   userId: string,
   queries: Queries
@@ -87,7 +87,7 @@ export const isProtectedFromDeletion = (tenantId: string): boolean => {
  * 3. Users from other tenants can only access their own tenant
  * 4. Users must be members of the target tenant organization with appropriate roles
  */
-export const validateTenantAccess = async (
+const validateTenantAccess = async (
   targetTenantId: string,
   authScopes: Set<string>,
   currentTenantId: string,

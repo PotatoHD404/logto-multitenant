@@ -20,7 +20,7 @@ export class SilentConsoleLog extends ConsoleLog {
  * Debug-aware console log that only outputs when DEBUG_ENABLED environment variable is set.
  * Useful for troubleshooting auth issues and other debug scenarios.
  */
-export class DebugConsoleLog extends ConsoleLog {
+class DebugConsoleLog extends ConsoleLog {
   plain: typeof console.log = (...args) => {
     if (EnvSet.values.isDebugEnabled) {
       // eslint-disable-next-line no-console

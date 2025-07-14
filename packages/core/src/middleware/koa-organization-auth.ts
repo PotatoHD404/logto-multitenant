@@ -14,7 +14,7 @@ import { debugConsole } from '#src/utils/console.js';
  *
  * Supports multi-tenancy by properly extracting organization IDs from JWT audiences.
  */
-export function koaOrganizationAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
+function koaOrganizationAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
   queries: Queries
 ): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
   return async (ctx, next) => {

@@ -184,7 +184,7 @@ function Invitations() {
               const role =
                 'role' in invitation
                   ? invitation.role
-                  : invitation.organizationRoles[0]?.name || 'collaborator';
+                  : invitation.organizationRoles[0]?.name ?? 'collaborator';
               return (
                 <Tag variant="cell">
                   <span>{t(role === 'admin' ? 'admin' : 'collaborator')}</span>

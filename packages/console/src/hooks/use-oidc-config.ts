@@ -18,7 +18,7 @@ const useOidcConfig = () => {
 
   // Use the tenant endpoint directly for OIDC configuration
   const oidcApi = useStaticApi({
-    prefixUrl: tenantEndpoint || new URL(window.location.origin),
+    prefixUrl: tenantEndpoint ?? new URL(window.location.origin),
     resourceIndicator: '', // OIDC endpoints don't require authentication
   });
 

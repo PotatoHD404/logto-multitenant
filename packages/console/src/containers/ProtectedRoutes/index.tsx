@@ -81,9 +81,9 @@ export default function ProtectedRoutes() {
               ...defaultTenantResponse,
               id: tenant.id,
               name: tenant.name,
-              tag: tenant.tag as any,
+              tag: tenant.tag as TenantTag,
               createdAt: new Date(tenant.createdAt),
-              isSuspended: tenant.isSuspended || false,
+              isSuspended: tenant.isSuspended ?? false,
             }));
             resetTenants(tenantResponses);
           }

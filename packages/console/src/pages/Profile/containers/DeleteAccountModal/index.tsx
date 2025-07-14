@@ -16,6 +16,9 @@ type Props = {
 };
 
 export default function DeleteAccountModal({ isOpen, onClose }: Props) {
+  // Cloud version with tenant management
+  const { tenants } = useContext(TenantsContext);
+  
   // For OSS, use a simpler delete account modal
   if (!isCloud) {
     return (
@@ -30,9 +33,6 @@ export default function DeleteAccountModal({ isOpen, onClose }: Props) {
       </ReactModal>
     );
   }
-
-  // Cloud version with tenant management
-  const { tenants } = useContext(TenantsContext);
   const paidPlans = tenants.filter(
     ({ planId }) => planId !== ReservedPlanId.Free && planId !== ReservedPlanId.Development
   );

@@ -95,7 +95,7 @@ export function RedirectToFirstItem() {
   }
 
   // Use tenantId from params or currentTenantId from context
-  const effectiveTenantId = tenantId || currentTenantId;
+  const effectiveTenantId = tenantId ?? currentTenantId;
 
   if (!effectiveTenantId) {
     throw new Error('Tenant ID not found');
