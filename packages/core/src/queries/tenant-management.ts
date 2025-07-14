@@ -278,4 +278,5 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
   };
 };
 
-export default createTenantManagementQueries;
+// Remove unused default export
+// export default createTenantManagementQueries;

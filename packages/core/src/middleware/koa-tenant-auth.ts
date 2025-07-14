@@ -8,12 +8,10 @@ import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
 
-export type TenantOperation = 'read' | 'write' | 'delete';
-
 /**
  * Map tenant operations to their required scopes
  */
-const TENANT_OPERATION_SCOPES: Record<TenantOperation, TenantManagementScope> = {
+const TENANT_OPERATION_SCOPES: Record<string, TenantManagementScope> = {
   read: TenantManagementScope.Read,
   write: TenantManagementScope.Write,
   delete: TenantManagementScope.Delete,
@@ -25,7 +23,7 @@ const TENANT_OPERATION_SCOPES: Record<TenantOperation, TenantManagementScope> = 
  */
 export const hasRequiredTenantScope = (
   scopes: Set<string>,
-  operation: TenantOperation
+  operation: string
 ): boolean => {
   // Users with 'all' scope can perform any operation
   if (scopes.has(PredefinedScope.All)) {
@@ -34,7 +32,7 @@ export const hasRequiredTenantScope = (
 
   // Check for specific tenant management scope
   const requiredScope = TENANT_OPERATION_SCOPES[operation];
-  if (scopes.has(requiredScope)) {
+  if (requiredScope && scopes.has(requiredScope)) {
     return true;
   }
 
@@ -98,7 +96,7 @@ export const validateTenantAccess = async (
   currentTenantId: string,
   userId: string,
   queries: Queries,
-  operation: TenantOperation
+  operation: string
 ): Promise<void> => {
   // Super admin with 'all' scope can access any tenant
   if (authScopes.has(PredefinedScope.All)) {
@@ -175,7 +173,7 @@ export const validateTenantAccess = async (
  * 5. System tenant protection
  */
 export default function koaTenantAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
-  operation: TenantOperation,
+  operation: string,
   currentTenantId: string,
   queries: Queries
 ): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {

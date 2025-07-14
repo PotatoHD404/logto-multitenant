@@ -21,8 +21,6 @@ import RequestError from '#src/errors/RequestError/index.js';
 import Queries from '#src/tenants/Queries.js';
 import { unknownConsole } from '#src/utils/console.js';
 
-export type TenantOrganizationLibrary = ReturnType<typeof createTenantOrganizationLibrary>;
-
 export const createTenantOrganizationLibrary = (queries: Queries) => {
   const { tenants } = queries;
 

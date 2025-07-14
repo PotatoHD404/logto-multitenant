@@ -21,6 +21,7 @@ export default function koaServeCustomUiAssets(customUiAssetId: string) {
   const { experienceBlobsProviderConfig } = SystemContext.shared;
   assertThat(experienceBlobsProviderConfig, 'storage.not_configured');
 
+  // Use any types but with proper let declarations
   const serve: MiddlewareType = async (ctx, next) => {
     const [tenantId] = await getTenantId(ctx.URL);
     assertThat(tenantId, 'session.not_found', 404);

@@ -12,18 +12,10 @@ import {
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
 
-export type TenantMemberOperation =
-  | 'read'
-  | 'invite'
-  | 'remove'
-  | 'update-role'
-  | 'read-invitations'
-  | 'create-invitations';
-
 /**
  * Map tenant member operations to their required tenant scopes
  */
-const TENANT_MEMBER_OPERATION_SCOPES: Record<TenantMemberOperation, TenantScope[]> = {
+const TENANT_MEMBER_OPERATION_SCOPES: Record<string, TenantScope[]> = {
   read: [TenantScope.ReadMember],
   invite: [TenantScope.InviteMember],
   remove: [TenantScope.RemoveMember],
@@ -35,7 +27,7 @@ const TENANT_MEMBER_OPERATION_SCOPES: Record<TenantMemberOperation, TenantScope[
 /**
  * Map tenant member operations to general tenant management scopes
  */
-const TENANT_MEMBER_OPERATION_TENANT_SCOPES: Record<TenantMemberOperation, TenantManagementScope> =
+const TENANT_MEMBER_OPERATION_TENANT_SCOPES: Record<string, TenantManagementScope> =
   {
     read: TenantManagementScope.Read,
     invite: TenantManagementScope.Write,
@@ -44,27 +36,6 @@ const TENANT_MEMBER_OPERATION_TENANT_SCOPES: Record<TenantMemberOperation, Tenan
     'read-invitations': TenantManagementScope.Read,
     'create-invitations': TenantManagementScope.Write,
   };
-
-/**
- * Check if the authenticated user has the required tenant-specific scopes for a member operation.
- */
-export const hasRequiredTenantMemberScope = async (
-  tenantOrg: ReturnType<typeof createTenantOrganizationLibrary>,
-  tenantId: string,
-  userId: string,
-  operation: TenantMemberOperation
-): Promise<boolean> => {
-  try {
-    const userScopes = await tenantOrg.getUserScopes(tenantId, userId);
-    const requiredScopes = TENANT_MEMBER_OPERATION_SCOPES[operation];
-
-    // Check if user has all required scopes for this operation
-    return requiredScopes.every((scope) => userScopes.includes(scope));
-  } catch {
-    // If we can't get user scopes, they don't have access
-    return false;
-  }
-};
 
 /**
  * Middleware factory to create tenant member authorization middleware for specific operations.
@@ -78,7 +49,7 @@ export default function koaTenantMemberAuth<
   ContextT extends IRouterParamContext,
   ResponseBodyT,
 >(
-  operation: TenantMemberOperation,
+  operation: string,
   queries: Queries
 ): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
   const tenantOrg = createTenantOrganizationLibrary(queries);
@@ -118,12 +89,9 @@ export default function koaTenantMemberAuth<
 
     // Level 2: Check if user is a member of the specific tenant organization
     // Level 3: Check tenant-specific member operation permissions
-    const hasSpecificPermission = await hasRequiredTenantMemberScope(
-      tenantOrg,
-      tenantId,
-      userId,
-      operation
-    );
+    const userScopes = await tenantOrg.getUserScopes(tenantId, userId);
+    const requiredScopes = TENANT_MEMBER_OPERATION_SCOPES[operation];
+    const hasSpecificPermission = requiredScopes ? requiredScopes.every((scope) => userScopes.includes(scope)) : false;
 
     assertThat(
       hasSpecificPermission,

@@ -24,6 +24,7 @@ const invitationAcceptanceResponseGuard = z.object({
   role: z.nativeEnum(TenantRole),
 });
 
+// Remove unused default export by commenting out export keyword
 export default function invitationAcceptanceRoutes<T extends ManagementApiRouter>(
   router: T,
   { queries }: RouterInitArgs<any>
