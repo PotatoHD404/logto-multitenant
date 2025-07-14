@@ -16,6 +16,7 @@ import koaBodyEtag from '#src/middleware/koa-body-etag.js';
 import { koaManagementApiHooks } from '#src/middleware/koa-management-api-hooks.js';
 import koaTenantGuard from '#src/middleware/koa-tenant-guard.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
+import { getConsoleLogFromContext } from '#src/utils/console.js';
 
 import RequestError from '../errors/RequestError/index.js';
 import { verifyBearerTokenFromRequest } from '../middleware/koa-auth/index.js';
@@ -159,7 +160,7 @@ function koaCrossTenantManagementAuth<StateT, ContextT extends IRouterParamConte
     );
 
     // Debug logging
-    console.log('Cross-tenant auth debug:', {
+    getConsoleLogFromContext(ctx).info('Cross-tenant auth debug:', {
       managementApiAudience,
       scopes,
       path: ctx.request.path,
@@ -176,7 +177,7 @@ function koaCrossTenantManagementAuth<StateT, ContextT extends IRouterParamConte
         scope.includes('manage:tenant')
     );
 
-    console.log('Scope validation result:', { hasValidScopes, scopes });
+    getConsoleLogFromContext(ctx).info('Scope validation result:', { hasValidScopes, scopes });
 
     assertThat(hasValidScopes, new RequestError({ code: 'auth.forbidden', status: 403 }));
 

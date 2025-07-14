@@ -1,8 +1,10 @@
-import { TenantTag, adminTenantId, getTenantOrganizationId } from '@logto/schemas';
+import { TenantTag, adminTenantId, getTenantOrganizationId, TenantRole } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { sql, type CommonQueryMethods } from '@silverhand/slonik';
 
 import { EnvSet } from '#src/env-set/index.js';
+import { unknownConsole } from '#src/utils/console.js';
+import { getTenantRole } from '@logto/schemas';
 
 export type TenantData = {
   id: string;
@@ -41,14 +43,14 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
         `;
 
     const result = await pool.any(query);
-    return result.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      tag: row.tag,
-      dbUser: row.db_user,
-      dbUserPassword: row.db_user_password,
-      createdAt: row.created_at,
-      isSuspended: row.is_suspended,
+    return result.map((row) => ({
+      id: row.id as string,
+      name: row.name as string,
+      tag: row.tag as TenantTag,
+      dbUser: row.db_user as string | undefined,
+      dbUserPassword: row.db_user_password as string | undefined,
+      createdAt: new Date(row.created_at as string),
+      isSuspended: row.is_suspended as boolean,
     }));
   };
 
@@ -60,7 +62,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
     `);
 
     if (!result) {
-      return null;
+      return undefined;
     }
 
     return {
@@ -141,14 +143,14 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
           ON CONFLICT (organization_id, organization_role_id, user_id) DO NOTHING;
         `);
 
-        console.log(
+        unknownConsole.info(
           `Added ${adminUsers.length} admin users to tenant organization ${organizationId}`
         );
       }
 
-      console.log(`Created tenant organization ${organizationId} for tenant ${tenantId}`);
+      unknownConsole.info(`Created tenant organization ${organizationId} for tenant ${tenantId}`);
     } catch (error) {
-      console.error(`Failed to create tenant organization for ${tenantId}:`, error);
+      unknownConsole.error(`Failed to create tenant organization for ${tenantId}:`, error);
       // Don't throw error to avoid breaking tenant creation
     }
   };
@@ -254,7 +256,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
 
       return true;
     } catch (error) {
-      console.error('Error deleting tenant:', error);
+      unknownConsole.error('Error deleting tenant:', error);
       return false;
     }
   };

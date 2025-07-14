@@ -316,7 +316,7 @@ export class ProvisionLibrary {
           });
         } catch (error) {
           // Continue with other organizations if one fails
-          console.warn(`Failed to add admin user to organization ${organizationId}:`, error);
+          getConsoleLogFromContext(this.ctx).warn(`Failed to add admin user to organization ${organizationId}:`, error);
         }
       }
     }

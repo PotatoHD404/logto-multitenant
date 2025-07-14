@@ -9,6 +9,7 @@ import { TenantRole } from '@logto/schemas';
 
 import type { ConnectorLibrary } from '#src/libraries/connector.js';
 import type Queries from '#src/tenants/Queries.js';
+import { unknownConsole } from '#src/utils/console.js';
 
 export enum InvitationNotificationType {
   InvitationSent = 'invitation_sent',
@@ -151,7 +152,7 @@ export class TenantInvitationNotificationLibrary {
       });
     } catch (error) {
       // Log error but don't throw to avoid breaking the main flow
-      console.error('Failed to send invitation notification:', error);
+      unknownConsole.error('Failed to send invitation notification:', error);
     }
   }
 
@@ -163,7 +164,7 @@ export class TenantInvitationNotificationLibrary {
       // This would typically log to a notifications table or audit log
       // For now, we'll just log to console in development
       if (process.env.NODE_ENV === 'development') {
-        console.log('Invitation notification event:', {
+        unknownConsole.info('Invitation notification event:', {
           type: context.type,
           tenantId: context.tenantId,
           invitationId: context.invitationId,
@@ -172,7 +173,7 @@ export class TenantInvitationNotificationLibrary {
         });
       }
     } catch (error) {
-      console.error('Failed to log notification event:', error);
+      unknownConsole.error('Failed to log notification event:', error);
     }
   }
 
@@ -256,7 +257,7 @@ export class TenantInvitationNotificationLibrary {
       // For now, return empty array as we don't have direct database access here
       return [];
     } catch (error) {
-      console.error('Failed to get pending expired invitations:', error);
+      unknownConsole.error('Failed to get pending expired invitations:', error);
       return [];
     }
   }
@@ -286,7 +287,7 @@ export class TenantInvitationNotificationLibrary {
           });
         }
       } catch (error) {
-        console.error('Failed to process expired invitation:', invitation.id, error);
+        unknownConsole.error('Failed to process expired invitation:', invitation.id, error);
       }
     }
   }

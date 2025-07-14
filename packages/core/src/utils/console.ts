@@ -23,6 +23,7 @@ export class SilentConsoleLog extends ConsoleLog {
 export class DebugConsoleLog extends ConsoleLog {
   plain: typeof console.log = (...args) => {
     if (EnvSet.values.isDebugEnabled) {
+      // eslint-disable-next-line no-console
       console.log(...this.getArgs(args));
     }
   };
@@ -41,17 +42,20 @@ export class DebugConsoleLog extends ConsoleLog {
 
   warn: typeof console.log = (...args) => {
     if (EnvSet.values.isDebugEnabled) {
+      // eslint-disable-next-line no-console
       console.warn(...this.getArgs([ConsoleLog.prefixes.warn, ...args]));
     }
   };
 
   error: typeof console.log = (...args) => {
     if (EnvSet.values.isDebugEnabled) {
+      // eslint-disable-next-line no-console
       console.error(...this.getArgs([ConsoleLog.prefixes.error, ...args]));
     }
   };
 
   fatal: (...args: Parameters<typeof console.log>) => never = (...args) => {
+    // eslint-disable-next-line no-console
     console.error(...this.getArgs([ConsoleLog.prefixes.fatal, ...args]));
     // eslint-disable-next-line unicorn/no-process-exit
     process.exit(1);

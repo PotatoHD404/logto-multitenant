@@ -15,9 +15,11 @@ import {
 import { generateStandardId } from '@logto/shared';
 import { sql } from '@silverhand/slonik';
 
+import { type SearchOptions } from '#src/database/utils.js';
 import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import Queries from '#src/tenants/Queries.js';
+import { unknownConsole } from '#src/utils/console.js';
 
 export type TenantOrganizationLibrary = ReturnType<typeof createTenantOrganizationLibrary>;
 
@@ -38,44 +40,42 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
 
   const ensureTenantOrganization = async (tenantId: string, tenantName?: string) => {
     const organizationId = getTenantOrganizationId(tenantId);
-    const organizations = await getAdminOrganizations();
+    
     try {
-      // Check if organization already exists
-      await organizations.findById(organizationId);
-      return organizationId;
-    } catch {
-      // Organization doesn't exist, create it
-      try {
-        // Use the provided tenant name, or fall back to tenant ID as display name
-        const displayName = tenantName || tenantId;
-
-        // Special case for admin tenant: use "Admin tenant" instead of "Tenant admin"
-        const organizationName =
-          tenantId === adminTenantId ? 'Admin tenant' : `Tenant ${displayName}`;
-
-        const organizations = await getAdminOrganizations();
-        await organizations.insert({
-          id: organizationId,
-          tenantId: adminTenantId,
-          name: organizationName,
-          description: `Organization for tenant ${tenantId}`,
-        });
-
-        console.log(`Successfully created organization ${organizationId}`);
+      const organizations = await getAdminOrganizations();
+      const existingOrganization = await organizations.findById(organizationId);
+      if (existingOrganization) {
         return organizationId;
-      } catch (error) {
-        console.error(`Failed to create organization ${organizationId}:`, error);
-        throw new RequestError({
-          code: 'entity.create_failed',
-          status: 500,
-          name: 'organization',
-          data: {
-            tenantId,
-            organizationId,
-            error: error instanceof Error ? error.message : String(error),
-          },
-        });
       }
+
+      // Use the provided tenant name, or fall back to tenant ID as display name
+      const displayName = tenantName || tenantId;
+
+      // Special case for admin tenant: use "Admin tenant" instead of "Tenant admin"
+      const organizationName =
+        tenantId === adminTenantId ? 'Admin tenant' : `Tenant ${displayName}`;
+
+      await organizations.insert({
+        id: organizationId,
+        tenantId: adminTenantId,
+        name: organizationName,
+        description: `Organization for tenant ${tenantId}`,
+      });
+
+      unknownConsole.info(`Successfully created organization ${organizationId}`);
+      return organizationId;
+    } catch (error) {
+      unknownConsole.error(`Failed to create organization ${organizationId}:`, error);
+      throw new RequestError({
+        code: 'entity.create_failed',
+        status: 500,
+        name: 'organization',
+        data: {
+          tenantId,
+          organizationId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
     }
   };
 
@@ -133,7 +133,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
       organizationId,
       userId
     );
-    const isAdmin = userScopes.some((scope: any) => scope.name === 'manage:tenant');
+    const isAdmin = userScopes.some((scope) => scope.name === 'manage:tenant');
 
     if (isAdmin) {
       const [, allMembers] = await organizations.relations.users.getUsersByOrganizationId(
@@ -141,8 +141,8 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
         { limit: 100, offset: 0 }
       );
 
-      const adminCount = allMembers.filter((member: any) =>
-        member.organizationRoles.some((role: any) => role.name === TenantRole.Admin)
+      const adminCount = allMembers.filter((member) =>
+        member.organizationRoles.some((role) => role.name === TenantRole.Admin)
       ).length;
 
       if (adminCount <= 1) {
@@ -179,7 +179,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
       organizationId,
       userId
     );
-    const isCurrentlyAdmin = currentScopes.some((scope: any) => scope.name === 'manage:tenant');
+    const isCurrentlyAdmin = currentScopes.some((scope) => scope.name === 'manage:tenant');
 
     if (isCurrentlyAdmin && newRole === TenantRole.Collaborator) {
       const [, allMembers] = await organizations.relations.users.getUsersByOrganizationId(
@@ -187,8 +187,8 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
         { limit: 100, offset: 0 }
       );
 
-      const adminCount = allMembers.filter((member: any) =>
-        member.organizationRoles.some((role: any) => role.name === TenantRole.Admin)
+      const adminCount = allMembers.filter((member) =>
+        member.organizationRoles.some((role) => role.name === TenantRole.Admin)
       ).length;
 
       if (adminCount <= 1) {
@@ -218,7 +218,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     }
 
     const scopes = await organizations.relations.usersRoles.getUserScopes(organizationId, userId);
-    return scopes.map((scope: any) => scope.name);
+    return scopes.map((scope) => scope.name);
   };
 
   /**
@@ -319,25 +319,25 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
           });
         } catch (error) {
           // Continue with other users if one fails
-          console.warn(
+          unknownConsole.warn(
             `Failed to add admin user ${user.id} to organization ${organizationId}:`,
             error
           );
         }
       }
 
-      console.log(
+      unknownConsole.info(
         `Successfully provisioned ${adminUsers.length} admin users to tenant organization ${organizationId}`
       );
     } catch (error) {
-      console.error(`Failed to provision admin users to tenant ${tenantId}:`, error);
+      unknownConsole.error(`Failed to provision admin users to tenant ${tenantId}:`, error);
     }
   };
 
   const getTenantMembers = async (
     tenantId: string,
     { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {},
-    search?: any
+    search?: SearchOptions<'id' | 'name' | 'username' | 'primaryEmail' | 'primaryPhone'>
   ) => {
     const organizations = await getAdminOrganizations();
     const organizationId = await ensureTenantOrganization(tenantId);
@@ -350,7 +350,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
 
     return {
       totalCount,
-      members: members.map((member: any) => ({
+      members: members.map((member) => ({
         id: member.id,
         name: member.name,
         primaryEmail: member.primaryEmail,

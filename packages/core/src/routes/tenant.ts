@@ -31,6 +31,7 @@ import koaGuard from '#src/middleware/koa-guard.js';
 import koaPagination from '#src/middleware/koa-pagination.js';
 import { createTenantAuthMiddleware } from '#src/middleware/koa-tenant-auth.js';
 import assertThat from '#src/utils/assert-that.js';
+import { unknownConsole } from '#src/utils/console.js';
 
 // Import database utilities for proper tenant creation
 
@@ -312,9 +313,9 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       // Seed OIDC configuration for the new tenant (privateKeys, cookieKeys)
       try {
         await seedOidcConfigs(sharedPool, newTenant.id);
-        console.log(`Successfully seeded OIDC configuration for tenant ${newTenant.id}`);
+                  unknownConsole.info(`Successfully seeded OIDC configuration for tenant ${newTenant.id}`);
       } catch (error) {
-        console.error(`Failed to seed OIDC configuration for tenant ${newTenant.id}:`, error);
+        unknownConsole.error(`Failed to seed OIDC configuration for tenant ${newTenant.id}:`, error);
         // Don't throw error as this shouldn't block tenant creation
       }
 
@@ -334,9 +335,9 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         const accountCenter = createDefaultAccountCenter(newTenant.id);
         await sharedPool.query(insertInto(accountCenter, AccountCenters.table));
 
-        console.log(`Successfully seeded default configurations for tenant ${newTenant.id}`);
+                  unknownConsole.info(`Successfully seeded default configurations for tenant ${newTenant.id}`);
       } catch (error) {
-        console.error(`Failed to seed default configurations for tenant ${newTenant.id}:`, error);
+        unknownConsole.error(`Failed to seed default configurations for tenant ${newTenant.id}:`, error);
         // Don't throw error as this shouldn't block tenant creation
       }
 
@@ -401,21 +402,21 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
                 `);
               }
             }
-            console.log(
-              `Successfully granted user role access to tenant ${newTenant.id} Management API`
-            );
+                         unknownConsole.info(
+                `Successfully granted user role access to tenant ${newTenant.id} Management API`
+              );
           }
         } catch (error) {
-          console.error(
+          unknownConsole.error(
             `Failed to grant user role access to tenant ${newTenant.id} Management API:`,
             error
           );
           // Don't throw as this shouldn't block tenant creation
         }
 
-        console.log(`Successfully created Management API resource for tenant ${newTenant.id}`);
+                  unknownConsole.info(`Successfully created Management API resource for tenant ${newTenant.id}`);
       } catch (error) {
-        console.error(
+        unknownConsole.error(
           `Failed to create Management API resource for tenant ${newTenant.id}:`,
           error
         );
@@ -425,11 +426,11 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       // Seed pre-configured management API access role
       try {
         await seedPreConfiguredManagementApiAccessRole(sharedPool, newTenant.id);
-        console.log(
-          `Successfully created pre-configured Management API access role for tenant ${newTenant.id}`
-        );
+                  unknownConsole.info(
+            `Successfully created pre-configured Management API access role for tenant ${newTenant.id}`
+          );
       } catch (error) {
-        console.error(
+        unknownConsole.error(
           `Failed to create pre-configured Management API access role for tenant ${newTenant.id}:`,
           error
         );
@@ -448,7 +449,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       } catch (error) {
         // If organization creation or user assignment fails, log the error but don't block tenant creation
         // The organization and user assignment can be created later when needed
-        console.error(
+        unknownConsole.error(
           `Failed to initialize tenant organization or assign user for tenant ${newTenant.id}:`,
           error
         );
