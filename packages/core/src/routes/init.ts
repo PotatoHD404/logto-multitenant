@@ -10,9 +10,11 @@ import koaTenantGuard from '#src/middleware/koa-tenant-guard.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 
 import koaAuth, { verifyBearerTokenFromRequest } from '../middleware/koa-auth/index.js';
+import { extractBearerTokenFromHeaders, getAdminTenantTokenValidationSet } from '../middleware/koa-auth/utils.js';
 import koaOidcAuth from '../middleware/koa-auth/koa-oidc-auth.js';
 import koaCors from '../middleware/koa-cors.js';
 import { buildOrganizationUrn } from '@logto/core-kit';
+import { jwtVerify, createLocalJWKSet } from 'jose';
 import type { MiddlewareType } from 'koa';
 import type { IRouterParamContext } from 'koa-router';
 import type { WithAuthContext } from '../middleware/koa-auth/index.js';
@@ -73,6 +75,9 @@ import wellKnownOpenApiRoutes from './well-known/well-known.openapi.js';
 /**
  * Custom organization auth middleware for management API that accepts organization tokens
  * and validates tenant-specific access.
+ * 
+ * IMPORTANT: Organization tokens should ONLY be validated against admin tenant keys,
+ * not the target tenant's keys, to maintain proper security isolation.
  */
 function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
   tenant: TenantContext
@@ -82,16 +87,31 @@ function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamCont
     const expectedAudience = getTenantOrganizationId(tenant.id);
     const organizationAudience = buildOrganizationUrn(expectedAudience);
     
-    // Verify JWT with the correct audience for this tenant
-    const { sub, clientId, scopes } = await verifyBearerTokenFromRequest(
-      tenant.envSet,
-      ctx.request,
-      organizationAudience, // Validate audience matches tenant organization
-      tenant // Pass tenant for blacklist check
+    // Organization tokens are issued by admin tenant, so we need to validate against admin tenant keys only
+    // We can't use the target tenant's envSet as it would include both target + admin keys
+    // Instead, we need to manually validate using admin tenant keys only
+    const bearerToken = extractBearerTokenFromHeaders(ctx.request.headers);
+    const adminKeys = await getAdminTenantTokenValidationSet();
+    
+    if (adminKeys.keys.length === 0) {
+      throw new RequestError({ code: 'auth.unauthorized', status: 401 });
+    }
+    
+    const { payload: { sub, client_id: clientId, scope = '' } } = await jwtVerify(
+      bearerToken,
+      createLocalJWKSet({ keys: adminKeys.keys }),
+      {
+        issuer: adminKeys.issuer,
+        audience: organizationAudience,
+      }
     );
 
+    assertThat(sub, new RequestError({ code: 'auth.jwt_sub_missing', status: 401 }));
+    
+    const scopes = String(scope).split(' ');
+
     // Validate scopes - organization tokens have specific scopes
-    const hasValidScopes = scopes.some(scope => 
+    const hasValidScopes = scopes.some((scope: string) => 
       scope === 'all' || 
       scope.includes('manage:') || 
       scope.includes('read:') || 

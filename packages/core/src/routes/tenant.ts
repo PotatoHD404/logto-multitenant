@@ -132,6 +132,11 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     return;
   }
 
+  // Reject all non admin tenant IDs
+  if (tenant.id != adminTenantId) {
+    return;
+  }
+
   const { queries } = tenant;
   const tenantOrg = createTenantOrganizationLibrary(queries);
   
