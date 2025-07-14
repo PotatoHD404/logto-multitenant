@@ -203,7 +203,7 @@ function Invitations() {
                 new Date(invitation.expiresAt)
               );
               const effectiveStatus = isExpired ? 'Expired' : status;
-              // eslint-disable-next-line no-restricted-syntax
+
               const color =
                 invitationStatusColorMap[effectiveStatus as keyof typeof invitationStatusColorMap];
 
@@ -214,8 +214,7 @@ function Invitations() {
                     variant="cell"
                     type={color}
                   >
-                    {/* Ensure all possible keys for invitation_statuses are present in the translation type definition */}
-                    {/* eslint-disable-next-line no-restricted-syntax */}
+                    {}
                     <DynamicT
                       forKey={`invitation_statuses.${effectiveStatus}` as AdminConsoleKey}
                     />

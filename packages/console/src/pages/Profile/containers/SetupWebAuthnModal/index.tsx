@@ -60,6 +60,7 @@ function SetupWebAuthnModal() {
       setError(undefined);
 
       // Check if WebAuthn is supported
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!navigator.credentials.create) {
         throw new Error('WebAuthn is not supported in this browser');
       }
@@ -124,6 +125,7 @@ function SetupWebAuthnModal() {
           })),
           authenticatorSelection: data.options.authenticatorSelection
             ? {
+                // eslint-disable-next-line no-restricted-syntax
                 residentKey: data.options.authenticatorSelection
                   .residentKey as ResidentKeyRequirement,
               }
@@ -142,10 +144,8 @@ function SetupWebAuthnModal() {
       if (!('rawId' in credential) || !('response' in credential)) {
         throw new Error('Invalid credential object');
       }
-      // eslint-disable-next-line no-restricted-syntax
-      const publicKeyCredential = credential as PublicKeyCredential;
-      // eslint-disable-next-line no-restricted-syntax
-      const responseData = publicKeyCredential.response as AuthenticatorAttestationResponse;
+      const publicKeyCredential = credential as PublicKeyCredential; // eslint-disable-line no-restricted-syntax
+      const responseData = publicKeyCredential.response as AuthenticatorAttestationResponse; // eslint-disable-line no-restricted-syntax
 
       // Step 4: Format the response for the backend
       const webAuthnResponse = {
@@ -154,7 +154,8 @@ function SetupWebAuthnModal() {
         response: {
           clientDataJSON: arrayBufferToBase64Url(responseData.clientDataJSON),
           attestationObject: arrayBufferToBase64Url(responseData.attestationObject),
-          transports: responseData.getTransports(),
+          transports:
+            typeof responseData.getTransports === 'function' ? responseData.getTransports() : [],
         },
         type: publicKeyCredential.type,
       };

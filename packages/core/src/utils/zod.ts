@@ -213,7 +213,7 @@ export const zodTypeToSwagger = (
     // Zod enums are always objects with string values
     return {
       type: 'string',
-      enum: Object.values(config.enum),
+      enum: Object.values(config.enum) as string[],
     };
   }
 
