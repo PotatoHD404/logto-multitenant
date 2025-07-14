@@ -1,12 +1,9 @@
 import {
-  adminTenantId,
   cloudApiIndicator,
   CloudScope,
   getManagementApiResourceIndicator,
   PredefinedScope,
 } from '@logto/schemas';
-
-import { isCloud } from './env';
 
 export type ApiResource = {
   indicator: string;

@@ -4,15 +4,15 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
+import VerificationCodeInput from '@/components/VerificationCodeInput';
 import { adminTenantEndpoint, meApi } from '@/consts';
 import Button from '@/ds-components/Button';
 import FormField from '@/ds-components/FormField';
 import TextLink from '@/ds-components/TextLink';
-import VerificationCodeInput from '@/components/VerificationCodeInput';
 import { useStaticApi } from '@/hooks/use-api';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
-import useTenantPathname from '@/hooks/use-tenant-pathname';
 import useCurrentUserMfa from '@/hooks/use-current-user-mfa';
+import useTenantPathname from '@/hooks/use-tenant-pathname';
 
 import ExperienceLikeModal from '../../components/ExperienceLikeModal';
 import { handleError } from '../../utils';
@@ -38,7 +38,7 @@ function SetupTotpModal() {
   const { navigate } = useTenantPathname();
   const { show: showModal } = useConfirmModal();
   const { mutate: mutateMfa } = useCurrentUserMfa();
-  const [totpSecret, setTotpSecret] = useState<TotpSecret | null>(null);
+  const [totpSecret, setTotpSecret] = useState<TotpSecret | undefined>(null);
   const [isShowingSecret, setIsShowingSecret] = useState(true);
   const [isQrCodeFormat, setIsQrCodeFormat] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,13 +68,13 @@ function SetupTotpModal() {
         const response = await api.post('me/mfa-verifications', {
           json: { type: MfaFactor.TOTP },
         });
-        
+
         const data = await response.json<{
           type: 'TOTP';
           secret: string;
           secretQrCode: string;
         }>();
-        
+
         setTotpSecret({
           secret: data.secret,
           secretQrCode: data.secretQrCode,
@@ -105,13 +105,13 @@ function SetupTotpModal() {
   }, [totpSecret]);
 
   const handleSubmit = useCallback(async () => {
-    if (!totpSecret || code.length !== 6 || code.some(c => !c)) {
+    if (!totpSecret || code.length !== 6 || code.some((c) => !c)) {
       setError(t('profile.set_up_mfa.invalid_code'));
       return;
     }
 
     const totpCode = code.join('');
-    
+
     // Basic validation
     if (!validateTotpCode(totpCode)) {
       setError(t('profile.set_up_mfa.invalid_code'));
@@ -139,44 +139,40 @@ function SetupTotpModal() {
     }
   }, [api, code, totpSecret, t, mutateMfa, onClose]);
 
-  const handleCodeChange = useCallback((newCode: string[]) => {
-    setValue('code', newCode);
-    setError(undefined);
-    
-    // Remove auto-submit - let user manually submit with Continue button
-  }, [setValue]);
+  const handleCodeChange = useCallback(
+    (newCode: string[]) => {
+      setValue('code', newCode);
+      setError(undefined);
 
-  const copyToClipboard = useCallback(async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success(t('profile.set_up_mfa.secret_copied'));
-    } catch {
-      toast.error(t('profile.set_up_mfa.copy_failed'));
-    }
-  }, [t]);
+      // Remove auto-submit - let user manually submit with Continue button
+    },
+    [setValue]
+  );
+
+  const copyToClipboard = useCallback(
+    async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success(t('profile.set_up_mfa.secret_copied'));
+      } catch {
+        toast.error(t('profile.set_up_mfa.copy_failed'));
+      }
+    },
+    [t]
+  );
 
   if (isLoading) {
     return (
-      <ExperienceLikeModal
-        title="profile.set_up_mfa.setup_totp"
-        onClose={onClose}
-      >
-        <div className={styles.loading}>
-          {t('general.loading')}
-        </div>
+      <ExperienceLikeModal title="profile.set_up_mfa.setup_totp" onClose={onClose}>
+        <div className={styles.loading}>{t('general.loading')}</div>
       </ExperienceLikeModal>
     );
   }
 
   if (error && !totpSecret) {
     return (
-      <ExperienceLikeModal
-        title="profile.set_up_mfa.setup_totp"
-        onClose={onClose}
-      >
-        <div className={styles.error}>
-          {error}
-        </div>
+      <ExperienceLikeModal title="profile.set_up_mfa.setup_totp" onClose={onClose}>
+        <div className={styles.error}>{error}</div>
         <Button
           type="primary"
           size="large"
@@ -199,17 +195,18 @@ function SetupTotpModal() {
         <div className={styles.container}>
           <div className={styles.step}>
             <div className={styles.stepTitle}>
-              {t('profile.set_up_mfa.step', { 
-                step: 1, 
-                content: isQrCodeFormat 
-                  ? t('profile.set_up_mfa.scan_qr_code') 
-                  : t('profile.set_up_mfa.copy_secret') 
+              {t('profile.set_up_mfa.step', {
+                step: 1,
+                content: isQrCodeFormat
+                  ? t('profile.set_up_mfa.scan_qr_code')
+                  : t('profile.set_up_mfa.copy_secret'),
               })}
             </div>
             <div className={styles.stepDescription}>
-              {t(isQrCodeFormat 
-                ? 'profile.set_up_mfa.scan_qr_code_description' 
-                : 'profile.set_up_mfa.copy_secret_description'
+              {t(
+                isQrCodeFormat
+                  ? 'profile.set_up_mfa.scan_qr_code_description'
+                  : 'profile.set_up_mfa.copy_secret_description'
               )}
             </div>
           </div>
@@ -227,26 +224,22 @@ function SetupTotpModal() {
                   type="outline"
                   size="small"
                   title="general.copy"
-                  onClick={() => copyToClipboard(totpSecret.secret)}
+                  onClick={async () => copyToClipboard(totpSecret.secret)}
                 />
               </div>
             )}
             <TextLink
-              onClick={() => setIsQrCodeFormat(!isQrCodeFormat)}
+              onClick={() => {
+                setIsQrCodeFormat(!isQrCodeFormat);
+              }}
             >
-              {isQrCodeFormat 
-                ? t('profile.set_up_mfa.cannot_scan_qr_code') 
-                : t('profile.set_up_mfa.want_to_scan_qr_code')
-              }
+              {isQrCodeFormat
+                ? t('profile.set_up_mfa.cannot_scan_qr_code')
+                : t('profile.set_up_mfa.want_to_scan_qr_code')}
             </TextLink>
           </div>
 
-          <Button
-            type="primary"
-            size="large"
-            title="general.continue"
-            onClick={handleContinue}
-          />
+          <Button type="primary" size="large" title="general.continue" onClick={handleContinue} />
         </div>
       </ExperienceLikeModal>
     );
@@ -261,9 +254,9 @@ function SetupTotpModal() {
       <div className={styles.container}>
         <div className={styles.step}>
           <div className={styles.stepTitle}>
-            {t('profile.set_up_mfa.step', { 
-              step: 2, 
-              content: t('profile.set_up_mfa.enter_verification_code') 
+            {t('profile.set_up_mfa.step', {
+              step: 2,
+              content: t('profile.set_up_mfa.enter_verification_code'),
             })}
           </div>
           <div className={styles.stepDescription}>
@@ -285,7 +278,7 @@ function SetupTotpModal() {
           size="large"
           title="general.continue"
           isLoading={isSubmitting}
-          disabled={code.length !== 6 || code.some(c => !c)}
+          disabled={code.length !== 6 || code.some((c) => !c)}
           onClick={handleSubmit}
         />
       </div>
@@ -293,4 +286,4 @@ function SetupTotpModal() {
   );
 }
 
-export default SetupTotpModal; 
+export default SetupTotpModal;

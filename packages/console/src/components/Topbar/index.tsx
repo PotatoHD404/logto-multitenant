@@ -36,11 +36,11 @@ function Topbar({ className, hideTenantSelector, hideTitle }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { getTo } = useTenantPathname();
   const LogtoLogo = isCloud ? CloudLogo : Logo;
-  
+
   // For OSS: /console/{tenantId} or /console (when no tenant)
   // For Cloud: /{tenantId} or / (when no tenant)
   const consoleHomePath = getTo('/');
-  
+
   return (
     <div className={classNames(styles.topbar, className)}>
       <Link to={consoleHomePath} className={styles.logoLink}>

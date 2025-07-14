@@ -29,14 +29,14 @@ const useUserAssetsService = () => {
   const api = useApi();
   const { pathname } = useLocation();
   const { match } = useTenantPathname();
-  
+
   // Check if we're on a profile page
   // For Cloud: use tenant-aware matching
   // For OSS: check if path starts with /console/profile
   const isCloudProfilePage = isCloud && match(GlobalRoute.Profile);
   const isOssProfilePage = !isCloud && pathname.startsWith('/console/profile');
   const isProfilePage = isCloudProfilePage || isOssProfilePage;
-  
+
   const shouldUseAdminApi = isProfilePage;
 
   const fetcher = useSwrFetcher<UserAssetsServiceStatus>(shouldUseAdminApi ? adminApi : api);

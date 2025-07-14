@@ -16,11 +16,11 @@ import styles from './index.module.scss';
 
 // Helper function to convert base64url to ArrayBuffer
 const base64UrlToArrayBuffer = (base64url: string): ArrayBuffer => {
-  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  const base64 = base64url.replaceAll('-', '+').replaceAll('_', '/');
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i) as number;
+    bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes.buffer;
 };
@@ -30,12 +30,9 @@ const arrayBufferToBase64Url = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
   let binary = '';
   for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i] as number);
+    binary += String.fromCharCode(bytes[i]!);
   }
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 };
 
 function SetupWebAuthnModal() {
@@ -61,7 +58,7 @@ function SetupWebAuthnModal() {
       setError(undefined);
 
       // Check if WebAuthn is supported
-      if (!navigator.credentials || !navigator.credentials.create) {
+      if (!navigator.credentials.create) {
         throw new Error('WebAuthn is not supported in this browser');
       }
 
@@ -110,19 +107,22 @@ function SetupWebAuthnModal() {
             name: data.options.user.name,
             displayName: data.options.user.displayName,
           },
-          pubKeyCredParams: data.options.pubKeyCredParams.map(param => ({
+          pubKeyCredParams: data.options.pubKeyCredParams.map((param) => ({
             alg: param.alg,
             type: param.type as PublicKeyCredentialType,
           })),
           timeout: data.options.timeout,
-          excludeCredentials: data.options.excludeCredentials?.map(cred => ({
+          excludeCredentials: data.options.excludeCredentials?.map((cred) => ({
             id: base64UrlToArrayBuffer(cred.id),
             type: cred.type as PublicKeyCredentialType,
             transports: cred.transports as AuthenticatorTransport[],
           })),
-          authenticatorSelection: data.options.authenticatorSelection ? {
-            residentKey: data.options.authenticatorSelection.residentKey as ResidentKeyRequirement,
-          } : undefined,
+          authenticatorSelection: data.options.authenticatorSelection
+            ? {
+                residentKey: data.options.authenticatorSelection
+                  .residentKey as ResidentKeyRequirement,
+              }
+            : undefined,
         },
       };
 
@@ -143,7 +143,7 @@ function SetupWebAuthnModal() {
         response: {
           clientDataJSON: arrayBufferToBase64Url(response_data.clientDataJSON),
           attestationObject: arrayBufferToBase64Url(response_data.attestationObject),
-          transports: response_data.getTransports?.() || [],
+          transports: response_data.getTransports() || [],
         },
         type: publicKeyCredential.type,
       };
@@ -183,29 +183,19 @@ function SetupWebAuthnModal() {
         <div className={styles.instructions}>
           <div className={styles.instruction}>
             <div className={styles.step}>1</div>
-            <div className={styles.text}>
-              {t('profile.set_up_mfa.webauthn_instruction_1')}
-            </div>
+            <div className={styles.text}>{t('profile.set_up_mfa.webauthn_instruction_1')}</div>
           </div>
           <div className={styles.instruction}>
             <div className={styles.step}>2</div>
-            <div className={styles.text}>
-              {t('profile.set_up_mfa.webauthn_instruction_2')}
-            </div>
+            <div className={styles.text}>{t('profile.set_up_mfa.webauthn_instruction_2')}</div>
           </div>
           <div className={styles.instruction}>
             <div className={styles.step}>3</div>
-            <div className={styles.text}>
-              {t('profile.set_up_mfa.webauthn_instruction_3')}
-            </div>
+            <div className={styles.text}>{t('profile.set_up_mfa.webauthn_instruction_3')}</div>
           </div>
         </div>
 
-        {error && (
-          <div className={styles.error}>
-            {error}
-          </div>
-        )}
+        {error && <div className={styles.error}>{error}</div>}
 
         <div className={styles.footer}>
           <Button title="general.cancel" onClick={onClose} />
@@ -221,4 +211,4 @@ function SetupWebAuthnModal() {
   );
 }
 
-export default SetupWebAuthnModal; 
+export default SetupWebAuthnModal;

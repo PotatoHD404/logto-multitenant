@@ -5,11 +5,11 @@
  */
 
 import { useLogto } from '@logto/react';
-import { TenantRole } from '@logto/schemas';
+import { type TenantRole } from '@logto/schemas';
 import { useContext, useEffect, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
 
 import AppError from '@/components/AppError';
 import AppLoading from '@/components/AppLoading';
@@ -40,8 +40,8 @@ function LocalOssInvitationHandler() {
   const api = useApi();
   const adminApi = useAdminApi();
   const { navigateTenant, resetTenants } = useContext(TenantsContext);
-  const [invitation, setInvitation] = useState<InvitationDetails | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [invitation, setInvitation] = useState<InvitationDetails | undefined>(null);
+  const [error, setError] = useState<string | undefined>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAccepting, setIsAccepting] = useState(false);
 
@@ -55,7 +55,9 @@ function LocalOssInvitationHandler() {
 
     const fetchInvitation = async () => {
       try {
-        const invitationData = await api.get(`api/invitation/${invitationId}`).json<InvitationDetails>();
+        const invitationData = await api
+          .get(`api/invitation/${invitationId}`)
+          .json<InvitationDetails>();
         setInvitation(invitationData);
       } catch (error) {
         console.error('Failed to fetch invitation:', error);
@@ -86,16 +88,18 @@ function LocalOssInvitationHandler() {
         }
 
         // Accept the invitation
-        const result = await api.post('api/invitation/accept', {
-          json: {
-            invitationId: invitation.id,
-            email: userEmail,
-          },
-        }).json<{ success: boolean; tenantId: string; role: TenantRole }>();
+        const result = await api
+          .post('api/invitation/accept', {
+            json: {
+              invitationId: invitation.id,
+              email: userEmail,
+            },
+          })
+          .json<{ success: boolean; tenantId: string; role: TenantRole }>();
 
         if (result.success) {
           toast.success(t('invitation.invitation_accepted'));
-          
+
           // Refresh tenant list and navigate to the new tenant
           const tenants = await adminApi.get('api/tenants').json();
           resetTenants(tenants);
@@ -152,17 +156,23 @@ function LocalOssInvitationHandler() {
   // Show accepting state
   if (isAccepting) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        height: '100vh',
-        gap: '16px'
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          gap: '16px',
+        }}
+      >
         <AppLoading />
         <p>{t('invitation.accepting_invitation')}</p>
-        <p>{t('invitation.joining_tenant', { tenantName: invitation.tenantName || invitation.tenantId })}</p>
+        <p>
+          {t('invitation.joining_tenant', {
+            tenantName: invitation.tenantName || invitation.tenantId,
+          })}
+        </p>
       </div>
     );
   }
@@ -170,4 +180,4 @@ function LocalOssInvitationHandler() {
   return <AppLoading />;
 }
 
-export default LocalOssInvitationHandler; 
+export default LocalOssInvitationHandler;

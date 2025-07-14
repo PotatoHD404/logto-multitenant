@@ -4,8 +4,8 @@ import { useCallback, useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import FormCard, { FormCardSkeleton } from '@/components/FormCard';
-import { latestProPlanId } from '@/consts/subscriptions';
 import { isCloud } from '@/consts/env';
+import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import CardTitle from '@/ds-components/CardTitle';

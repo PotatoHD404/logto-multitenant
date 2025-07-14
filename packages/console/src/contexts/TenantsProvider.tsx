@@ -1,7 +1,7 @@
 import { defaultTenantId, TenantTag, ossConsolePath } from '@logto/schemas';
 import { conditionalArray, noop } from '@silverhand/essentials';
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, createContext, useState, useEffect } from 'react';
+import { useCallback, useMemo, createContext, useState } from 'react';
 import { useMatch, useNavigate, useLocation } from 'react-router-dom';
 
 import { type TenantResponse } from '@/cloud/types/router';
@@ -40,11 +40,13 @@ const reservedRoutes = [
   ...Object.values(GlobalAnonymousRoute),
   ...Object.values(GlobalRoute),
   // OSS-specific pre-tenant routes
-  ...(!isCloud ? [
-    `${ossConsolePath}/welcome`, 
-    `${ossConsolePath}/callback`,
-    `${ossConsolePath}${GlobalRoute.Profile}`, // Profile route for OSS
-  ] : []),
+  ...(isCloud
+    ? []
+    : [
+        `${ossConsolePath}/welcome`,
+        `${ossConsolePath}/callback`,
+        `${ossConsolePath}${GlobalRoute.Profile}`, // Profile route for OSS
+      ]),
 ];
 
 /**
@@ -112,19 +114,21 @@ function TenantsProvider({ children }: Props) {
   const [tenants, setTenants] = useState(initialTenants);
   /** Initialize as incomplete for both cloud and OSS to ensure tenant loading happens */
   const [isInitComplete, setIsInitComplete] = useState(false);
-  
+
   // Match different routing patterns based on environment
   const cloudMatch = useMatch('/:tenantId/*');
   const ossMatch = useMatch(`${ossConsolePath}/:tenantId/*`);
   const match = isCloud ? cloudMatch : ossMatch;
-  
+
   const navigate = useNavigate();
   const location = useLocation();
   const currentTenantId = useMemo(() => {
     // Check if we're on a reserved route (pre-tenant routes)
-    if (reservedRoutes.some(
-      (route) => location.pathname === route || location.pathname.startsWith(route + '/')
-    )) {
+    if (
+      reservedRoutes.some(
+        (route) => location.pathname === route || location.pathname.startsWith(route + '/')
+      )
+    ) {
       return isCloud ? '' : defaultTenantId;
     }
 

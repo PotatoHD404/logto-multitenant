@@ -60,7 +60,9 @@ function useTenantPathname(): TenantPathname {
   const { currentTenantId } = useContext(TenantsContext);
   const tenantSegment = useMemo(() => {
     // Only include tenant segment if we have a current tenant ID
-    if (!currentTenantId) return '';
+    if (!currentTenantId) {
+      return '';
+    }
     return isCloud ? currentTenantId : `${ossConsolePath.slice(1)}/${currentTenantId}`;
   }, [currentTenantId]);
   const navigate = useNavigate();
@@ -81,11 +83,13 @@ function useTenantPathname(): TenantPathname {
         return (
           matchPath(joinPath(':tenantId', pathname, exact ? '' : '*'), location.pathname) !== null
         );
-      } else {
-        return (
-          matchPath(joinPath(ossConsolePath, ':tenantId', pathname, exact ? '' : '*'), location.pathname) !== null
-        );
       }
+      return (
+        matchPath(
+          joinPath(ossConsolePath, ':tenantId', pathname, exact ? '' : '*'),
+          location.pathname
+        ) !== null
+      );
     },
     [location.pathname]
   );

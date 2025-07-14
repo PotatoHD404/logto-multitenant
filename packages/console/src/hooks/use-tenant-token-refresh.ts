@@ -1,9 +1,7 @@
-import { useLogto } from '@logto/react';
-import { useContext, useEffect, useCallback, useState } from 'react';
+import { useLogto, Prompt } from '@logto/react';
 import { getTenantOrganizationId } from '@logto/schemas';
-import { Prompt } from '@logto/react';
+import { useContext, useEffect, useCallback, useState } from 'react';
 
-import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import useRedirectUri from '@/hooks/use-redirect-uri';
 import { saveRedirect } from '@/utils/storage';
@@ -13,12 +11,12 @@ import { saveRedirect } from '@/utils/storage';
  */
 export default function useTenantTokenRefresh() {
   const { currentTenantId } = useContext(TenantsContext);
-  const { 
-    isAuthenticated, 
-    getOrganizationToken, 
+  const {
+    isAuthenticated,
+    getOrganizationToken,
     getOrganizationTokenClaims,
     clearAccessToken,
-    signIn
+    signIn,
   } = useLogto();
   const redirectUri = useRedirectUri();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -39,10 +37,10 @@ export default function useTenantTokenRefresh() {
 
       // Both cloud and OSS now use organization tokens for consistent behavior
       const organizationId = getTenantOrganizationId(currentTenantId);
-      
+
       // This will fetch a fresh organization token
       const token = await getOrganizationToken(organizationId);
-      
+
       if (!token) {
         console.warn('❌ Failed to get organization token for tenant:', currentTenantId);
         // Redirect to sign-in for re-consent
@@ -56,8 +54,12 @@ export default function useTenantTokenRefresh() {
 
       // Validate token has required scopes
       const claims = await getOrganizationTokenClaims(organizationId);
-      console.log('✅ Auto-refreshed organization token for tenant:', currentTenantId, 'scopes:', claims?.scope);
-
+      console.log(
+        '✅ Auto-refreshed organization token for tenant:',
+        currentTenantId,
+        'scopes:',
+        claims?.scope
+      );
     } catch (error) {
       console.error('❌ Failed to refresh tenant token:', error);
     } finally {
@@ -106,4 +108,4 @@ export default function useTenantTokenRefresh() {
     validateTenantAccess,
     isRefreshing,
   };
-} 
+}

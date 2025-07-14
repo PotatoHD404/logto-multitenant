@@ -7,8 +7,8 @@ import { useSWRConfig } from 'swr';
 
 import { isCloud } from '@/consts/env';
 import { reservedTenantIdWildcard, TenantsContext } from '@/contexts/TenantsProvider';
-import useUserDefaultTenantId from '@/hooks/use-user-default-tenant-id';
 import useTenantTokenRefresh from '@/hooks/use-tenant-token-refresh';
+import useUserDefaultTenantId from '@/hooks/use-user-default-tenant-id';
 
 /**
  * The container that ensures the user has access to the current tenant. When the user is
@@ -66,10 +66,14 @@ export default function TenantAccess() {
       undefined,
       { rollbackOnError: false, throwOnError: false }
     );
-    
+
     // Log for debugging tenant switches
     if (currentTenantId) {
-      console.log('🔄 Tenant switched to:', currentTenantId, '- clearing cache and refreshing tokens');
+      console.log(
+        '🔄 Tenant switched to:',
+        currentTenantId,
+        '- clearing cache and refreshing tokens'
+      );
     }
   }, [mutate, currentTenantId]);
 

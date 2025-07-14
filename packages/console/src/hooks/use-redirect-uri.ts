@@ -13,7 +13,7 @@ import { TenantsContext } from '@/contexts/TenantsProvider';
  */
 const useRedirectUri = (flow: 'signIn' | 'signOut' = 'signIn') => {
   const { currentTenantId } = useContext(TenantsContext);
-  
+
   const path = useHref(
     joinPath(
       ...conditionalArray(
@@ -26,13 +26,15 @@ const useRedirectUri = (flow: 'signIn' | 'signOut' = 'signIn') => {
       )
     )
   );
-  
+
   // For OSS, use tenant-independent paths for both sign-in and sign-out
   // This avoids the issue of needing to pre-register all possible tenant IDs
-  const finalPath = !isCloud ? 
-    (flow === 'signIn' ? `${ossConsolePath}/callback` : `${ossConsolePath}/admin`) : 
-    path;
-  
+  const finalPath = isCloud
+    ? path
+    : flow === 'signIn'
+      ? `${ossConsolePath}/callback`
+      : `${ossConsolePath}/admin`;
+
   const url = useMemo(() => new URL(finalPath, window.location.origin), [finalPath]);
 
   return url;

@@ -4,7 +4,6 @@ import { useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 
 import { customDomainSyncInterval } from '@/consts/custom-domain';
-import { isCloud } from '@/consts/env';
 import { isAbsoluteUrl } from '@/utils/url';
 
 import { type RequestError } from './use-api';

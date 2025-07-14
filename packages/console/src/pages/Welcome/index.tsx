@@ -6,10 +6,10 @@ import { useTranslation } from 'react-i18next';
 
 import Logo from '@/assets/images/logo.svg?react';
 import AppLoading from '@/components/AppLoading';
-import Button from '@/ds-components/Button';
 import { adminTenantEndpoint, meApi } from '@/consts';
 import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
+import Button from '@/ds-components/Button';
 import { useStaticApi } from '@/hooks/use-api';
 import useRedirectUri from '@/hooks/use-redirect-uri';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
@@ -26,7 +26,7 @@ function Welcome() {
   const redirectUri = useRedirectUri();
   const [hasActiveUsers, setHasActiveUsers] = useState<boolean>();
   const [checkingUsers, setCheckingUsers] = useState(true);
-  
+
   const api = useStaticApi({
     prefixUrl: adminTenantEndpoint,
     resourceIndicator: meApi.indicator,
@@ -111,4 +111,3 @@ function Welcome() {
 }
 
 export default Welcome;
-

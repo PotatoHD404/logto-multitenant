@@ -1,7 +1,6 @@
 import { useLogto } from '@logto/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'react-hot-toast';
 
 import { adminTenantEndpoint, meApi } from '@/consts';
 import Button from '@/ds-components/Button';
@@ -72,7 +71,9 @@ export default function OssDeleteAccountModal({ onClose }: Props) {
               size="large"
               disabled={isDeleting}
               title="general.cancel"
-              onClick={() => setShowFinalConfirmation(false)}
+              onClick={() => {
+                setShowFinalConfirmation(false);
+              }}
             />
             <Button
               size="large"
@@ -87,7 +88,10 @@ export default function OssDeleteAccountModal({ onClose }: Props) {
       >
         <div className={styles.container}>
           <p>{t('about_to_start_deletion')}</p>
-          <p>This action will permanently delete your account and all associated data. This cannot be undone.</p>
+          <p>
+            This action will permanently delete your account and all associated data. This cannot be
+            undone.
+          </p>
         </div>
       </ModalLayout>
     );
@@ -103,7 +107,9 @@ export default function OssDeleteAccountModal({ onClose }: Props) {
             size="large"
             type="danger"
             title="general.delete"
-            onClick={() => setShowFinalConfirmation(true)}
+            onClick={() => {
+              setShowFinalConfirmation(true);
+            }}
           />
         </>
       }
@@ -111,10 +117,11 @@ export default function OssDeleteAccountModal({ onClose }: Props) {
       <div className={styles.container}>
         <p>{t('description')}</p>
         <p>
-          <strong>Warning:</strong> This action cannot be undone. All your data will be permanently deleted.
+          <strong>Warning:</strong> This action cannot be undone. All your data will be permanently
+          deleted.
         </p>
         <p>Please confirm that you want to proceed with deleting your account.</p>
       </div>
     </ModalLayout>
   );
-} 
+}

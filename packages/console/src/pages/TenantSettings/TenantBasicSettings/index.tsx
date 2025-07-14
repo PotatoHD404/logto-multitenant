@@ -6,14 +6,14 @@ import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
 import { useCloudApi } from '@/cloud/hooks/use-cloud-api';
-import { isCloud } from '@/consts/env';
 import PageMeta from '@/components/PageMeta';
 import SubmitFormChangesActionBar from '@/components/SubmitFormChangesActionBar';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
+import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
+import { useCrossTenantApi } from '@/hooks/use-api';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
-import useApi, { useCrossTenantApi } from '@/hooks/use-api';
 import { trySubmitSafe } from '@/utils/form';
 
 import DeleteCard from './DeleteCard';
@@ -73,12 +73,14 @@ function TenantBasicSettings() {
       });
       reset({ profile: { name, tag } });
       updateTenant(currentTenantId, data);
-          } else {
-        // For local OSS, use the cross-tenant API
-        const updatedTenant = await crossTenantApi.patch(`tenants/${currentTenantId}`, { json: data }).json<LocalTenantResponse>();
-        reset({ profile: { name: updatedTenant.name, tag: updatedTenant.tag } });
-        updateTenant(currentTenantId, { name: updatedTenant.name, tag: updatedTenant.tag });
-      }
+    } else {
+      // For local OSS, use the cross-tenant API
+      const updatedTenant = await crossTenantApi
+        .patch(`tenants/${currentTenantId}`, { json: data })
+        .json<LocalTenantResponse>();
+      reset({ profile: { name: updatedTenant.name, tag: updatedTenant.tag } });
+      updateTenant(currentTenantId, { name: updatedTenant.name, tag: updatedTenant.tag });
+    }
     toast.success(t('tenants.settings.tenant_info_saved'));
   };
 

@@ -21,10 +21,7 @@ const TENANT_OPERATION_SCOPES: Record<string, TenantManagementScope> = {
  * Check if the authenticated user has the required scope for a tenant operation.
  * Users with the 'all' scope can perform any operation.
  */
-export const hasRequiredTenantScope = (
-  scopes: Set<string>,
-  operation: string
-): boolean => {
+export const hasRequiredTenantScope = (scopes: Set<string>, operation: string): boolean => {
   // Users with 'all' scope can perform any operation
   if (scopes.has(PredefinedScope.All)) {
     return true;

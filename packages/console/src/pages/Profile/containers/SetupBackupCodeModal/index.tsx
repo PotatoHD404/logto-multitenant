@@ -7,8 +7,8 @@ import { adminTenantEndpoint, meApi } from '@/consts';
 import Button from '@/ds-components/Button';
 import { useStaticApi } from '@/hooks/use-api';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
-import useTenantPathname from '@/hooks/use-tenant-pathname';
 import useCurrentUserMfa from '@/hooks/use-current-user-mfa';
+import useTenantPathname from '@/hooks/use-tenant-pathname';
 
 import ExperienceLikeModal from '../../components/ExperienceLikeModal';
 import { handleError } from '../../utils';
@@ -25,7 +25,7 @@ function SetupBackupCodeModal() {
   const { navigate } = useTenantPathname();
   const { show: showModal } = useConfirmModal();
   const { mutate: mutateMfa, mfaVerifications } = useCurrentUserMfa();
-  const [backupCodes, setBackupCodes] = useState<BackupCodes | null>(null);
+  const [backupCodes, setBackupCodes] = useState<BackupCodes | undefined>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -37,9 +37,9 @@ function SetupBackupCodeModal() {
   });
 
   // Check if user has other MFA factors (TOTP or WebAuthn) configured
-  const hasOtherMfaFactors = mfaVerifications?.some(v => 
-    v.type === MfaFactor.TOTP || v.type === MfaFactor.WebAuthn
-  ) ?? false;
+  const hasOtherMfaFactors =
+    mfaVerifications?.some((v) => v.type === MfaFactor.TOTP || v.type === MfaFactor.WebAuthn) ??
+    false;
 
   // Generate backup codes on mount (only if user has other MFA factors)
   useEffect(() => {
@@ -53,7 +53,7 @@ function SetupBackupCodeModal() {
         const response = await api.post('me/mfa-verifications', {
           json: { type: MfaFactor.BackupCode },
         });
-        const data = await response.json() as BackupCodes;
+        const data = await response.json();
         setBackupCodes(data);
       } catch (error: unknown) {
         void handleError(error, async (_, message) => {
@@ -96,9 +96,9 @@ function SetupBackupCodeModal() {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'backup-codes.txt';
-    document.body.appendChild(a);
+    document.body.append(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     URL.revokeObjectURL(url);
     toast.success(t('profile.set_up_mfa.backup_codes_downloaded'));
   }, [backupCodes, t]);
@@ -123,10 +123,7 @@ function SetupBackupCodeModal() {
   // If user doesn't have other MFA factors, show prerequisite message
   if (!hasOtherMfaFactors) {
     return (
-      <ExperienceLikeModal
-        title="profile.set_up_mfa.setup_backup_codes"
-        onClose={onClose}
-      >
+      <ExperienceLikeModal title="profile.set_up_mfa.setup_backup_codes" onClose={onClose}>
         <div className={styles.container}>
           <div className={styles.prerequisiteMessage}>
             <div className={styles.prerequisiteTitle}>
@@ -142,13 +139,17 @@ function SetupBackupCodeModal() {
               type="primary"
               size="large"
               title="profile.set_up_mfa.setup_totp"
-              onClick={() => navigate('setup-mfa/totp')}
+              onClick={() => {
+                navigate('setup-mfa/totp');
+              }}
             />
             <Button
               type="outline"
               size="large"
               title="profile.set_up_mfa.setup_webauthn"
-              onClick={() => navigate('setup-mfa/webauthn')}
+              onClick={() => {
+                navigate('setup-mfa/webauthn');
+              }}
             />
           </div>
         </div>
@@ -158,26 +159,16 @@ function SetupBackupCodeModal() {
 
   if (isLoading) {
     return (
-      <ExperienceLikeModal
-        title="profile.set_up_mfa.setup_backup_codes"
-        onClose={onClose}
-      >
-        <div className={styles.loading}>
-          {t('general.loading')}
-        </div>
+      <ExperienceLikeModal title="profile.set_up_mfa.setup_backup_codes" onClose={onClose}>
+        <div className={styles.loading}>{t('general.loading')}</div>
       </ExperienceLikeModal>
     );
   }
 
   if (error && !backupCodes) {
     return (
-      <ExperienceLikeModal
-        title="profile.set_up_mfa.setup_backup_codes"
-        onClose={onClose}
-      >
-        <div className={styles.error}>
-          {error}
-        </div>
+      <ExperienceLikeModal title="profile.set_up_mfa.setup_backup_codes" onClose={onClose}>
+        <div className={styles.error}>{error}</div>
         <Button
           type="primary"
           size="large"
@@ -197,16 +188,12 @@ function SetupBackupCodeModal() {
       onClose={onClose}
     >
       <div className={styles.container}>
-        <div className={styles.description}>
-          {t('profile.set_up_mfa.backup_codes_description')}
-        </div>
+        <div className={styles.description}>{t('profile.set_up_mfa.backup_codes_description')}</div>
 
         {backupCodes && (
           <div className={styles.codesContainer}>
             <div className={styles.codesHeader}>
-              <div className={styles.codesTitle}>
-                {t('profile.set_up_mfa.your_backup_codes')}
-              </div>
+              <div className={styles.codesTitle}>{t('profile.set_up_mfa.your_backup_codes')}</div>
               <div className={styles.codesCount}>
                 {t('profile.set_up_mfa.backup_codes_count', { count: backupCodes.codes.length })}
               </div>
@@ -252,7 +239,9 @@ function SetupBackupCodeModal() {
             <input
               type="checkbox"
               checked={isConfirmed}
-              onChange={(e) => setIsConfirmed(e.target.checked)}
+              onChange={(e) => {
+                setIsConfirmed(e.target.checked);
+              }}
             />
             {t('profile.set_up_mfa.confirm_backup_codes_saved')}
           </label>
@@ -270,4 +259,4 @@ function SetupBackupCodeModal() {
   );
 }
 
-export default SetupBackupCodeModal; 
+export default SetupBackupCodeModal;

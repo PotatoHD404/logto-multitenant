@@ -75,7 +75,7 @@ export default function ProtectedRoutes() {
             // For local OSS, use cross-tenant API to fetch tenants
             // This uses management API tokens for cross-tenant operations
             const tenants = await crossTenantApi.get('tenants').json<LocalTenantResponse[]>();
-            
+
             // Convert local API response to match TenantResponse format
             const tenantResponses: TenantResponse[] = tenants.map((tenant) => ({
               ...defaultTenantResponse,
@@ -91,14 +91,16 @@ export default function ProtectedRoutes() {
           console.error('Failed to load tenants:', error);
           // For OSS, if tenant loading fails, still allow access to default tenant
           if (!isCloud) {
-            resetTenants([{
-              ...defaultTenantResponse,
-              id: 'default',
-              name: 'Default',
-              tag: TenantTag.Development,
-              createdAt: new Date(),
-              isSuspended: false,
-            }]);
+            resetTenants([
+              {
+                ...defaultTenantResponse,
+                id: 'default',
+                name: 'Default',
+                tag: TenantTag.Development,
+                createdAt: new Date(),
+                isSuspended: false,
+              },
+            ]);
           }
         }
       };

@@ -5,12 +5,12 @@ import ReactModal from 'react-modal';
 
 import { useAuthedCloudApi } from '@/cloud/hooks/use-cloud-api';
 import { isCloud } from '@/consts/env';
+import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
+import { TenantsContext } from '@/contexts/TenantsProvider';
 import Button from '@/ds-components/Button';
 import FormField from '@/ds-components/FormField';
 import ModalLayout from '@/ds-components/ModalLayout';
 import TextInput from '@/ds-components/TextInput';
-import { TenantsContext } from '@/contexts/TenantsProvider';
-import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import useApi from '@/hooks/use-api';
 import modalStyles from '@/scss/modal.module.scss';
 
@@ -47,21 +47,19 @@ function InviteMemberModal({ isOpen, onClose }: Props) {
 
     setIsLoading(true);
     try {
-      if (isCloud) {
-        await cloudApi.post('/api/tenants/:tenantId/invitations', {
-          params: { tenantId: currentTenantId },
-          body: { invitee: [email.trim()], roleName: TenantRole.Collaborator },
-        });
-      } else {
-        await localApi.post(`api/tenants/${currentTenantId}/invitations`, {
-          json: { emails: [email.trim()], role: TenantRole.Collaborator },
-        });
-      }
-      
+      await (isCloud
+        ? cloudApi.post('/api/tenants/:tenantId/invitations', {
+            params: { tenantId: currentTenantId },
+            body: { invitee: [email.trim()], roleName: TenantRole.Collaborator },
+          })
+        : localApi.post(`api/tenants/${currentTenantId}/invitations`, {
+            json: { emails: [email.trim()], role: TenantRole.Collaborator },
+          }));
+
       if (isCloud) {
         mutateSubscriptionQuotaAndUsages();
       }
-      
+
       toast.success('Invitation sent successfully');
       handleClose(true);
     } catch (error) {
@@ -77,21 +75,32 @@ function InviteMemberModal({ isOpen, onClose }: Props) {
       isOpen={isOpen}
       className={modalStyles.content}
       overlayClassName={modalStyles.overlay}
-      onRequestClose={() => handleClose(false)}
+      onRequestClose={() => {
+        handleClose(false);
+      }}
     >
       <ModalLayout
         title="tenant_members.invite_modal.title"
         subtitle="tenant_members.invite_modal.subtitle"
-        onClose={() => handleClose(false)}
         footer={
-          <Button type="primary" title="tenant_members.invite_members" isLoading={isLoading} onClick={onSubmit} />
+          <Button
+            type="primary"
+            title="tenant_members.invite_members"
+            isLoading={isLoading}
+            onClick={onSubmit}
+          />
         }
+        onClose={() => {
+          handleClose(false);
+        }}
       >
         <FormField title="tenant_members.invite_modal.to">
           <TextInput
             value={email}
             placeholder="tenant_members.invite_modal.email_input_placeholder"
-            onChange={({ currentTarget: { value } }) => setEmail(value)}
+            onChange={({ currentTarget: { value } }) => {
+              setEmail(value);
+            }}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 void onSubmit();
@@ -100,15 +109,11 @@ function InviteMemberModal({ isOpen, onClose }: Props) {
           />
         </FormField>
         <FormField title="tenant_members.invite_modal.added_as">
-          <TextInput
-            value="Collaborator"
-            readOnly
-            placeholder="Role will be set to Collaborator"
-          />
+          <TextInput readOnly value="Collaborator" placeholder="Role will be set to Collaborator" />
         </FormField>
       </ModalLayout>
     </ReactModal>
   );
 }
 
-export default InviteMemberModal; 
+export default InviteMemberModal;

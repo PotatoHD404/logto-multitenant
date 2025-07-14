@@ -27,15 +27,14 @@ const TENANT_MEMBER_OPERATION_SCOPES: Record<string, TenantScope[]> = {
 /**
  * Map tenant member operations to general tenant management scopes
  */
-const TENANT_MEMBER_OPERATION_TENANT_SCOPES: Record<string, TenantManagementScope> =
-  {
-    read: TenantManagementScope.Read,
-    invite: TenantManagementScope.Write,
-    remove: TenantManagementScope.Write,
-    'update-role': TenantManagementScope.Write,
-    'read-invitations': TenantManagementScope.Read,
-    'create-invitations': TenantManagementScope.Write,
-  };
+const TENANT_MEMBER_OPERATION_TENANT_SCOPES: Record<string, TenantManagementScope> = {
+  read: TenantManagementScope.Read,
+  invite: TenantManagementScope.Write,
+  remove: TenantManagementScope.Write,
+  'update-role': TenantManagementScope.Write,
+  'read-invitations': TenantManagementScope.Read,
+  'create-invitations': TenantManagementScope.Write,
+};
 
 /**
  * Middleware factory to create tenant member authorization middleware for specific operations.
@@ -91,7 +90,9 @@ export default function koaTenantMemberAuth<
     // Level 3: Check tenant-specific member operation permissions
     const userScopes = await tenantOrg.getUserScopes(tenantId, userId);
     const requiredScopes = TENANT_MEMBER_OPERATION_SCOPES[operation];
-    const hasSpecificPermission = requiredScopes ? requiredScopes.every((scope) => userScopes.includes(scope)) : false;
+    const hasSpecificPermission = requiredScopes
+      ? requiredScopes.every((scope) => userScopes.includes(scope))
+      : false;
 
     assertThat(
       hasSpecificPermission,

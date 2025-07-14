@@ -1,14 +1,13 @@
-import { buildOrganizationUrn } from '@logto/core-kit';
-import { getTenantOrganizationId, getManagementApiResourceIndicator } from '@logto/schemas';
 import { type AccessTokenClaims } from '@logto/react';
+import { getTenantOrganizationId } from '@logto/schemas';
 
-interface LogtoMethods {
+type LogtoMethods = {
   isAuthenticated: boolean;
-  getAccessToken: (resource?: string) => Promise<string | null | undefined>;
-  getOrganizationToken: (organizationId: string) => Promise<string | null | undefined>;
-  getOrganizationTokenClaims: (organizationId: string) => Promise<AccessTokenClaims | null | undefined>;
+  getAccessToken: (resource?: string) => Promise<string | undefined>;
+  getOrganizationToken: (organizationId: string) => Promise<string | undefined>;
+  getOrganizationTokenClaims: (organizationId: string) => Promise<AccessTokenClaims | undefined>;
   clearAccessToken: () => Promise<void>;
-}
+};
 
 /**
  * Manually refresh tokens for a specific tenant
@@ -36,27 +35,32 @@ export const refreshTokensForTenant = async (
     await clearAccessToken();
 
     let tokenResult;
-    
+
     // Both cloud and OSS now use organization tokens for consistent behavior
     const organizationId = getTenantOrganizationId(tenantId);
     const token = await getOrganizationToken(organizationId);
-    
+
     if (!token) {
       return { success: false, error: 'Failed to obtain organization token' };
     }
 
     // Validate token claims
     const claims = await getOrganizationTokenClaims(organizationId);
-    console.log('✅ Organization token refreshed for tenant:', tenantId, 'with scopes:', claims?.scope);
-    
+    console.log(
+      '✅ Organization token refreshed for tenant:',
+      tenantId,
+      'with scopes:',
+      claims?.scope
+    );
+
     tokenResult = { token, claims };
 
     return { success: true };
   } catch (error) {
     console.error('❌ Failed to refresh tokens for tenant:', tenantId, error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 };
@@ -108,4 +112,4 @@ export const getTenantScopes = async (
     console.error('Failed to get tenant scopes:', error);
     return [];
   }
-}; 
+};

@@ -61,9 +61,9 @@ export default function customUiAssetsRoutes<T extends ManagementApiRouter>(
       if (experienceZipsProviderConfig.provider === 'AzureStorage') {
         const { connectionString, container } = experienceZipsProviderConfig;
         const azureStorage = buildAzureStorage(connectionString, container);
-        const uploadFile = azureStorage.uploadFile;
-        const downloadFile = azureStorage.downloadFile;
-        const isFileExisted = azureStorage.isFileExisted;
+        const { uploadFile } = azureStorage;
+        const { downloadFile } = azureStorage;
+        const { isFileExisted } = azureStorage;
 
         const objectKey = `${tenantId}/${customUiAssetId}/assets.zip`;
         const errorLogObjectKey = `${tenantId}/${customUiAssetId}/error.log`;

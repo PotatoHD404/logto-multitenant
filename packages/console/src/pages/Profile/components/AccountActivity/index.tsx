@@ -1,12 +1,12 @@
+import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
-import { format } from 'date-fns';
 
 import FormCard from '@/components/FormCard';
 import { adminTenantEndpoint, meApi } from '@/consts';
-import { useStaticApi } from '@/hooks/use-api';
 import Table from '@/ds-components/Table';
 import type { Column } from '@/ds-components/Table/types';
+import { useStaticApi } from '@/hooks/use-api';
 import { buildUrl } from '@/utils/url';
 
 import styles from './index.module.scss';
@@ -62,7 +62,8 @@ export default function AccountActivity() {
       'Interaction.SignIn.Identifier.Social.Submit': 'Social sign in',
       'Interaction.SignIn.Identifier.SingleSignOn.Submit': 'SSO sign in',
       'Interaction.Register.Identifier.VerificationCode.Submit': 'Verification code registration',
-      'Interaction.ForgotPassword.Identifier.VerificationCode.Submit': 'Password reset verification',
+      'Interaction.ForgotPassword.Identifier.VerificationCode.Submit':
+        'Password reset verification',
     };
 
     return activityTitles[key] || key;
@@ -78,7 +79,7 @@ export default function AccountActivity() {
     return <span className={styles.statusNeutral}>Pending</span>;
   };
 
-  const columns: Column<ActivityLog>[] = [
+  const columns: Array<Column<ActivityLog>> = [
     {
       title: 'Activity',
       dataIndex: 'key',
@@ -110,18 +111,14 @@ export default function AccountActivity() {
       render: (log) => (
         <div className={styles.timeCell}>
           <div>{format(new Date(log.createdAt), 'MMM dd, yyyy')}</div>
-          <div className={styles.timeSecondary}>
-            {format(new Date(log.createdAt), 'HH:mm:ss')}
-          </div>
+          <div className={styles.timeSecondary}>{format(new Date(log.createdAt), 'HH:mm:ss')}</div>
         </div>
       ),
     },
   ];
 
   const content = error ? (
-    <div className={styles.error}>
-      Error loading activities. Please try again.
-    </div>
+    <div className={styles.error}>Error loading activities. Please try again.</div>
   ) : (
     <div className={styles.tableContainer}>
       <Table
@@ -150,8 +147,11 @@ export default function AccountActivity() {
   );
 
   return (
-    <FormCard title="profile.account_activity.title" description="profile.account_activity.description">
+    <FormCard
+      title="profile.account_activity.title"
+      description="profile.account_activity.description"
+    >
       {content}
     </FormCard>
   );
-} 
+}

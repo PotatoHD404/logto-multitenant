@@ -20,7 +20,7 @@ import { useCallback, useContext, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
-import { requestTimeout, adminTenantEndpoint } from '@/consts';
+import { requestTimeout } from '@/consts';
 import { isCloud } from '@/consts/env';
 import { AppDataContext } from '@/contexts/AppDataProvider';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
@@ -195,7 +195,7 @@ export const useStaticApi = ({
 const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}) => {
   const { tenantEndpoint } = useContext(AppDataContext);
   const { currentTenantId } = useContext(TenantsContext);
-  
+
   /**
    * The config object for the Ky instance.
    *
@@ -204,36 +204,33 @@ const useApi = (props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> =
    *   - Domain-based: custom.localhost/api/connectors
    *   - Path-based: localhost/api/{tenantId}/connectors
    */
-  const config = useMemo(
-    () => {
-      // If no tenant ID is available (e.g., on reserved routes like profile), 
-      // fall back to the default tenant organization for OSS
-      if (!currentTenantId) {
-        if (isCloud) {
-          throw new Error('Tenant ID is required for cloud environments');
-        }
-        const organizationId = getTenantOrganizationId(defaultTenantId);
-        return {
-          prefixUrl: appendPath(tenantEndpoint || new URL(window.location.origin), '/api'),
-          resourceIndicator: buildOrganizationUrn(organizationId),
-        };
-      }
-
+  const config = useMemo(() => {
+    // If no tenant ID is available (e.g., on reserved routes like profile),
+    // fall back to the default tenant organization for OSS
+    if (!currentTenantId) {
       if (isCloud) {
-        return {
-          prefixUrl: appendPath(new URL(window.location.origin), 'm', currentTenantId),
-          resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
-        };
+        throw new Error('Tenant ID is required for cloud environments');
       }
+      const organizationId = getTenantOrganizationId(defaultTenantId);
+      return {
+        prefixUrl: appendPath(tenantEndpoint || new URL(window.location.origin), '/api'),
+        resourceIndicator: buildOrganizationUrn(organizationId),
+      };
+    }
 
-      // For OSS, use the /m/{tenantId}/api pattern that matches the server routing
+    if (isCloud) {
       return {
         prefixUrl: appendPath(new URL(window.location.origin), 'm', currentTenantId),
         resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
       };
-    },
-    [currentTenantId, tenantEndpoint]
-  );
+    }
+
+    // For OSS, use the /m/{tenantId}/api pattern that matches the server routing
+    return {
+      prefixUrl: appendPath(new URL(window.location.origin), 'm', currentTenantId),
+      resourceIndicator: buildOrganizationUrn(getTenantOrganizationId(currentTenantId)),
+    };
+  }, [currentTenantId, tenantEndpoint]);
 
   return useStaticApi({
     ...props,
@@ -253,25 +250,22 @@ export const useAdminApi = (
   props: Omit<StaticApiProps, 'prefixUrl' | 'resourceIndicator'> = {}
 ) => {
   const { currentTenantId } = useContext(TenantsContext);
-  
-  const config = useMemo(
-    () => {
-      const targetTenantId = tenantId || currentTenantId || defaultTenantId;
-      
-      // Use the organization token for the specific tenant being managed
-      // Each tenant has a corresponding organization t-{tenantId} in the admin tenant
-      // The user must have proper permissions in that organization
-      const targetTenantOrganizationId = getTenantOrganizationId(targetTenantId);
-      
-      // Both Cloud and OSS use the same /m/{tenantId}/api pattern
-      // The console server handles the proxying to the core API
-      return {
-        prefixUrl: appendPath(new URL(window.location.origin), 'm', targetTenantId),
-        resourceIndicator: buildOrganizationUrn(targetTenantOrganizationId),
-      };
-    },
-    [tenantId, currentTenantId]
-  );
+
+  const config = useMemo(() => {
+    const targetTenantId = tenantId || currentTenantId || defaultTenantId;
+
+    // Use the organization token for the specific tenant being managed
+    // Each tenant has a corresponding organization t-{tenantId} in the admin tenant
+    // The user must have proper permissions in that organization
+    const targetTenantOrganizationId = getTenantOrganizationId(targetTenantId);
+
+    // Both Cloud and OSS use the same /m/{tenantId}/api pattern
+    // The console server handles the proxying to the core API
+    return {
+      prefixUrl: appendPath(new URL(window.location.origin), 'm', targetTenantId),
+      resourceIndicator: buildOrganizationUrn(targetTenantOrganizationId),
+    };
+  }, [tenantId, currentTenantId]);
 
   return useStaticApi({
     ...props,

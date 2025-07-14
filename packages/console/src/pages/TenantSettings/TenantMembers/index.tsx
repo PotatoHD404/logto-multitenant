@@ -14,7 +14,7 @@ import Spacer from '@/ds-components/Spacer';
 import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
 
-// import InviteMemberModal from './InviteMemberModal';
+// Import InviteMemberModal from './InviteMemberModal';
 import styles from './index.module.scss';
 
 function TenantMembers() {

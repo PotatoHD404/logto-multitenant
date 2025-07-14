@@ -14,11 +14,9 @@ import { debugConsole } from '#src/utils/console.js';
  *
  * Supports multi-tenancy by properly extracting organization IDs from JWT audiences.
  */
-export function koaOrganizationAuth<
-  StateT,
-  ContextT extends IRouterParamContext,
-  ResponseBodyT,
->(queries: Queries): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
+export function koaOrganizationAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
+  queries: Queries
+): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
   return async (ctx, next) => {
     // Skip if user is not authenticated
     if (!ctx.auth) {
@@ -89,16 +87,8 @@ export function koaOrganizationAuth<
   };
 }
 
-/**
- * Extract organization ID from various request contexts:
- * 1. From JWT audience (urn:logto:organization:xxx) - primary method for organization tokens
- * 2. From request parameters (organization_id)
- * 3. From route parameters (/organizations/:id)
- * 4. From auth context audience
- */
-function getOrganizationIdFromRequest(request: Request, auth: any): string | undefined {
-  // Method 1: Extract from JWT audience in auth context
-  // This is the primary method for organization tokens
+// Break down complex function into smaller functions
+function extractFromAuthContext(auth: any): string | undefined {
   if (auth?.audience) {
     const audience = Array.isArray(auth.audience) ? auth.audience[0] : auth.audience;
     if (typeof audience === 'string' && audience.startsWith('urn:logto:organization:')) {
@@ -108,8 +98,10 @@ function getOrganizationIdFromRequest(request: Request, auth: any): string | und
       }
     }
   }
+  return undefined;
+}
 
-  // Method 2: From Authorization header (extract from JWT directly)
+function extractFromAuthHeader(request: Request): string | undefined {
   const authHeader = request.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice(7);
@@ -133,20 +125,53 @@ function getOrganizationIdFromRequest(request: Request, auth: any): string | und
       // Ignore JWT parsing errors, continue with other methods
     }
   }
+  return undefined;
+}
 
-  // Method 3: From query parameters or body
+function extractFromParams(request: Request): string | undefined {
   const params = request.method === 'GET' ? request.query : (request as any).body;
   if (params && typeof params === 'object' && 'organization_id' in params) {
     return String(params.organization_id);
   }
+  return undefined;
+}
 
-  // Method 4: From route parameters (for /organizations/:id routes)
+function extractFromRoute(request: Request): string | undefined {
   if (request.url.includes('/organizations/')) {
     const match = /\/organizations\/([^/?]+)/.exec(request.url);
     if (match?.[1]) {
       return match[1];
     }
   }
-
   return undefined;
+}
+
+/**
+ * Extract organization ID from various request contexts:
+ * 1. From JWT audience (urn:logto:organization:xxx) - primary method for organization tokens
+ * 2. From request parameters (organization_id)
+ * 3. From route parameters (/organizations/:id)
+ * 4. From auth context audience
+ */
+function getOrganizationIdFromRequest(request: Request, auth: any): string | undefined {
+  // Method 1: Extract from JWT audience in auth context
+  const fromAuthContext = extractFromAuthContext(auth);
+  if (fromAuthContext) {
+    return fromAuthContext;
+  }
+
+  // Method 2: From Authorization header (extract from JWT directly)
+  const fromAuthHeader = extractFromAuthHeader(request);
+  if (fromAuthHeader) {
+    return fromAuthHeader;
+  }
+
+  // Method 3: From query parameters or body
+  const fromParams = extractFromParams(request);
+  if (fromParams) {
+    return fromParams;
+  }
+
+  // Method 4: From route parameters (for /organizations/:id routes)
+  return extractFromRoute(request);
 }

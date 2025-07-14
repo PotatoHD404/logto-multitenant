@@ -2,7 +2,6 @@ import { UserScope } from '@logto/core-kit';
 import { LogtoProvider, Prompt, useLogto } from '@logto/react';
 import {
   adminConsoleApplicationId,
-  defaultTenantId,
   adminTenantId,
   PredefinedScope,
   TenantScope,
@@ -107,10 +106,9 @@ function Providers() {
         ]
       ),
       ...conditionalArray(
-        !isCloud && [
+        !isCloud &&
           // Include tenant management scopes for OSS multi-tenancy
-          ...Object.values(TenantManagementScope),
-        ]
+          Object.values(TenantManagementScope)
       ),
     ],
     []

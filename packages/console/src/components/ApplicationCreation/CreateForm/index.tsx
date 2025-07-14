@@ -103,7 +103,7 @@ function CreateForm({
   });
 
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
-  
+
   // Use admin API for application creation - this ensures proper cross-tenant routing
   const adminApi = useAdminApi();
 
@@ -118,7 +118,9 @@ function CreateForm({
       const appCreationEndpoint =
         data.type === ApplicationType.SAML ? 'api/saml-applications' : 'api/applications';
 
-      const createdApp = await adminApi.post(appCreationEndpoint, { json: data }).json<Application>();
+      const createdApp = await adminApi
+        .post(appCreationEndpoint, { json: data })
+        .json<Application>();
 
       // Report the conversion event after the application is created. Note that the conversion
       // should be set as count once since this will be reported multiple times.

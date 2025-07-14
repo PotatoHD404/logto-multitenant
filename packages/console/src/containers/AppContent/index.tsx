@@ -1,7 +1,7 @@
+import { ossConsolePath } from '@logto/schemas';
 import { conditional, joinPath } from '@silverhand/essentials';
 import { useContext, useRef } from 'react';
 import { Navigate, Outlet, useParams } from 'react-router-dom';
-import { ossConsolePath } from '@logto/schemas';
 
 import { type NewSubscriptionCountBasedUsage } from '@/cloud/types/router';
 import AppLoading from '@/components/AppLoading';
@@ -102,7 +102,7 @@ export function RedirectToFirstItem() {
   }
 
   // Generate the correct path based on environment
-  const redirectPath = isCloud 
+  const redirectPath = isCloud
     ? joinPath(effectiveTenantId, getPath(firstItem.title))
     : joinPath(ossConsolePath, effectiveTenantId, getPath(firstItem.title));
 

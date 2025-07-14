@@ -26,7 +26,7 @@ import InlineNotification from '@/ds-components/InlineNotification';
 import Spacer from '@/ds-components/Spacer';
 import TextInput from '@/ds-components/TextInput';
 import TextLink from '@/ds-components/TextLink';
-import useApi, { type RequestError } from '@/hooks/use-api';
+import useApi from '@/hooks/use-api';
 import useDocumentationUrl from '@/hooks/use-documentation-url';
 import useOidcConfig from '@/hooks/use-oidc-config';
 import AddDomainForm from '@/pages/TenantSettings/TenantDomainSettings/AddDomainForm';

@@ -44,24 +44,24 @@ export function ConsoleRoutes() {
          * console path to trigger the console routes.
          */}
         {!isCloud && <Route path="/" element={<Navigate to={`${ossConsolePath}/welcome`} />} />}
-        
+
         {/* OSS console routing */}
         {!isCloud && (
           <Route path={ossConsolePath} element={<Layout />}>
             {/* Default route for /console redirects to welcome */}
-            <Route index element={<Navigate to="welcome" replace />} />
-            
+            <Route index element={<Navigate replace to="welcome" />} />
+
             {/* Pre-tenant routes - no tenant ID required */}
             <Route path="welcome" element={<Welcome />} />
             <Route path="callback" element={<Callback />} />
             <Route path="__internal__/import-error" element={<__Internal__ImportError />} />
-            
+
             {/* Protected routes that don't require tenant context */}
             <Route element={<ProtectedRoutes />}>
               {/* Admin profile route - tenant-independent, uses admin tenant API */}
               <Route path={dropLeadingSlash(GlobalRoute.Profile) + '/*'} element={<Profile />} />
             </Route>
-            
+
             {/* Tenant-specific routes - require tenant ID */}
             <Route path=":tenantId" element={<ProtectedRoutes />}>
               <Route element={<TenantAccess />}>
@@ -73,7 +73,7 @@ export function ConsoleRoutes() {
             </Route>
           </Route>
         )}
-        
+
         {/* Cloud routing: /:tenantId */}
         {isCloud && (
           <Route path="/:tenantId" element={<Layout />}>

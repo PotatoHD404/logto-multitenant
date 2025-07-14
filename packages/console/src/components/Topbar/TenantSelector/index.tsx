@@ -1,8 +1,8 @@
+import { useLogto } from '@logto/react';
 import { OrganizationInvitationStatus } from '@logto/schemas';
 import { useContext, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { useLogto } from '@logto/react';
 
 import KeyboardArrowDown from '@/assets/icons/keyboard-arrow-down.svg?react';
 import PlusSign from '@/assets/icons/plus.svg?react';
@@ -87,19 +87,23 @@ export default function TenantSelector() {
                   isCloud,
                   logtoMethods
                 );
-                
+
                 if (!refreshResult.success) {
-                  console.error('Failed to refresh tokens for tenant:', tenantData.id, refreshResult.error);
+                  console.error(
+                    'Failed to refresh tokens for tenant:',
+                    tenantData.id,
+                    refreshResult.error
+                  );
                   toast.error(`Failed to access tenant: ${refreshResult.error}`);
                   return;
                 }
-                
+
                 // Navigate to the new tenant
                 navigateTenant(tenantData.id);
-                
+
                 // Update default tenant ID
                 void updateDefaultTenantId(tenantData.id);
-                
+
                 setShowDropdown(false);
               }}
             />

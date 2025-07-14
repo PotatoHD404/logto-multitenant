@@ -2,14 +2,14 @@ import { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuthedCloudApi } from '@/cloud/hooks/use-cloud-api';
-import { isCloud } from '@/consts/env';
 import FormCard from '@/components/FormCard';
+import { isCloud } from '@/consts/env';
 import { TenantsContext } from '@/contexts/TenantsProvider';
 import Button from '@/ds-components/Button';
 import FormField from '@/ds-components/FormField';
+import useApi from '@/hooks/use-api';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import useCurrentUser from '@/hooks/use-current-user';
-import useApi from '@/hooks/use-api';
 
 import styles from './index.module.scss';
 

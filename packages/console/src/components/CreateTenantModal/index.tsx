@@ -8,13 +8,12 @@ import CreateTenantHeaderIconDark from '@/assets/icons/create-tenant-header-dark
 import CreateTenantHeaderIcon from '@/assets/icons/create-tenant-header.svg?react';
 import { useCloudApi } from '@/cloud/hooks/use-cloud-api';
 import { type TenantResponse } from '@/cloud/types/router';
+import { isCloud } from '@/consts/env';
 import Button from '@/ds-components/Button';
 import FormField from '@/ds-components/FormField';
 import ModalLayout from '@/ds-components/ModalLayout';
 import TextInput from '@/ds-components/TextInput';
-import { isCloud } from '@/consts/env';
-import { defaultTenantResponse } from '@/consts/tenants';
-import useApi, { useCrossTenantApi } from '@/hooks/use-api';
+import { useCrossTenantApi } from '@/hooks/use-api';
 import useTheme from '@/hooks/use-theme';
 import modalStyles from '@/scss/modal.module.scss';
 import { trySubmitSafe } from '@/utils/form';
@@ -54,7 +53,9 @@ function CreateTenantModal({ isOpen, onClose }: Props) {
       onClose(newTenant);
     } else {
       // For local OSS, use the cross-tenant API for tenant creation
-      const newTenant = await crossTenantApi.post('tenants', { json: { name, tag } }).json<TenantResponse>();
+      const newTenant = await crossTenantApi
+        .post('tenants', { json: { name, tag } })
+        .json<TenantResponse>();
       onClose(newTenant);
     }
   };

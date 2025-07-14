@@ -18,7 +18,9 @@ const TenantDomainSettings = safeLazy(
 );
 const TenantMembers = safeLazy(async () => import('@/pages/TenantSettings/TenantMembers'));
 const Members = safeLazy(async () => import('@/pages/TenantSettings/TenantMembers/Members'));
-const Invitations = safeLazy(async () => import('@/pages/TenantSettings/TenantMembers/Invitations'));
+const Invitations = safeLazy(
+  async () => import('@/pages/TenantSettings/TenantMembers/Invitations')
+);
 const BillingHistory = safeLazy(async () => import('@/pages/TenantSettings/BillingHistory'));
 const Subscription = safeLazy(async () => import('@/pages/TenantSettings/Subscription'));
 
@@ -35,12 +37,7 @@ export const useTenantSettings = () => {
       children: condArray(
         {
           index: true,
-          element: (
-            <Navigate
-              replace
-              to={TenantSettingsTabs.Settings}
-            />
-          ),
+          element: <Navigate replace to={TenantSettingsTabs.Settings} />,
         },
         { path: TenantSettingsTabs.Settings, element: <TenantBasicSettings /> },
         {

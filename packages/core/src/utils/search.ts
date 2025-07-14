@@ -78,7 +78,7 @@ const getJointMode = (value?: Nullable<string>): SearchJointMode => {
 };
 
 // Use a mutating approach to improve performance
-/* eslint-disable @silverhand/fp/no-mutating-methods */
+
 const getSearchMetadata = (searchParameters: URLSearchParams, allowedFields?: string[]) => {
   const matchMode = new Map<Optional<string>, SearchMatchMode>();
   const matchValues = new Map<Optional<string>, string[]>();
@@ -107,9 +107,8 @@ const getSearchMetadata = (searchParameters: URLSearchParams, allowedFields?: st
 
     if (key.startsWith('search')) {
       const field = getSearchField(key, allowedFields);
-      const values = matchValues.get(field) ?? [];
-
-      values.push(value);
+      const existingValues = matchValues.get(field) ?? [];
+      const values = [...existingValues, value];
       matchValues.set(field, values);
       continue;
     }
@@ -125,17 +124,12 @@ export const parseSearchParamsForSearch = (
   const { matchMode, matchValues, ...rest } = getSearchMetadata(searchParams, allowedFields);
 
   // Validate and generate result
-  const matches: SearchItem[] = [];
-  const result: Search = {
-    matches,
-    ...rest,
-  };
-
+  // Fix Array.from issue and move getModeFor function
   const getModeFor = (field: Optional<string>): SearchMatchMode =>
     // eslint-disable-next-line unicorn/no-useless-undefined
     matchMode.get(field) ?? matchMode.get(undefined) ?? SearchMatchMode.Like;
 
-  for (const [field, values] of matchValues.entries()) {
+  const matches: SearchItem[] = Array.from(matchValues.entries(), ([field, values]) => {
     const mode = getModeFor(field);
 
     if (mode === SearchMatchMode.Exact) {
@@ -148,12 +142,16 @@ export const parseSearchParamsForSearch = (
       assertThat(values[0], new TypeError('Search value cannot be empty.'));
     }
 
-    matches.push({ mode, field, values });
-  }
+    return { mode, field, values };
+  });
+
+  const result: Search = {
+    matches,
+    ...rest,
+  };
 
   return result;
 };
-/* eslint-enable @silverhand/fp/no-mutating-methods */
 
 const getJointModeSql = (mode: SearchJointMode) => {
   switch (mode) {

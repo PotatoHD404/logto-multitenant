@@ -14,20 +14,22 @@ import useSwrFetcher from '@/hooks/use-swr-fetcher';
  */
 const useCurrentUserMfa = () => {
   const { user } = useCurrentUser();
-  const api = useStaticApi({ 
-    prefixUrl: adminTenantEndpoint, 
-    resourceIndicator: meApi.indicator 
+  const api = useStaticApi({
+    prefixUrl: adminTenantEndpoint,
+    resourceIndicator: meApi.indicator,
   });
   const fetcher = useSwrFetcher<UserMfaVerificationResponse>(api);
-  
-  const { data: mfaVerifications, error, isLoading, mutate } = useSWR<
-    UserMfaVerificationResponse,
-    RequestError
-  >(
+
+  const {
+    data: mfaVerifications,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR<UserMfaVerificationResponse, RequestError>(
     user?.id ? 'me/mfa-verifications' : null,
     fetcher
   );
-  
+
   const deleteMfaVerification = async (verificationId: string) => {
     if (!user?.id) {
       throw new Error('User ID not available');
@@ -35,11 +37,11 @@ const useCurrentUserMfa = () => {
     await api.delete(`me/mfa-verifications/${verificationId}`);
     // Update the cache by removing the deleted verification
     if (mfaVerifications) {
-      const updated = mfaVerifications.filter(verification => verification.id !== verificationId);
+      const updated = mfaVerifications.filter((verification) => verification.id !== verificationId);
       void mutate(updated);
     }
   };
-  
+
   return {
     mfaVerifications,
     error,
@@ -49,4 +51,4 @@ const useCurrentUserMfa = () => {
   };
 };
 
-export default useCurrentUserMfa; 
+export default useCurrentUserMfa;

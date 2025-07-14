@@ -59,10 +59,10 @@ const useTenantScopeListener = () => {
     if (!isCloud || isLoading || tokenClaims === undefined || !scopes) {
       return;
     }
-    
+
     const hasScopesGranted = scopes.some((scope) => !tokenClaims.includes(scope));
     const hasScopesRevoked = tokenClaims.some((claim) => !scopes.includes(claim));
-    
+
     if (hasScopesGranted) {
       (async () => {
         // User has been newly granted scopes. Need to re-consent to obtain the additional scopes.

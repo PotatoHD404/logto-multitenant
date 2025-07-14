@@ -24,13 +24,11 @@ import useTenantPathname from '@/hooks/use-tenant-pathname';
 import useUserAssetsService from '@/hooks/use-user-assets-service';
 import pageLayout from '@/scss/page-layout.module.scss';
 
-import AccountActivity from './components/AccountActivity';
 import BasicUserInfoSection from './components/BasicUserInfoSection';
 import CardContent from './components/CardContent';
 import LinkAccountSection from './components/LinkAccountSection';
 import MfaSection from './components/MfaSection';
 import NotSet from './components/NotSet';
-import SessionManagement from './components/SessionManagement';
 import Skeleton from './components/Skeleton';
 import DeleteAccountModal from './containers/DeleteAccountModal';
 import styles from './index.module.scss';
@@ -63,7 +61,8 @@ function Profile() {
     setShowDeleteAccountModal(false);
   }, []);
 
-  const showLoadingSkeleton = isLoadingUser || isLoadingConnectors || isUserAssetServiceLoading || isMfaSettingsLoading;
+  const showLoadingSkeleton =
+    isLoadingUser || isLoadingConnectors || isUserAssetServiceLoading || isMfaSettingsLoading;
 
   return (
     <AppBoundary>

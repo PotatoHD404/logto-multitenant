@@ -13,9 +13,7 @@ const VerifyPasswordModal = safeLazy(
 );
 
 // MFA Setup Modals
-const SetupTotpModal = safeLazy(
-  async () => import('@/pages/Profile/containers/SetupTotpModal')
-);
+const SetupTotpModal = safeLazy(async () => import('@/pages/Profile/containers/SetupTotpModal'));
 const SetupWebAuthnModal = safeLazy(
   async () => import('@/pages/Profile/containers/SetupWebAuthnModal')
 );

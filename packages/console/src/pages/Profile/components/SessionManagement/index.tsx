@@ -1,14 +1,14 @@
+import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
-import { format } from 'date-fns';
 
 import FormCard from '@/components/FormCard';
 import { adminTenantEndpoint, meApi } from '@/consts';
-import { useStaticApi } from '@/hooks/use-api';
-import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import Button from '@/ds-components/Button';
 import Table from '@/ds-components/Table';
 import type { Column } from '@/ds-components/Table/types';
+import { useStaticApi } from '@/hooks/use-api';
+import { useConfirmModal } from '@/hooks/use-confirm-modal';
 
 import styles from './index.module.scss';
 
@@ -36,9 +36,12 @@ export default function SessionManagement() {
   const api = useStaticApi({ prefixUrl: adminTenantEndpoint, resourceIndicator: meApi.indicator });
   const { show } = useConfirmModal();
 
-  const { data: sessionsData, error, mutate } = useSWR<SessionsResponse>(
-    `sessions?page=1&page_size=${pageSize}`,
-    async (url) => api.get(url).json()
+  const {
+    data: sessionsData,
+    error,
+    mutate,
+  } = useSWR<SessionsResponse>(`sessions?page=1&page_size=${pageSize}`, async (url) =>
+    api.get(url).json()
   );
 
   const sessions = sessionsData?.data ?? [];
@@ -66,7 +69,8 @@ export default function SessionManagement() {
 
   const handleRevokeAllSessions = async () => {
     const [confirmed] = await show({
-      ModalContent: 'Are you sure you want to revoke all other sessions? This will sign out all other devices except the current one.',
+      ModalContent:
+        'Are you sure you want to revoke all other sessions? This will sign out all other devices except the current one.',
       title: 'Revoke all other sessions',
       confirmButtonText: 'Revoke all other sessions',
       confirmButtonType: 'danger',
@@ -77,8 +81,8 @@ export default function SessionManagement() {
     }
 
     try {
-      await api.delete('sessions', { 
-        searchParams: { except_current: 'true' } 
+      await api.delete('sessions', {
+        searchParams: { except_current: 'true' },
       });
       void mutate();
     } catch (error) {
@@ -87,38 +91,42 @@ export default function SessionManagement() {
   };
 
   const formatDeviceInfo = (deviceInfo?: SessionData['deviceInfo']) => {
-    if (!deviceInfo) return 'Unknown Device';
-    
+    if (!deviceInfo) {
+      return 'Unknown Device';
+    }
+
     const parts = [];
     if (deviceInfo.userAgent) {
       const ua = deviceInfo.userAgent;
       // Simple browser detection
-      if (ua.includes('Chrome')) parts.push('Chrome');
-      else if (ua.includes('Firefox')) parts.push('Firefox');
-      else if (ua.includes('Safari')) parts.push('Safari');
-      else if (ua.includes('Edge')) parts.push('Edge');
-      else parts.push('Unknown Browser');
+      if (ua.includes('Chrome')) {
+        parts.push('Chrome');
+      } else if (ua.includes('Firefox')) {
+        parts.push('Firefox');
+      } else if (ua.includes('Safari')) {
+        parts.push('Safari');
+      } else if (ua.includes('Edge')) {
+        parts.push('Edge');
+      } else {
+        parts.push('Unknown Browser');
+      }
     }
-    
+
     if (deviceInfo.ip) {
       parts.push(`IP: ${deviceInfo.ip}`);
     }
-    
+
     return parts.join(' • ') || 'Unknown Device';
   };
 
-  const columns: Column<SessionData>[] = [
+  const columns: Array<Column<SessionData>> = [
     {
       title: 'Device',
       dataIndex: 'deviceInfo',
       render: (row) => (
         <div className={styles.deviceInfo}>
           <div className={styles.deviceName}>{formatDeviceInfo(row.deviceInfo)}</div>
-          {row.deviceInfo?.ip && (
-            <div className={styles.deviceDetails}>
-              {row.deviceInfo.ip}
-            </div>
-          )}
+          {row.deviceInfo?.ip && <div className={styles.deviceDetails}>{row.deviceInfo.ip}</div>}
         </div>
       ),
     },
@@ -127,10 +135,9 @@ export default function SessionManagement() {
       dataIndex: 'lastActiveAt',
       render: (row) => (
         <div className={styles.timeInfo}>
-          {row.lastActiveAt 
+          {row.lastActiveAt
             ? format(new Date(row.lastActiveAt), 'MMM d, yyyy HH:mm')
-            : format(new Date(row.createdAt), 'MMM d, yyyy HH:mm')
-          }
+            : format(new Date(row.createdAt), 'MMM d, yyyy HH:mm')}
         </div>
       ),
     },
@@ -151,7 +158,7 @@ export default function SessionManagement() {
           size="small"
           type="text"
           title="Revoke"
-          onClick={() => handleRevokeSession(row.sessionUid)}
+          onClick={async () => handleRevokeSession(row.sessionUid)}
         />
       ),
     },
@@ -171,7 +178,7 @@ export default function SessionManagement() {
             onClick={handleRevokeAllSessions}
           />
         </div>
-        
+
         <div className={styles.tableContainer}>
           <Table
             columns={columns}
@@ -189,4 +196,4 @@ export default function SessionManagement() {
       </div>
     </FormCard>
   );
-} 
+}
