@@ -360,9 +360,9 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
         primaryPhone: member.primaryPhone,
         avatar: member.avatar,
         username: member.username,
-        role: (member.organizationRoles?.[0]?.name as TenantRole) || TenantRole.Collaborator,
-        isOwner: member.organizationRoles?.[0]?.name === TenantRole.Admin,
-        organizationRoles: member.organizationRoles || [],
+        role: member.organizationRoles[0]?.name ?? TenantRole.Collaborator,
+        isOwner: member.organizationRoles[0]?.name === TenantRole.Admin,
+        organizationRoles: member.organizationRoles,
       })),
     };
   };
@@ -428,15 +428,15 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
 
     return {
       totalCount: invitations.length,
-      invitations: paginatedInvitations.map((invitation: any) => ({
+      invitations: paginatedInvitations.map((invitation) => ({
         id: invitation.id,
         email: invitation.invitee,
-        role: (invitation.organizationRoles?.[0]?.name as TenantRole) || TenantRole.Collaborator,
+        role: invitation.organizationRoles[0]?.name ?? TenantRole.Collaborator,
         status: invitation.status,
-        createdAt: invitation.createdAt.toISOString(),
-        expiresAt: invitation.expiresAt.toISOString(),
+        createdAt: new Date(invitation.createdAt).toISOString(),
+        expiresAt: new Date(invitation.expiresAt).toISOString(),
         invitee: invitation.invitee,
-        organizationRoles: invitation.organizationRoles || [],
+        organizationRoles: invitation.organizationRoles,
       })),
     };
   };

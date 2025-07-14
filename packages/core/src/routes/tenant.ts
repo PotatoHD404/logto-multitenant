@@ -218,7 +218,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
 
       // For users with tenant management scopes, show all tenants they have permission to manage
       // This allows cross-tenant access with proper authorization
-      const { scopes } = auth;
+      const { scopes } = ctx.auth;
       const hasTenantManagementScope =
         scopes.has(PredefinedScope.All) ||
         scopes.has('manage:tenant') ||
@@ -226,11 +226,11 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         scopes.has('write:data') ||
         scopes.has('delete:data');
 
-      let accessibleTenants: TenantDatabaseRow[] = [];
+      const accessibleTenants: TenantDatabaseRow[] = [];
 
       if (hasTenantManagementScope) {
         // Users with tenant management scopes can see all tenants
-        accessibleTenants = [...allTenants];
+        accessibleTenants.push(...allTenants);
       } else {
         // Fallback to organization membership check for users without tenant management scopes
         for (const tenant of allTenants) {
@@ -251,22 +251,18 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         }
       }
 
+      // Convert to response format
+      const tenants = accessibleTenants.map((tenant) => convertTenantToLocalTenantResponse(tenant));
+
       // Apply pagination to filtered results if not disabled
       const totalCount = accessibleTenants.length;
-      const paginatedTenants = disabled
-        ? accessibleTenants
-        : accessibleTenants.slice(offset, offset + limit);
+      const paginatedTenants = disabled ? tenants : tenants.slice(offset, offset + limit);
 
-      ctx.body = paginatedTenants.map((tenant) => ({
-        id: tenant.id,
-        name: tenant.name,
-        tag: tenant.tag,
-        createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
-        isSuspended: tenant.is_suspended,
-      }));
+      ctx.body = paginatedTenants;
 
       if (!disabled) {
-        ctx.pagination.totalCount = totalCount;
+        ctx.set('X-Total-Count', String(totalCount));
+        ctx.set('X-Page-Count', String(Math.ceil(totalCount / limit)));
       }
 
       return next();
@@ -312,9 +308,12 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       // Seed OIDC configuration for the new tenant (privateKeys, cookieKeys)
       try {
         await seedOidcConfigs(sharedPool, newTenant.id);
-                  unknownConsole.info(`Successfully seeded OIDC configuration for tenant ${newTenant.id}`);
+        unknownConsole.info(`Successfully seeded OIDC configuration for tenant ${newTenant.id}`);
       } catch (error) {
-        unknownConsole.error(`Failed to seed OIDC configuration for tenant ${newTenant.id}:`, error);
+        unknownConsole.error(
+          `Failed to seed OIDC configuration for tenant ${newTenant.id}:`,
+          error
+        );
         // Don't throw error as this shouldn't block tenant creation
       }
 
@@ -334,9 +333,14 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         const accountCenter = createDefaultAccountCenter(newTenant.id);
         await sharedPool.query(insertInto(accountCenter, AccountCenters.table));
 
-                  unknownConsole.info(`Successfully seeded default configurations for tenant ${newTenant.id}`);
+        unknownConsole.info(
+          `Successfully seeded default configurations for tenant ${newTenant.id}`
+        );
       } catch (error) {
-        unknownConsole.error(`Failed to seed default configurations for tenant ${newTenant.id}:`, error);
+        unknownConsole.error(
+          `Failed to seed default configurations for tenant ${newTenant.id}:`,
+          error
+        );
         // Don't throw error as this shouldn't block tenant creation
       }
 
@@ -401,9 +405,9 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
                 `);
               }
             }
-                         unknownConsole.info(
-                `Successfully granted user role access to tenant ${newTenant.id} Management API`
-              );
+            unknownConsole.info(
+              `Successfully granted user role access to tenant ${newTenant.id} Management API`
+            );
           }
         } catch (error) {
           unknownConsole.error(
@@ -413,7 +417,9 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           // Don't throw as this shouldn't block tenant creation
         }
 
-                  unknownConsole.info(`Successfully created Management API resource for tenant ${newTenant.id}`);
+        unknownConsole.info(
+          `Successfully created Management API resource for tenant ${newTenant.id}`
+        );
       } catch (error) {
         unknownConsole.error(
           `Failed to create Management API resource for tenant ${newTenant.id}:`,
@@ -425,9 +431,9 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       // Seed pre-configured management API access role
       try {
         await seedPreConfiguredManagementApiAccessRole(sharedPool, newTenant.id);
-                  unknownConsole.info(
-            `Successfully created pre-configured Management API access role for tenant ${newTenant.id}`
-          );
+        unknownConsole.info(
+          `Successfully created pre-configured Management API access role for tenant ${newTenant.id}`
+        );
       } catch (error) {
         unknownConsole.error(
           `Failed to create pre-configured Management API access role for tenant ${newTenant.id}:`,
