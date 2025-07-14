@@ -118,6 +118,37 @@ export const getTenantId = async (
   const pool = await sharedPool;
 
   // Management API tenant routing check
+  const managementApiResult = checkManagementApiRouting(url, adminUrlSet);
+  if (managementApiResult) {
+    return managementApiResult;
+  }
+
+  // Admin tenant check
+  if (adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint))) {
+    return [adminTenantId, false];
+  }
+
+  // Development tenant check
+  if ((!isProduction || isIntegrationTest) && developmentTenantId) {
+    debugConsole.warn(`Found dev tenant ID ${developmentTenantId}.`);
+    return [developmentTenantId, false];
+  }
+
+  // Multi-tenancy is enabled by default
+  // For local OSS: Support both custom domain AND path-based routing AND domain-based routing simultaneously
+  // For cloud: Use original cloud logic
+  if (!isCloud) {
+    return handleLocalOssTenantRouting(url, pool, urlSet);
+  }
+
+  return handleCloudTenantRouting(url, pool, urlSet);
+};
+
+const checkManagementApiRouting = (
+  url: URL,
+  adminUrlSet: UrlSet
+): [tenantId: string | undefined, isCustomDomain: boolean] | undefined => {
+  // Management API tenant routing check
   // Pattern: /m/{tenantId}/api/...
   // These requests should ONLY be accessible on admin endpoints!
   const managementApiTenantId = matchManagementApiTenantId(url);
@@ -137,77 +168,51 @@ export const getTenantId = async (
     debugConsole.warn(`Blocked management API pattern on non-admin endpoint: ${url.toString()}`);
     return [undefined, false];
   }
+  return undefined;
+};
 
-  // Admin tenant check
-  if (adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint))) {
-    return [adminTenantId, false];
-  }
-
-  // Development tenant check
-  if ((!isProduction || isIntegrationTest) && developmentTenantId) {
-    debugConsole.warn(`Found dev tenant ID ${developmentTenantId}.`);
-    return [developmentTenantId, false];
-  }
-
-  // Multi-tenancy is enabled by default
-  // For local OSS: Support both custom domain AND path-based routing AND domain-based routing simultaneously
-  // For cloud: Use original cloud logic
-  if (!isCloud) {
-    // Local OSS: Hybrid multi-tenancy approach
-    // 1. First try custom domain matching
-    const customDomainTenantId = await getTenantIdFromCustomDomain(url, pool);
-    if (customDomainTenantId) {
-      // Security: Prevent admin tenant access via custom domain on regular servers
-      if (customDomainTenantId === adminTenantId) {
-        debugConsole.warn(
-          `Blocked admin tenant access via custom domain on regular server: ${url.toString()}`
-        );
-        return [undefined, false];
-      }
-      return [customDomainTenantId, true];
+const handleLocalOssTenantRouting = async (
+  url: URL,
+  pool: CommonQueryMethods,
+  urlSet: UrlSet
+): Promise<[tenantId: string | undefined, isCustomDomain: boolean]> => {
+  // Local OSS: Hybrid multi-tenancy approach
+  // 1. First try custom domain matching
+  const customDomainTenantId = await getTenantIdFromCustomDomain(url, pool);
+  if (customDomainTenantId) {
+    // Security: Prevent admin tenant access via custom domain on regular servers
+    if (customDomainTenantId === adminTenantId) {
+      debugConsole.warn(
+        `Blocked admin tenant access via custom domain on regular server: ${url.toString()}`
+      );
+      return [undefined, false];
     }
-
-    // 2. Try path-based routing (works with default domain)
-    // const pathBasedTenantId = matchPathBasedTenantId(urlSet, url);
-    // if (pathBasedTenantId) {
-    //   // Security: Prevent admin tenant access via path-based routing on regular servers
-    //   // Admin tenant should ONLY be accessible on admin server endpoints
-    //   if (pathBasedTenantId === adminTenantId) {
-    //     debugConsole.warn(`Blocked admin tenant access via path-based routing on regular server: ${url.toString()}`);
-    //     return [undefined, false]; // Block admin tenant access
-    //   }
-    //   return [pathBasedTenantId, false];
-    // }
-
-    // 3. Try domain-based routing (extract tenant ID from subdomain)
-    // First try standard domain-based matching (if endpoint has wildcard)
-    const domainBasedTenantId = matchDomainBasedTenantId(urlSet.endpoint, url);
-    if (domainBasedTenantId) {
-      // Security: Prevent admin tenant access via domain-based routing on regular servers
-      if (domainBasedTenantId === adminTenantId) {
-        debugConsole.warn(
-          `Blocked admin tenant access via domain-based routing on regular server: ${url.toString()}`
-        );
-        return [undefined, false];
-      }
-      return [domainBasedTenantId, false];
-    }
-
-    // 5. Handle plain /api/... requests (should use default tenant)
-    // This comes AFTER custom domain and path-based checks
-    // if (url.pathname.startsWith('/api/')) {
-    //   return [defaultTenantId, false];
-    // }
-
-    // 6. For root requests on default domain, return default tenant
-    // if (url.origin === urlSet.endpoint.origin && url.pathname === '/') {
-    //   return [defaultTenantId, false];
-    // }
-
-    // 7. No tenant found
-    return [undefined, false];
+    return [customDomainTenantId, true];
   }
 
+  // 3. Try domain-based routing (extract tenant ID from subdomain)
+  // First try standard domain-based matching (if endpoint has wildcard)
+  const domainBasedTenantId = matchDomainBasedTenantId(urlSet.endpoint, url);
+  if (domainBasedTenantId) {
+    // Security: Prevent admin tenant access via domain-based routing on regular servers
+    if (domainBasedTenantId === adminTenantId) {
+      debugConsole.warn(
+        `Blocked admin tenant access via domain-based routing on regular server: ${url.toString()}`
+      );
+      return [undefined, false];
+    }
+    return [domainBasedTenantId, false];
+  }
+
+  // 7. No tenant found
+  return [undefined, false];
+};
+
+const handleCloudTenantRouting = async (
+  url: URL,
+  pool: CommonQueryMethods,
+  urlSet: UrlSet
+): Promise<[tenantId: string | undefined, isCustomDomain: boolean]> => {
   // Cloud environment: Use original cloud logic
   const customDomainTenantId = await getTenantIdFromCustomDomain(url, pool);
   if (customDomainTenantId) {

@@ -17,7 +17,7 @@ import styles from './index.module.scss';
 // Helper function to convert base64url to ArrayBuffer
 const base64UrlToArrayBuffer = (base64url: string): ArrayBuffer => {
   const base64 = base64url.replaceAll('-', '+').replaceAll('_', '/');
-  const binaryString = atob(base64);
+  const binaryString = Buffer.from(base64, 'base64').toString('binary');
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.codePointAt(i) ?? 0;
@@ -32,7 +32,7 @@ const arrayBufferToBase64Url = (buffer: ArrayBuffer): string => {
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCodePoint(bytes[i] ?? 0);
   }
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  return Buffer.from(binary, 'binary').toString('base64').replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 };
 
 function SetupWebAuthnModal() {

@@ -21,7 +21,6 @@ type Props = {
 function TenantDropdownItem({ tenantData, isSelected, onClick }: Props) {
   const { name, tag, regionName, subscription } = tenantData;
 
-  // Defensive check for subscription field
   const { planId, isEnterprisePlan } = subscription || {
     planId: 'development',
     isEnterprisePlan: false,

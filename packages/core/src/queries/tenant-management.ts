@@ -64,14 +64,25 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
       return undefined;
     }
 
+    // Use explicit type assertion to the expected result type
+    const typedResult = result as {
+      id: string;
+      name: string;
+      tag: TenantTag;
+      db_user: string | undefined;
+      db_user_password: string | undefined;
+      created_at: string;
+      is_suspended: boolean;
+    };
+
     return {
-      id: (result as any).id,
-      name: (result as any).name,
-      tag: (result as any).tag,
-      dbUser: (result as any).db_user,
-      dbUserPassword: (result as any).db_user_password,
-      createdAt: (result as any).created_at,
-      isSuspended: (result as any).is_suspended,
+      id: typedResult.id,
+      name: typedResult.name,
+      tag: typedResult.tag,
+      dbUser: typedResult.db_user,
+      dbUserPassword: typedResult.db_user_password,
+      createdAt: new Date(typedResult.created_at),
+      isSuspended: typedResult.is_suspended,
     };
   };
 
@@ -79,7 +90,8 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
     const result = await pool.one(sql`
       SELECT COUNT(*) as count FROM tenants
     `);
-    return Number((result as any).count);
+    // Use explicit type assertion for result
+    return Number((result as { count: string }).count);
   };
 
   /**

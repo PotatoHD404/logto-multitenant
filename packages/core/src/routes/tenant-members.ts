@@ -242,19 +242,20 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
       const { tenantId } = ctx.guard.params;
       const { emails, role } = ctx.guard.body;
 
-      const invitations = [];
-      for (const email of emails) {
+      const invitationPromises = emails.map(async (email) => {
         try {
-          const invitation = await tenantOrg.createInvitation(tenantId, email, role, ctx.auth.id);
-          invitations.push(invitation);
+          return await tenantOrg.createInvitation(tenantId, email, role, ctx.auth.id);
         } catch (error) {
           // Skip duplicate invitations
           if (error instanceof RequestError && error.code === 'entity.unique_integrity_violation') {
-            continue;
+            return null;
           }
           throw error;
         }
-      }
+      });
+
+      const invitationResults = await Promise.all(invitationPromises);
+      const invitations = invitationResults.filter((invitation): invitation is NonNullable<typeof invitation> => invitation !== null);
 
       ctx.status = 201;
       ctx.body = { count: invitations.length };

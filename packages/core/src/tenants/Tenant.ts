@@ -113,35 +113,48 @@ export default class Tenant implements TenantContext {
     // Init app
     const app = new Koa();
 
+    this.setupBasicMiddleware(app);
+    this.setupOidcProvider(app, mountedApps);
+    this.setupRouting(app, mountedApps, isAdminTenant);
+
+    this.app = app;
+    this.provider = this.createProvider();
+    this.run = app.callback();
+  }
+
+  private setupBasicMiddleware(app: Koa): void {
     app.use(koaI18next());
     app.use(koaErrorHandler());
     app.use(koaOidcErrorHandler());
     app.use(koaSlonikErrorHandler());
     app.use(koaConnectorErrorHandler());
     app.use(koaCompress());
-    app.use(koaSecurityHeaders(mountedApps, id));
+    app.use(koaSecurityHeaders([...Object.values(UserApps), ...Object.values(AdminApps)], this.id));
+  }
 
-    // Mount OIDC
+  private setupOidcProvider(app: Koa, mountedApps: readonly string[]): void {
     const provider = initOidc(
-      envSet,
-      queries,
-      libraries,
-      logtoConfigs,
-      cloudConnection,
-      subscription
+      this.envSet,
+      this.queries,
+      this.libraries,
+      this.logtoConfigs,
+      this.cloudConnection,
+      this.subscription
     );
     app.use(mount('/oidc', provider.app));
+  }
 
+  private setupRouting(app: Koa, mountedApps: readonly string[], isAdminTenant: boolean): void {
     const tenantContext: TenantContext = {
-      id,
-      provider,
-      queries,
-      logtoConfigs,
-      cloudConnection,
-      connectors,
-      libraries,
-      envSet,
-      sentinel,
+      id: this.id,
+      provider: this.createProvider(),
+      queries: this.queries,
+      logtoConfigs: this.logtoConfigs,
+      cloudConnection: this.cloudConnection,
+      connectors: this.connectors,
+      libraries: this.libraries,
+      envSet: this.envSet,
+      sentinel: this.sentinel,
       invalidateCache: this.invalidateCache.bind(this),
     };
 
@@ -151,8 +164,7 @@ export default class Tenant implements TenantContext {
     // Mount cross-tenant management API routing for OSS multi-tenancy
     // Pattern: /m/{tenantId}/api/... (same as cloud)
     // ALL management APIs should only be accessible through admin port (3002)
-
-    app.use(mount(`/m/${id}/api`, initApis(tenantContext)));
+    app.use(mount(`/m/${this.id}/api`, initApis(tenantContext)));
 
     // Mount global well-known APIs
     app.use(mount('/.well-known', initPublicWellKnownApis(tenantContext)));
@@ -163,102 +175,96 @@ export default class Tenant implements TenantContext {
     const { adminUrlSet, isCloud } = EnvSet.values;
 
     // Mount admin tenant APIs and app
-    if (id === adminTenantId) {
-      // Mount `/me` APIs for admin tenant
-      app.use(mount('/me', initMeApis(tenantContext)));
-
-      // Mount Admin Console for local OSS
-      // In cloud, the admin console is served separately
-      if (!isCloud) {
-        app.use(koaConsoleRedirectProxy(queries));
-        app.use(
-          mount(
-            '/' + AdminApps.Console,
-            koaSpaProxy({
-              mountedApps,
-              queries,
-              packagePath: AdminApps.Console,
-              port: 5002,
-              prefix: AdminApps.Console,
-            })
-          )
-        );
-      }
+    if (isAdminTenant) {
+      this.setupAdminTenantRouting(app, mountedApps, isCloud);
     }
 
     // Mount demo app for all tenants
     // For admin tenant: only in cloud for preview purposes
     // For user tenants: always mount for local OSS and cloud
-    if (id !== adminTenantId || isCloud) {
-      // Mount demo app
+    if (this.id !== adminTenantId || isCloud) {
+      this.setupDemoAppRouting(app, mountedApps);
+    }
+
+    // Mount sign-in experience for all tenants
+    this.setupSignInExperienceRouting(app, mountedApps);
+  }
+
+  private setupAdminTenantRouting(app: Koa, mountedApps: readonly string[], isCloud: boolean): void {
+    // Mount `/me` APIs for admin tenant
+    app.use(mount('/me', initMeApis({
+      id: this.id,
+      provider: this.createProvider(),
+      queries: this.queries,
+      logtoConfigs: this.logtoConfigs,
+      cloudConnection: this.cloudConnection,
+      connectors: this.connectors,
+      libraries: this.libraries,
+      envSet: this.envSet,
+      sentinel: this.sentinel,
+      invalidateCache: this.invalidateCache.bind(this),
+    })));
+
+    // Mount Admin Console for local OSS
+    // In cloud, the admin console is served separately
+    if (!isCloud) {
+      app.use(koaConsoleRedirectProxy(this.queries));
       app.use(
         mount(
-          '/' + UserApps.DemoApp,
+          '/' + AdminApps.Console,
           koaSpaProxy({
             mountedApps,
-            queries,
-            packagePath: UserApps.DemoApp,
-            port: 5003,
-            prefix: UserApps.DemoApp,
+            queries: this.queries,
+            packagePath: AdminApps.Console,
+            port: 5002,
+            prefix: AdminApps.Console,
           })
         )
       );
     }
+  }
 
-    // Mount experience app
+  private setupDemoAppRouting(app: Koa, mountedApps: readonly string[]): void {
+    // Mount demo app
     app.use(
-      compose([
-        koaExperienceSsr(libraries, queries),
-        koaSpaSessionGuard(provider, queries),
-        mount(
-          `/${experience.routes.consent}`,
-          compose([
-            koaConsentGuard(provider, libraries, queries),
-            koaAutoConsent(provider, queries),
-          ])
-        ),
-        koaSpaProxy({ mountedApps, queries }),
-      ])
+      mount(
+        '/' + UserApps.DemoApp,
+        koaSpaProxy({
+          mountedApps,
+          queries: this.queries,
+          packagePath: UserApps.DemoApp,
+          port: 5003,
+          prefix: UserApps.DemoApp,
+        })
+      )
     );
+  }
 
-    this.app = app;
-    this.provider = provider;
+  private setupSignInExperienceRouting(app: Koa, mountedApps: readonly string[]): void {
+    // Mount sign-in experience
+    app.use(
+      mount(
+        '/' + UserApps.SignInExperience,
+        koaSpaProxy({
+          mountedApps,
+          queries: this.queries,
+          packagePath: UserApps.SignInExperience,
+          port: 5001,
+          prefix: UserApps.SignInExperience,
+        })
+      )
+    );
+  }
 
-    // Multi-tenancy is enabled by default
-    // For local OSS: Support both custom domain and path-based routing simultaneously
-    // For cloud: Use standard mounting based on configuration
-    if (!isCloud && this.id !== adminTenantId) {
-      // Local OSS user tenant: Hybrid mounting for multi-tenancy
-      // Mount without path prefix for custom domain requests
-      const directMount = mount(this.app);
-
-      // Mount with path prefix for path-based requests
-      const pathMount = mount('/' + this.id, this.app);
-
-      // Create a hybrid middleware that handles both cases
-      this.run = async (ctx, next) => {
-        // Check if this is a custom domain request by examining the URL
-        // If the URL doesn't contain the tenant ID in the path, treat it as custom domain
-        const pathSegments = ctx.URL.pathname.split('/').filter(Boolean);
-        const isCustomDomainRequest = pathSegments.length === 0 || pathSegments[0] !== this.id;
-
-        if (isCustomDomainRequest) {
-          // Use direct mount for custom domain requests
-          return directMount(ctx, next);
-        }
-        // Use path-based mount for path-based requests
-        return pathMount(ctx, next);
-      };
-    } else {
-      // Admin tenant or cloud: Use standard mounting
-      // For admin tenant: Mount directly if admin URL set is configured, otherwise use path-based
-      const usePathBasedMount =
-        !isCloud &&
-        this.id !== adminTenantId &&
-        !(adminUrlSet.deduplicated().length > 0 && this.id === adminTenantId);
-
-      this.run = usePathBasedMount ? mount('/' + this.id, this.app) : mount(this.app);
-    }
+  private createProvider(): Provider {
+    return initOidc(
+      this.envSet,
+      this.queries,
+      this.libraries,
+      this.logtoConfigs,
+      this.cloudConnection,
+      this.subscription
+    );
   }
 
   public requestStart() {

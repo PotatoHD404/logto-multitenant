@@ -41,39 +41,48 @@ export const verifyBearerTokenFromRequest = async (
     };
   }
 
-  const getKeysAndIssuer = async (): Promise<[JWK[], string[]]> => {
-    const { publicJwks, issuer } = envSet.oidc;
+  const [keys, issuer] = await getKeysAndIssuer(envSet);
+  const bearerToken = extractBearerTokenFromHeaders(request.headers);
+  
+  return verifyJwtToken(bearerToken, keys, issuer, audience);
+};
 
-    debugConsole.warn('envSet.tenantId:', envSet.tenantId);
-    debugConsole.warn('adminTenantId:', adminTenantId);
-    debugConsole.warn('publicJwks length:', publicJwks.length);
-    debugConsole.warn('issuer:', issuer);
+const getKeysAndIssuer = async (envSet: EnvSet): Promise<[JWK[], string[]]> => {
+  const { publicJwks, issuer } = envSet.oidc;
 
-    if (envSet.tenantId === adminTenantId) {
-      debugConsole.warn('Using admin tenant keys only');
-      return [publicJwks, [issuer]];
-    }
+  debugConsole.warn('envSet.tenantId:', envSet.tenantId);
+  debugConsole.warn('adminTenantId:', adminTenantId);
+  debugConsole.warn('publicJwks length:', publicJwks.length);
+  debugConsole.warn('issuer:', issuer);
 
-    const adminSet = await getAdminTenantTokenValidationSet();
-    debugConsole.warn('adminSet keys length:', adminSet.keys.length);
-    debugConsole.warn('adminSet issuer:', adminSet.issuer);
+  if (envSet.tenantId === adminTenantId) {
+    debugConsole.warn('Using admin tenant keys only');
+    return [publicJwks, [issuer]];
+  }
 
-    return [
-      [...publicJwks, ...adminSet.keys],
-      [issuer, ...adminSet.issuer],
-    ];
-  };
+  const adminSet = await getAdminTenantTokenValidationSet();
+  debugConsole.warn('adminSet keys length:', adminSet.keys.length);
+  debugConsole.warn('adminSet issuer:', adminSet.issuer);
+
+  return [
+    [...publicJwks, ...adminSet.keys],
+    [issuer, ...adminSet.issuer],
+  ];
+};
+
+const verifyJwtToken = async (
+  bearerToken: string,
+  keys: JWK[],
+  issuer: string[],
+  audience: Optional<string>
+): Promise<TokenInfo> => {
+  debugConsole.warn('Bearer token length:', bearerToken.length);
+  debugConsole.warn('Bearer token first 50 chars:', bearerToken.slice(0, 50));
+  debugConsole.warn('Total keys for verification:', keys.length);
+  debugConsole.warn('Issuers for verification:', issuer);
+  debugConsole.warn('Audience for verification:', audience);
 
   try {
-    const bearerToken = extractBearerTokenFromHeaders(request.headers);
-    debugConsole.warn('Bearer token length:', bearerToken.length);
-    debugConsole.warn('Bearer token first 50 chars:', bearerToken.slice(0, 50));
-
-    const [keys, issuer] = await getKeysAndIssuer();
-    debugConsole.warn('Total keys for verification:', keys.length);
-    debugConsole.warn('Issuers for verification:', issuer);
-    debugConsole.warn('Audience for verification:', audience);
-
     const {
       payload: { sub, client_id: clientId, scope = '', jti },
     } = await jwtVerify(bearerToken, createLocalJWKSet({ keys }), {

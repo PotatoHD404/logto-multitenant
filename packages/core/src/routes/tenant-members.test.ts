@@ -12,6 +12,8 @@ import { MockTenant } from '#src/test-utils/tenant.js';
 import { createRequester } from '#src/utils/test-utils.js';
 
 import { createMockContext } from '#src/test-utils/koa-auth/index.js';
+import { WithAuthContext } from '@logto/shared/esm/koa/koa-auth';
+import { IRouterParamContext } from 'koa-router';
 
 const { jest } = import.meta;
 const { mockEsmDefault } = createMockUtils(jest);
@@ -81,7 +83,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantA),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: userId };
+            ctx.auth = { sub: userId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -109,7 +111,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantA),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: userId };
+            ctx.auth = { sub: userId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -150,7 +152,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: adminUserId };
+            ctx.auth = { sub: adminUserId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -183,7 +185,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: collaboratorUserId };
+            ctx.auth = { sub: collaboratorUserId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -221,7 +223,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: userId };
+            ctx.auth = { sub: userId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -274,7 +276,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: userId };
+            ctx.auth = { sub: userId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -316,7 +318,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: userId };
+            ctx.auth = { sub: userId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -354,7 +356,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: adminUserId };
+            ctx.auth = { sub: adminUserId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -380,7 +382,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: adminUserId };
+            ctx.auth = { sub: adminUserId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -416,7 +418,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: userId };
+            ctx.auth = { sub: userId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -446,7 +448,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: userId };
+            ctx.auth = { sub: userId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -469,7 +471,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: userId };
+            ctx.auth = { sub: userId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],
@@ -496,7 +498,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
           async (ctx, next) => {
-            ctx.auth = { sub: userId };
+            ctx.auth = { sub: userId } as WithAuthContext<IRouterParamContext>['auth'];
             return next();
           },
         ],

@@ -52,13 +52,15 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
   ];
 
   // Add specific console paths for logout redirects
-  for (const url of adminUrlSet.deduplicated()) {
-    for (const page of consolePages) {
-      postLogoutRedirectUris.push(appendPath(url, `/console${page}`).href);
-    }
-  }
+  const consolePaths = adminUrlSet.deduplicated().flatMap((url) =>
+    consolePages.map((page) => appendPath(url, `/console${page}`).href)
+  );
+
+  const updatedPostLogoutRedirectUris = [...postLogoutRedirectUris, ...consolePaths];
 
   // Add tenant-specific logout redirect URIs for OSS
+  let finalPostLogoutRedirectUris = updatedPostLogoutRedirectUris;
+  
   if (!EnvSet.values.isCloud) {
     // For OSS, we need to support dynamic tenant IDs in logout redirect URIs.
     // Since we can't pre-register all possible tenant IDs, we'll use a more flexible approach:
@@ -67,16 +69,14 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
     // 3. The console should ideally use tenant-independent logout flows when possible
 
     const basePaths = adminUrlSet.deduplicated().map((url) => appendPath(url, '/console').href);
-    postLogoutRedirectUris.push(...basePaths);
-
-    // Add common tenant IDs that are likely to be used
     const commonTenantIds = ['default', 'admin'];
     const tenantSpecificUrls = adminUrlSet
       .deduplicated()
       .flatMap((url) =>
         commonTenantIds.map((tenantId) => appendPath(url, `/console/${tenantId}`).href)
       );
-    postLogoutRedirectUris.push(...tenantSpecificUrls);
+    
+    finalPostLogoutRedirectUris = [...updatedPostLogoutRedirectUris, ...basePaths, ...tenantSpecificUrls];
   }
 
   return {
@@ -85,7 +85,7 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
       ...(data.redirect_uris ?? []),
       ...urls.map((url) => appendPath(url, '/callback').href),
     ],
-    post_logout_redirect_uris: postLogoutRedirectUris,
+    post_logout_redirect_uris: finalPostLogoutRedirectUris,
   };
 };
 

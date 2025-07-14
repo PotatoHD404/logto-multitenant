@@ -226,30 +226,22 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         scopes.has('write:data') ||
         scopes.has('delete:data');
 
-      const accessibleTenants: TenantDatabaseRow[] = [];
-
-      if (hasTenantManagementScope) {
-        // Users with tenant management scopes can see all tenants
-        accessibleTenants.push(...allTenants);
-      } else {
-        // Fallback to organization membership check for users without tenant management scopes
-        for (const tenant of allTenants) {
-          try {
-            // Check if user is a member of this tenant's organization
-            const organizationId = getTenantOrganizationId(tenant.id);
-            const isMember = await queries.organizations.relations.users.exists({
-              organizationId,
-              userId,
-            });
-
-            if (isMember) {
-              accessibleTenants.push(tenant);
-            }
-          } catch {
-            // If we can't check membership, skip this tenant
-          }
-        }
-      }
+      const accessibleTenants: TenantDatabaseRow[] = hasTenantManagementScope
+        ? [...allTenants]
+        : await Promise.all(
+            allTenants.map(async (tenant) => {
+              try {
+                const organizationId = getTenantOrganizationId(tenant.id);
+                const isMember = await queries.organizations.relations.users.exists({
+                  organizationId,
+                  userId,
+                });
+                return isMember ? tenant : null;
+              } catch {
+                return null;
+              }
+            })
+          ).then((results) => results.filter((tenant): tenant is TenantDatabaseRow => tenant !== null));
 
       // Convert to response format
       const tenants = accessibleTenants.map((tenant) => convertTenantToLocalTenantResponse(tenant));
@@ -355,12 +347,13 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         `);
 
         // Insert scopes in admin tenant
-        for (const scope of adminData.scopes) {
-          await sharedPool.query(sql`
+        const adminScopeInsertPromises = adminData.scopes.map((scope) =>
+          sharedPool.query(sql`
             INSERT INTO scopes (id, tenant_id, resource_id, name, description)
             VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
-          `);
-        }
+          `)
+        );
+        await Promise.all(adminScopeInsertPromises);
 
         // Create Management API resource in the new tenant's own context (for its OIDC provider)
         const tenantOwnData = createAdminData(newTenant.id);
@@ -372,12 +365,13 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         `);
 
         // Insert scopes in new tenant's own context
-        for (const scope of tenantOwnData.scopes) {
-          await sharedPool.query(sql`
+        const scopeInsertPromises = tenantOwnData.scopes.map((scope) =>
+          sharedPool.query(sql`
             INSERT INTO scopes (id, tenant_id, resource_id, name, description)
             VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
-          `);
-        }
+          `)
+        );
+        await Promise.all(scopeInsertPromises);
 
         // Grant the admin tenant 'user' role access to the new tenant's Management API
         // This allows users in the admin tenant to manage the new tenant
@@ -389,7 +383,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
 
           if (userRole) {
             // Assign all new tenant Management API scopes to the user role
-            for (const scope of adminData.scopes) {
+            const scopeAssignmentPromises = adminData.scopes.map(async (scope) => {
               // Check if assignment already exists to avoid constraint violation
               const existingAssignment = await sharedPool.maybeOne(sql`
                 SELECT id FROM roles_scopes 
@@ -399,12 +393,14 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
               `);
 
               if (!existingAssignment) {
-                await sharedPool.query(sql`
+                return sharedPool.query(sql`
                   INSERT INTO roles_scopes (id, tenant_id, role_id, scope_id)
                   VALUES (${generateStandardId()}, ${adminTenantId}, ${userRole.id}, ${scope.id})
                 `);
               }
-            }
+              return Promise.resolve();
+            });
+            await Promise.all(scopeAssignmentPromises);
             unknownConsole.info(
               `Successfully granted user role access to tenant ${newTenant.id} Management API`
             );

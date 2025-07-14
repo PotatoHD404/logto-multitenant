@@ -26,7 +26,7 @@ const invitationAcceptanceResponseGuard = z.object({
 
 export default function invitationAcceptanceRoutes<T extends ManagementApiRouter>(
   router: T,
-  { queries }: RouterInitArgs<any>
+  { queries }: RouterInitArgs<T>
 ): T {
   // POST /api/invitation/accept - Accept tenant invitation
   router.post(

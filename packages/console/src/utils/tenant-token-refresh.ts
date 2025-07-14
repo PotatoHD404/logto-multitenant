@@ -34,26 +34,22 @@ export const refreshTokensForTenant = async (
     // Clear existing tokens to force refresh
     await clearAccessToken();
 
-    let tokenResult;
+    const tokenResult = {
+      token: await getOrganizationToken(getTenantOrganizationId(tenantId)),
+      claims: await getOrganizationTokenClaims(getTenantOrganizationId(tenantId)),
+    };
 
-    // Both cloud and OSS now use organization tokens for consistent behavior
-    const organizationId = getTenantOrganizationId(tenantId);
-    const token = await getOrganizationToken(organizationId);
-
-    if (!token) {
+    if (!tokenResult.token) {
       return { success: false, error: 'Failed to obtain organization token' };
     }
 
     // Validate token claims
-    const claims = await getOrganizationTokenClaims(organizationId);
     console.log(
       '✅ Organization token refreshed for tenant:',
       tenantId,
       'with scopes:',
-      claims?.scope
+      tokenResult.claims?.scope
     );
-
-    tokenResult = { token, claims };
 
     return { success: true };
   } catch (error) {
