@@ -27,7 +27,11 @@ import { insertInto } from '../../../database.js';
 import { getDatabaseName } from '../../../queries/database.js';
 import { consoleLog } from '../../../utils.js';
 
-export const createTenant = async (pool: CommonQueryMethods, tenantId: string, isCloud: boolean) => {
+export const createTenant = async (
+  pool: CommonQueryMethods,
+  tenantId: string,
+  isCloud: boolean
+) => {
   const database = await getDatabaseName(pool, true);
   const { parentRole, role, password } = createTenantDatabaseMetadata(database, tenantId);
   const createTenant = {
@@ -178,7 +182,7 @@ export const seedLegacyManagementApiUserRole = async (
       Roles.table
     )
   );
-  
+
   // Assign the 'all' scope to the role
   await connection.query(sql`
     insert into roles_scopes (id, role_id, scope_id, tenant_id)
@@ -195,14 +199,14 @@ export const seedLegacyManagementApiUserRole = async (
       ${adminTenantId}
     );
   `);
-  
+
   // Assign tenant management scopes to the role for OSS tenant management
   const tenantManagementScopes = [
     TenantManagementScope.Read,
     TenantManagementScope.Write,
     TenantManagementScope.Delete,
   ];
-  
+
   await Promise.all(
     tenantManagementScopes.map(async (scopeName) => {
       await connection.query(sql`
@@ -222,7 +226,7 @@ export const seedLegacyManagementApiUserRole = async (
       `);
     })
   );
-  
+
   consoleLog.succeed('Assigned tenant management scopes to legacy admin role');
 };
 
@@ -239,9 +243,11 @@ export const seedAdminTenantManagementApiUserScopes = async (
     where tenant_id = ${adminTenantId}
     and name = ${AdminTenantRole.User}
   `);
-  
+
   if (!userRole) {
-    consoleLog.warn('Admin tenant user role not found, skipping admin tenant management API scope assignment');
+    consoleLog.warn(
+      'Admin tenant user role not found, skipping admin tenant management API scope assignment'
+    );
     return;
   }
 
@@ -251,7 +257,7 @@ export const seedAdminTenantManagementApiUserScopes = async (
     where indicator = ${getManagementApiResourceIndicator(adminTenantId)}
     and tenant_id = ${adminTenantId}
   `);
-  
+
   if (!adminApiResource) {
     consoleLog.warn('Admin tenant management API resource not found, skipping scope assignment');
     return;
@@ -273,14 +279,14 @@ export const seedAdminTenantManagementApiUserScopes = async (
       ${adminTenantId}
     );
   `);
-  
+
   // Assign tenant management scopes to the user role for admin tenant management
   const tenantManagementScopes = [
     TenantManagementScope.Read,
     TenantManagementScope.Write,
     TenantManagementScope.Delete,
   ];
-  
+
   await Promise.all(
     tenantManagementScopes.map(async (scopeName) => {
       await connection.query(sql`
@@ -300,6 +306,6 @@ export const seedAdminTenantManagementApiUserScopes = async (
       `);
     })
   );
-  
+
   consoleLog.succeed('Assigned admin tenant management API scopes to admin tenant user role');
 };

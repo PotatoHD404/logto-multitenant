@@ -111,13 +111,12 @@ export default function SessionManagement() {
     {
       title: 'Device',
       dataIndex: 'deviceInfo',
-      key: 'device',
-      render: (deviceInfo) => (
+      render: (row) => (
         <div className={styles.deviceInfo}>
-          <div className={styles.deviceName}>{formatDeviceInfo(deviceInfo)}</div>
-          {deviceInfo?.ip && (
+          <div className={styles.deviceName}>{formatDeviceInfo(row.deviceInfo)}</div>
+          {row.deviceInfo?.ip && (
             <div className={styles.deviceDetails}>
-              {deviceInfo.ip}
+              {row.deviceInfo.ip}
             </div>
           )}
         </div>
@@ -126,12 +125,11 @@ export default function SessionManagement() {
     {
       title: 'Last Active',
       dataIndex: 'lastActiveAt',
-      key: 'lastActive',
-      render: (lastActiveAt, record) => (
+      render: (row) => (
         <div className={styles.timeInfo}>
-          {lastActiveAt 
-            ? format(new Date(lastActiveAt), 'MMM d, yyyy HH:mm')
-            : format(new Date(record.createdAt), 'MMM d, yyyy HH:mm')
+          {row.lastActiveAt 
+            ? format(new Date(row.lastActiveAt), 'MMM d, yyyy HH:mm')
+            : format(new Date(row.createdAt), 'MMM d, yyyy HH:mm')
           }
         </div>
       ),
@@ -139,22 +137,21 @@ export default function SessionManagement() {
     {
       title: 'Expires',
       dataIndex: 'expiresAt',
-      key: 'expires',
-      render: (expiresAt) => (
+      render: (row) => (
         <div className={styles.timeInfo}>
-          {format(new Date(expiresAt), 'MMM d, yyyy HH:mm')}
+          {format(new Date(row.expiresAt), 'MMM d, yyyy HH:mm')}
         </div>
       ),
     },
     {
       title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
+      dataIndex: 'actions',
+      render: (row) => (
         <Button
           size="small"
           type="text"
           title="Revoke"
-          onClick={() => handleRevokeSession(record.sessionUid)}
+          onClick={() => handleRevokeSession(row.sessionUid)}
         />
       ),
     },

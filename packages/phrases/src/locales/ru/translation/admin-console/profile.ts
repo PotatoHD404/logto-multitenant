@@ -113,11 +113,14 @@ const profile = {
     delete_factor_confirm: 'Удалить',
     delete_factor_cancel: 'Отменить',
     totp_name: 'TOTP (Приложение аутентификации)',
-    totp_description: 'Используйте приложение аутентификации, такое как Google Authenticator, для генерации одноразовых паролей.',
+    totp_description:
+      'Используйте приложение аутентификации, такое как Google Authenticator, для генерации одноразовых паролей.',
     webauthn_name: 'WebAuthn (Ключ безопасности)',
-    webauthn_description: 'Используйте ключ безопасности, Touch ID, Face ID или другое совместимое с WebAuthn устройство.',
+    webauthn_description:
+      'Используйте ключ безопасности, Touch ID, Face ID или другое совместимое с WebAuthn устройство.',
     backup_code_name: 'Резервные коды',
-    backup_code_description: 'Сгенерируйте резервные коды, которые можно использовать, если ваши другие MFA факторы недоступны.',
+    backup_code_description:
+      'Сгенерируйте резервные коды, которые можно использовать, если ваши другие MFA факторы недоступны.',
     created_at: 'Создано {{time}}',
     last_used: 'Последнее использование {{time}}',
     never_used: 'Никогда не использовалось',

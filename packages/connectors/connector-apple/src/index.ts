@@ -74,7 +74,6 @@ const getUserInfo =
       });
 
       if (payload.nonce) {
-        // TODO @darcy: need to specify error code
         assert(
           getSession,
           new ConnectorError(ConnectorErrorCodes.NotImplemented, {

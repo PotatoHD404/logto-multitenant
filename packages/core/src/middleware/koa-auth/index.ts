@@ -11,7 +11,7 @@ import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import assertThat from '#src/utils/assert-that.js';
 import { devConsole, debugConsole } from '#src/utils/console.js';
-import { type TenantContext } from '#src/tenants/types.js';
+import type TenantContext from '#src/tenants/TenantContext.js';
 
 import { type WithAuthContext, type TokenInfo } from './types.js';
 import { extractBearerTokenFromHeaders, getAdminTenantTokenValidationSet } from './utils.js';

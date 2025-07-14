@@ -213,15 +213,13 @@ export const seedTables = async (
   await seedAdminTenantManagementApiUserScopes(connection);
 
   // Cloud-specific seed data
-  if (isCloud) {
-    await Promise.all([
-      seedTenantOrganizations(connection),
-      seedManagementApiProxyApplications(connection),
-    ]);
-  } else {
-    // OSS only needs tenant organizations for the new authorization system
-    await seedTenantOrganizations(connection);
-  }
+  await (isCloud
+    ? Promise.all([
+        seedTenantOrganizations(connection),
+        seedManagementApiProxyApplications(connection),
+      ])
+    : // OSS only needs tenant organizations for the new authorization system
+      seedTenantOrganizations(connection));
 
   await updateDatabaseTimestamp(connection, latestTimestamp);
 

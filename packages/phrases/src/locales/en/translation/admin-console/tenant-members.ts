@@ -9,6 +9,7 @@ const tenant_members = {
   invitation_status: 'Invitation status',
   inviter: 'Inviter',
   expiration_date: 'Expiration date',
+  revoke: 'Revoke',
   invite_modal: {
     title: 'Invite people to Logto Cloud',
     subtitle: 'To invite members to an organization, they must accept the invitation.',
@@ -31,6 +32,7 @@ const tenant_members = {
     edit: 'Edit tenant role',
     delete: 'Remove user from tenant',
     resend_invite: 'Resend invitation',
+    resend: 'Resend invitation',
     revoke: 'Revoke invitation',
     delete_invitation_record: 'Delete this invitation record',
   },

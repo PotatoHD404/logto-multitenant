@@ -32,6 +32,19 @@ const profile = {
       'A verification code has been sent to {{method}} {{value}}. Please enter the code to continue.',
     verify_and_link: 'Verify and link',
     cancel: 'Cancel',
+    social_sign_in: 'Social sign-in',
+    link_email_subtitle: 'Link your email to access more features and account recovery options.',
+    email_required: 'Email is required',
+    invalid_email: 'Invalid email address',
+    identical_email_address: 'The email address is identical to the current one',
+    anonymous: 'Anonymous',
+  },
+  code: {
+    enter_verification_code: 'Enter verification code',
+    enter_verification_code_subtitle:
+      'Enter the verification code that was sent to your email or phone.',
+    resend: 'Resend',
+    verify_via_code: 'Verify via code',
   },
   password: {
     title: 'PASSWORD & SECURITY',
@@ -55,19 +68,25 @@ const profile = {
       'Deleting your account will remove all of your personal information, user data, and configuration. This action cannot be undone.',
     button: 'Delete account',
     p: {
-      has_issue: 'We are sorry to see you go. Before you can delete your account, you must first fix the following issues.',
+      has_issue:
+        'We are sorry to see you go. Before you can delete your account, you must first fix the following issues.',
       after_resolved: 'After these issues are resolved, you can delete your account.',
-      check_information: 'We are sorry to see you go. Please check the following information carefully.',
-      remove_all_data: 'Deleting your account will remove all data about you from Logto Cloud. So please make sure you have backed up any important data before continuing.',
+      check_information:
+        'We are sorry to see you go. Please check the following information carefully.',
+      remove_all_data:
+        'Deleting your account will remove all data about you from Logto Cloud. So please make sure you have backed up any important data before continuing.',
       confirm_information: 'Please confirm that the above information is correct.',
-      has_admin_role: 'Since you have admin role in the following tenants, they will be deleted along with your account.',
-      has_admin_role_other: 'Since you have admin role in the following tenants, they will be transferred to other members before your account is deleted.',
+      has_admin_role:
+        'Since you have admin role in the following tenants, they will be deleted along with your account.',
+      has_admin_role_other:
+        'Since you have admin role in the following tenants, they will be transferred to other members before your account is deleted.',
       quit_tenant: 'You are about to quit the following tenants.',
       personal_data: 'Personal data',
     },
     issues: {
       paid_plan: 'The following tenants have paid plans, please downgrade to free plan first.',
-      subscription_status: 'The following tenants have subscription status issues, please fix them first.',
+      subscription_status:
+        'The following tenants have subscription status issues, please fix them first.',
       open_invoice: 'The following tenants have open invoices, please pay them first.',
     },
     error_occurred: 'An error occurred',
@@ -75,7 +94,8 @@ const profile = {
     request_id: 'Request ID: {{requestId}}',
     try_again_later: 'Please try again later.',
     final_confirmation: 'Final confirmation',
-    about_to_start_deletion: 'You are about to start the deletion process and this action cannot be undone.',
+    about_to_start_deletion:
+      'You are about to start the deletion process and this action cannot be undone.',
     permanently_delete: 'Permanently delete',
   },
   set_up_mfa: {
@@ -102,11 +122,14 @@ const profile = {
     delete_factor_confirm: 'Delete',
     delete_factor_cancel: 'Cancel',
     totp_name: 'TOTP (Authenticator App)',
-    totp_description: 'Use an authenticator app like Google Authenticator to generate one-time passwords.',
+    totp_description:
+      'Use an authenticator app like Google Authenticator to generate one-time passwords.',
     webauthn_name: 'Security Key',
-    webauthn_description: 'Use your security key or biometric authentication for enhanced security.',
+    webauthn_description:
+      'Use your security key or biometric authentication for enhanced security.',
     backup_code_name: 'Backup Codes',
-    backup_code_description: 'Generate backup codes that can be used if your other MFA factors are unavailable.',
+    backup_code_description:
+      'Generate backup codes that can be used if your other MFA factors are unavailable.',
     created_at: 'Created {{time}}',
     last_used: 'Last used {{time}}',
     never_used: 'Never used',
@@ -116,7 +139,8 @@ const profile = {
     setup_totp: 'Set up TOTP',
     step: 'Step {{step}}: {{content}}',
     scan_qr_code: 'Scan QR code',
-    scan_qr_code_description: 'Scan the QR code with your authenticator app such as Google Authenticator.',
+    scan_qr_code_description:
+      'Scan the QR code with your authenticator app such as Google Authenticator.',
     copy_secret: 'Copy secret',
     copy_secret_description: 'Copy and paste the secret key into your authenticator app.',
     cannot_scan_qr_code: 'Cannot scan QR code?',
@@ -131,7 +155,8 @@ const profile = {
     // Backup Codes Setup
     setup_backup_codes: 'Set up backup codes',
     setup_backup_codes_subtitle: 'Generate backup codes for account recovery',
-    backup_codes_description: 'These codes can be used to access your account if you lose access to your other MFA factors.',
+    backup_codes_description:
+      'These codes can be used to access your account if you lose access to your other MFA factors.',
     your_backup_codes: 'Your backup codes',
     backup_codes_count: '{{count}} codes',
     copy_codes: 'Copy codes',
@@ -143,12 +168,15 @@ const profile = {
     confirm_backup_codes_saved: 'I have saved my backup codes',
     backup_codes_setup_success: 'Backup codes setup successful',
     backup_codes_prerequisite_title: 'Set up another MFA method first',
-    backup_codes_prerequisite_text: 'Backup codes are designed to be a recovery option when you can\'t access your primary MFA method. You need to set up an authenticator app (TOTP) or security key (WebAuthn) first.',
+    backup_codes_prerequisite_text:
+      "Backup codes are designed to be a recovery option when you can't access your primary MFA method. You need to set up an authenticator app (TOTP) or security key (WebAuthn) first.",
     // WebAuthn Setup
     setup_webauthn: 'Set up security key',
     webauthn_instruction_1: 'Click the "Setup" button to begin the WebAuthn registration process.',
-    webauthn_instruction_2: 'Follow your browser\'s prompts to register your security key or biometric authentication.',
-    webauthn_instruction_3: 'Once registered, you can use your security key for MFA when signing in.',
+    webauthn_instruction_2:
+      "Follow your browser's prompts to register your security key or biometric authentication.",
+    webauthn_instruction_3:
+      'Once registered, you can use your security key for MFA when signing in.',
     webauthn_setup_success: 'Security key setup successful',
   },
   session_management: {
@@ -157,11 +185,14 @@ const profile = {
     revoke_session: 'Revoke',
     revoke_all_sessions: 'Revoke all other sessions',
     revoke_session_title: 'Revoke session',
-    revoke_session_content: 'Are you sure you want to revoke this session? This will sign out the device.',
+    revoke_session_content:
+      'Are you sure you want to revoke this session? This will sign out the device.',
     revoke_all_sessions_title: 'Revoke all other sessions',
-    revoke_all_sessions_content: 'Are you sure you want to revoke all other sessions? This will sign out all other devices except the current one.',
+    revoke_all_sessions_content:
+      'Are you sure you want to revoke all other sessions? This will sign out all other devices except the current one.',
     no_sessions: 'No active sessions',
-    no_sessions_description: 'You will see your active sessions here once you sign in on other devices.',
+    no_sessions_description:
+      'You will see your active sessions here once you sign in on other devices.',
     unknown_device: 'Unknown Device',
     columns: {
       device: 'Device',
@@ -182,7 +213,8 @@ const profile = {
     failed: 'Failed',
     pending: 'Pending',
     no_activities: 'No activities found',
-    no_activities_description: 'Your account activities will appear here once you start using the system.',
+    no_activities_description:
+      'Your account activities will appear here once you start using the system.',
     error_loading_activities: 'Error loading activities. Please try again.',
     // Activity types
     interaction_started: 'Session started',

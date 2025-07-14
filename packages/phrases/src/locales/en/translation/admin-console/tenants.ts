@@ -27,6 +27,8 @@ const tenants = {
     production_description:
       'For apps that are used by end-users and may require a paid subscription. <a>Learn more</a>',
     tenant_info_saved: 'Tenant information saved successfully.',
+    environment_tag_development: 'Dev',
+    environment_tag_production: 'Prod',
   },
   actions: {
     edit: 'Edit',
@@ -54,8 +56,9 @@ const tenants = {
       delete_button: 'Permanently delete',
       cannot_delete_title: 'Cannot delete tenant',
       cannot_delete_description:
-        'Sorry, you can\'t delete this tenant right now. Please make sure you\'re on the Free plan and have paid all outstanding invoices.',
+        "Sorry, you can't delete this tenant right now. Please make sure you're on the Free plan and have paid all outstanding invoices.",
       cannot_delete_system: 'Default and system tenants cannot be deleted.',
+      delete_failed: 'Failed to delete tenant.',
     },
     input_placeholder: 'Enter tenant name',
     error_message: 'Please enter the correct tenant name',

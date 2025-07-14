@@ -9,6 +9,9 @@ const invitation = {
   switch_account: 'Sign in to another account',
   invalid_invitation_status: 'Invalid invitation. Please contact the administrator and try again.',
   invitation_not_found: 'Invitation not found. Please contact the administrator.',
+  invitation_accepted: 'Invitation accepted successfully.',
+  expired: 'This invitation has expired.',
+  accepting_invitation: 'Accepting invitation for {{tenantName}}...',
 };
 
 export default Object.freeze(invitation);

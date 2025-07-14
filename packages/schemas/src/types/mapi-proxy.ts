@@ -13,7 +13,7 @@
  * This module provides utilities to manage mapi proxy.
  */
 
-import { generateStandardSecret, generateStandardId } from '@logto/shared/universal';
+import { generateStandardSecret } from '@logto/shared/universal';
 
 import {
   RoleType,
@@ -32,7 +32,7 @@ const getMapiProxyRoleId = (tenantId: string): string => {
   if (tenantId.length <= 20) {
     return `m-${tenantId}`;
   }
-  
+
   // For longer tenant IDs, use the first 19 characters after "m-"
   // This ensures uniqueness for most cases while staying within the 21-character limit
   return `m-${tenantId.slice(0, 19)}`;
@@ -47,7 +47,7 @@ const getMapiProxyAppId = (tenantId: string): string => {
   if (tenantId.length <= 20) {
     return `m-${tenantId}`;
   }
-  
+
   // For longer tenant IDs, use the first 19 characters after "m-"
   // This ensures uniqueness for most cases while staying within the 21-character limit
   return `m-${tenantId.slice(0, 19)}`;

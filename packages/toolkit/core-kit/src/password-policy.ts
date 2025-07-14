@@ -3,6 +3,14 @@ import { type webcrypto } from 'node:crypto';
 import { type DeepPartial } from '@silverhand/essentials';
 import { z } from 'zod';
 
+import {
+  PASSWORD_POLICY_SYMBOLS,
+  PASSWORD_POLICY_SEQUENCE,
+  REPETITION_AND_SEQUENCE_THRESHOLD,
+  RESTRICTED_PHRASES_TOLERANCE,
+  getRestrictedPhraseThreshold,
+  isSequential,
+} from './password-policy-constants.js';
 import { getPwnPasswordsForTest, isIntegrationTest } from './utils/integration-test.js';
 
 /** Password policy configuration type. */
@@ -113,42 +121,16 @@ export type UserInfo = Partial<{
  * ```
  */
 export class PasswordPolicyChecker {
-  static symbols = Object.freeze('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ' as const);
+  static symbols = PASSWORD_POLICY_SYMBOLS;
+  static sequence = PASSWORD_POLICY_SEQUENCE;
+  static repetitionAndSequenceThreshold = REPETITION_AND_SEQUENCE_THRESHOLD;
+  static restrictedPhrasesTolerance = RESTRICTED_PHRASES_TOLERANCE;
 
-  /** A set of characters that are considered as sequential. */
-  static sequence = Object.freeze([
-    '0123456789',
-    'abcdefghijklmnopqrstuvwxyz',
-    'qwertyuiop',
-    'asdfghjkl',
-    'zxcvbnm',
-    '1qaz',
-    '2wsx',
-    '3edc',
-    '4rfv',
-    '5tgb',
-    '6yhn',
-    '7ujm',
-    '8ik',
-    '9ol',
-  ] as const);
-
-  /** The length threshold for checking repetition and sequence. */
-  static repetitionAndSequenceThreshold = 3 as const;
-  /**
-   * If the password contains more than such number of characters that are not
-   * in the restricted phrases, it will be accepted.
-   */
-  static restrictedPhrasesTolerance = 3 as const;
-
-  /** Get the length threshold for checking restricted phrases. */
-  protected static getRestrictedPhraseThreshold(password: string): number {
-    const { restrictedPhrasesTolerance } = PasswordPolicyChecker;
-
-    return Math.max(1, password.length - restrictedPhrasesTolerance);
-  }
+  protected static getRestrictedPhraseThreshold = getRestrictedPhraseThreshold;
 
   public readonly policy: PasswordPolicy;
+
+  protected isSequential = isSequential;
 
   constructor(
     policy: DeepPartial<PasswordPolicy>,
@@ -313,33 +295,33 @@ export class PasswordPolicyChecker {
         .join('');
       const hashPrefix = hashHex.slice(0, 5);
       const hashSuffix = hashHex.slice(5);
-      
+
       // Add 1-second timeout with graceful degradation
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         console.warn('Password pwned check timed out after 1 second');
         controller.abort();
       }, 1000);
-            
+
       const response = await fetch(`https://api.pwnedpasswords.com/range/${hashPrefix}`, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Logto-Password-Checker/1.0'
-        }
+          'User-Agent': 'Logto-Password-Checker/1.0',
+        },
       });
-      
+
       if (!response.ok) {
         clearTimeout(timeoutId);
         return false;
       }
-      
+
       const text = await response.text();
       clearTimeout(timeoutId);
       const hashes = text.split('\n');
       const found = hashes.some((hex) => hex.toLowerCase().startsWith(hashSuffix));
 
       return found;
-    } catch (error) {
+    } catch {
       // If the API call fails or times out, treat the password as not pwned
       // to avoid blocking registration
       return false;
@@ -481,22 +463,4 @@ export class PasswordPolicyChecker {
   /**
    * Check if the given string is sequential by iterating through the {@link PasswordPolicyChecker.sequence}.
    */
-  protected isSequential(value: string): boolean {
-    const { sequence } = PasswordPolicyChecker;
-
-    for (const seq of sequence) {
-      // eslint-disable-next-line @silverhand/fp/no-mutating-methods -- created a new array before mutating
-      const reversedSeq = [...seq].reverse().join('');
-
-      if (
-        [seq, reversedSeq, seq.toUpperCase(), reversedSeq.toUpperCase()].some((item) =>
-          item.includes(value)
-        )
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }
 }

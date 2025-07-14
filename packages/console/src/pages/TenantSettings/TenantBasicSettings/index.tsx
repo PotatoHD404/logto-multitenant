@@ -99,8 +99,8 @@ function TenantBasicSettings() {
     // Protect system tenants from deletion
     if (currentTenantId === 'default' || currentTenantId === 'admin') {
       await showModal({
-        title: 'tenants.delete_modal.cannot_delete_title',
-        ModalContent: t('tenants.delete_modal.cannot_delete_system'),
+        title: 'tenants.deletion.delete_modal.cannot_delete_title',
+        ModalContent: t('tenants.deletion.delete_modal.cannot_delete_system'),
         type: 'alert',
         cancelButtonText: 'general.got_it',
       });
@@ -113,8 +113,8 @@ function TenantBasicSettings() {
         currentTenant.openInvoices.length > 0)
     ) {
       await showModal({
-        title: 'tenants.delete_modal.cannot_delete_title',
-        ModalContent: t('tenants.delete_modal.cannot_delete_description'),
+        title: 'tenants.deletion.delete_modal.cannot_delete_title',
+        ModalContent: t('tenants.deletion.delete_modal.cannot_delete_description'),
         type: 'alert',
         cancelButtonText: 'general.got_it',
       });
@@ -133,8 +133,8 @@ function TenantBasicSettings() {
     // Double-check system tenant protection
     if (currentTenantId === 'default' || currentTenantId === 'admin') {
       await showModal({
-        title: 'tenants.delete_modal.cannot_delete_title',
-        ModalContent: t('tenants.delete_modal.cannot_delete_system'),
+        title: 'tenants.deletion.delete_modal.cannot_delete_title',
+        ModalContent: t('tenants.deletion.delete_modal.cannot_delete_system'),
         type: 'alert',
         cancelButtonText: 'general.got_it',
       });
@@ -155,7 +155,7 @@ function TenantBasicSettings() {
       navigateTenant('');
     } catch (error) {
       console.error('Error deleting tenant:', error);
-      toast.error(t('tenants.delete_modal.delete_failed'));
+      toast.error(t('tenants.deletion.delete_modal.delete_failed'));
     } finally {
       setIsDeleting(false);
     }

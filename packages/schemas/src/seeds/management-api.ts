@@ -264,7 +264,7 @@ export const createPreConfiguredManagementApiAccessRole = (tenantId: string): Cr
   type: RoleType.MachineToMachine,
 });
 
-export default {
+const managementApiModule = {
   defaultManagementApi,
   createAdminData,
   createAdminDataInAdminTenant,
@@ -274,3 +274,5 @@ export default {
   defaultManagementApiAdminName,
   TenantManagementScope,
 };
+
+export default managementApiModule;

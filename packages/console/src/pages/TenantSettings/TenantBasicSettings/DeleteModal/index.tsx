@@ -27,15 +27,15 @@ function DeleteModal({ isOpen, isLoading, onClose, onDelete, tenant }: Props) {
       expectedInput={name}
       inputPlaceholder={name}
       className={styles.deleteConfirmModal}
-      title="tenants.delete_modal.title"
-      confirmButtonText="tenants.delete_modal.delete_button"
+      title="tenants.deletion.delete_modal.title"
+      confirmButtonText="tenants.deletion.delete_modal.delete_button"
       onCancel={onClose}
       onConfirm={onDelete}
     >
       <div className={classNames(styles.description, styles.content)}>
         <p>
           <Trans components={{ span: <span className={styles.bold} /> }}>
-            {t('tenants.delete_modal.description_line1', {
+            {t('tenants.deletion.delete_modal.description_line1', {
               name,
               tag: t(tenantAbbreviatedTagNameMap[tag], {}), // Referred to the use in DynamicT component.
             })}
@@ -48,12 +48,12 @@ function DeleteModal({ isOpen, isLoading, onClose, onDelete, tenant }: Props) {
               a: <ContactUsPhraseLink />,
             }}
           >
-            {t('tenants.delete_modal.description_line2')}
+            {t('tenants.deletion.delete_modal.description_line2')}
           </Trans>
         </p>
         <p>
           <Trans components={{ span: <span className={styles.bold} /> }}>
-            {t('tenants.delete_modal.description_line3', { name })}
+            {t('tenants.deletion.delete_modal.description_line3', { name })}
           </Trans>
         </p>
       </div>

@@ -20,7 +20,7 @@ export const getTenantOrganizationId = (tenantId: string) => {
   // Organization IDs have a 21-character database constraint (varchar(21))
   // We need 2 characters for "t-" prefix, leaving 19 characters maximum for the tenant ID
   const maxTenantIdLength = 19;
-  
+
   if (tenantId.length > maxTenantIdLength) {
     // Truncate tenant ID to fit within organization ID constraint
     // This ensures the resulting organization ID is exactly 21 characters: "t-" + 19 chars
@@ -29,7 +29,7 @@ export const getTenantOrganizationId = (tenantId: string) => {
     );
     return `t-${tenantId.slice(0, maxTenantIdLength)}`;
   }
-  
+
   return `t-${tenantId}`;
 };
 
@@ -47,7 +47,7 @@ export const getTenantIdFromOrganizationId = (organizationId: string) => {
   }
 
   const tenantId = organizationId.slice(2);
-  
+
   // Warn if the tenant ID is exactly 19 characters, as it may have been truncated
   if (tenantId.length === 19) {
     console.warn(
