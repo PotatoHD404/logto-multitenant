@@ -116,7 +116,7 @@ function LocalOssInvitationHandler() {
     };
 
     void acceptInvitation();
-  }, [invitation, isAccepting, getIdTokenClaims, api, navigateTenant, resetTenants, t]);
+  }, [invitation, isAccepting, getIdTokenClaims, api, adminApi, navigateTenant, resetTenants, t]);
 
   if (isLoading) {
     return <AppLoading />;

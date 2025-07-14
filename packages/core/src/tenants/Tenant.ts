@@ -1,8 +1,7 @@
-import { adminTenantId, experience } from '@logto/schemas';
+import { adminTenantId } from '@logto/schemas';
 import { ConsoleLog } from '@logto/shared';
 import type { MiddlewareType } from 'koa';
 import Koa from 'koa';
-import compose from 'koa-compose';
 import koaCompress from 'koa-compress';
 import mount from 'koa-mount';
 import type { Provider } from 'oidc-provider';
@@ -13,17 +12,14 @@ import { AdminApps, EnvSet, UserApps } from '#src/env-set/index.js';
 import { createCloudConnectionLibrary } from '#src/libraries/cloud-connection.js';
 import { createConnectorLibrary } from '#src/libraries/connector.js';
 import { createLogtoConfigLibrary } from '#src/libraries/logto-config.js';
-import koaAutoConsent from '#src/middleware/koa-auto-consent.js';
 import koaConnectorErrorHandler from '#src/middleware/koa-connector-error-handler.js';
 import koaConsoleRedirectProxy from '#src/middleware/koa-console-redirect-proxy.js';
 import koaErrorHandler from '#src/middleware/koa-error-handler.js';
-import koaExperienceSsr from '#src/middleware/koa-experience-ssr.js';
 import koaI18next from '#src/middleware/koa-i18next.js';
 import koaOidcErrorHandler from '#src/middleware/koa-oidc-error-handler.js';
 import koaSecurityHeaders from '#src/middleware/koa-security-headers.js';
 import koaSlonikErrorHandler from '#src/middleware/koa-slonik-error-handler.js';
 import koaSpaProxy from '#src/middleware/koa-spa-proxy.js';
-import koaSpaSessionGuard from '#src/middleware/koa-spa-session-guard.js';
 import initOidc from '#src/oidc/init.js';
 import { mountCallbackRouter } from '#src/routes/callback.js';
 import initApis, { initPublicWellKnownApis } from '#src/routes/init.js';
@@ -31,7 +27,6 @@ import initMeApis from '#src/routes-me/init.js';
 import BasicSentinel from '#src/sentinel/basic-sentinel.js';
 
 import { SubscriptionLibrary } from '../libraries/subscription.js';
-import koaConsentGuard from '../middleware/koa-consent-guard.js';
 
 import Libraries from './Libraries.js';
 import Queries from './Queries.js';
@@ -190,20 +185,29 @@ export default class Tenant implements TenantContext {
     this.setupSignInExperienceRouting(app, mountedApps);
   }
 
-  private setupAdminTenantRouting(app: Koa, mountedApps: readonly string[], isCloud: boolean): void {
+  private setupAdminTenantRouting(
+    app: Koa,
+    mountedApps: readonly string[],
+    isCloud: boolean
+  ): void {
     // Mount `/me` APIs for admin tenant
-    app.use(mount('/me', initMeApis({
-      id: this.id,
-      provider: this.createProvider(),
-      queries: this.queries,
-      logtoConfigs: this.logtoConfigs,
-      cloudConnection: this.cloudConnection,
-      connectors: this.connectors,
-      libraries: this.libraries,
-      envSet: this.envSet,
-      sentinel: this.sentinel,
-      invalidateCache: this.invalidateCache.bind(this),
-    })));
+    app.use(
+      mount(
+        '/me',
+        initMeApis({
+          id: this.id,
+          provider: this.createProvider(),
+          queries: this.queries,
+          logtoConfigs: this.logtoConfigs,
+          cloudConnection: this.cloudConnection,
+          connectors: this.connectors,
+          libraries: this.libraries,
+          envSet: this.envSet,
+          sentinel: this.sentinel,
+          invalidateCache: this.invalidateCache.bind(this),
+        })
+      )
+    );
 
     // Mount Admin Console for local OSS
     // In cloud, the admin console is served separately

@@ -263,11 +263,19 @@ export default function userRoutes<T extends AuthedMeRouter>(
       });
 
       // Return totalCount to pagination middleware
-      ctx.pagination.totalCount = count;
-      ctx.body = {
+      const responseBody = {
         data: filteredLogs,
         totalCount: count,
       };
+
+      // Set the totalCount for pagination middleware
+      Object.defineProperty(ctx.pagination, 'totalCount', {
+        value: count,
+        writable: false,
+        configurable: true,
+      });
+
+      ctx.body = responseBody;
 
       return next();
     }

@@ -278,7 +278,7 @@ function SetupTotpModal() {
           size="large"
           title="general.continue"
           isLoading={isSubmitting}
-          disabled={code.length !== 6 || code.some((c) => !c)}
+          disabled={code.length !== 6 || code.some((codeDigit) => !codeDigit)}
           onClick={handleSubmit}
         />
       </div>

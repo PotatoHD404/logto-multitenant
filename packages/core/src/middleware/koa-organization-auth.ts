@@ -7,6 +7,15 @@ import type { WithAuthContext } from '#src/middleware/koa-auth/index.js';
 import type Queries from '#src/tenants/Queries.js';
 import { debugConsole } from '#src/utils/console.js';
 
+type AuthContext = {
+  id: string;
+  audience?: string | string[];
+};
+
+type JwtPayload = {
+  aud?: string;
+};
+
 /**
  * Middleware to validate organization membership at runtime for organization tokens.
  * This ensures that users who have been removed from an organization cannot continue
@@ -88,7 +97,7 @@ function koaOrganizationAuth<StateT, ContextT extends IRouterParamContext, Respo
 }
 
 // Break down complex function into smaller functions
-function extractFromAuthContext(auth: any): string | undefined {
+function extractFromAuthContext(auth: AuthContext): string | undefined {
   if (auth?.audience) {
     const audience = Array.isArray(auth.audience) ? auth.audience[0] : auth.audience;
     if (typeof audience === 'string' && audience.startsWith('urn:logto:organization:')) {
@@ -109,7 +118,7 @@ function extractFromAuthHeader(request: Request): string | undefined {
       // Simple JWT payload extraction without verification (since it's already verified)
       const parts = token.split('.');
       if (parts.length === 3 && parts[1]) {
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString()) as JwtPayload;
         if (
           payload.aud &&
           typeof payload.aud === 'string' &&
@@ -129,9 +138,10 @@ function extractFromAuthHeader(request: Request): string | undefined {
 }
 
 function extractFromParams(request: Request): string | undefined {
-  const params = request.method === 'GET' ? request.query : (request as any).body;
-  if (params && typeof params === 'object' && 'organization_id' in params) {
-    return String(params.organization_id);
+  const params = request.method === 'GET' ? request.query : (request as { body?: unknown }).body;
+  if (params && typeof params === 'object' && params !== null && 'organization_id' in params) {
+    const orgParams = params as { organization_id: unknown };
+    return String(orgParams.organization_id);
   }
   return undefined;
 }
@@ -153,7 +163,7 @@ function extractFromRoute(request: Request): string | undefined {
  * 3. From route parameters (/organizations/:id)
  * 4. From auth context audience
  */
-function getOrganizationIdFromRequest(request: Request, auth: any): string | undefined {
+function getOrganizationIdFromRequest(request: Request, auth: AuthContext): string | undefined {
   // Method 1: Extract from JWT audience in auth context
   const fromAuthContext = extractFromAuthContext(auth);
   if (fromAuthContext) {

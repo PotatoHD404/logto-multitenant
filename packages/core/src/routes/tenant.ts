@@ -241,7 +241,9 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
                 return null;
               }
             })
-          ).then((results) => results.filter((tenant): tenant is TenantDatabaseRow => tenant !== null));
+          ).then((results) =>
+            results.filter((tenant): tenant is TenantDatabaseRow => tenant !== null)
+          );
 
       // Convert to response format
       const tenants = accessibleTenants.map((tenant) => convertTenantToLocalTenantResponse(tenant));
@@ -254,7 +256,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
 
       if (!disabled) {
         ctx.set('X-Total-Count', String(totalCount));
-        ctx.set('X-Page-Count', String(Math.ceil(totalCount / limit)));
+        ctx.set('X-Page-Count', String(Math.ceil(totalCount / (limit ?? 1))));
       }
 
       return next();
@@ -347,7 +349,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         `);
 
         // Insert scopes in admin tenant
-        const adminScopeInsertPromises = adminData.scopes.map((scope) =>
+        const adminScopeInsertPromises = adminData.scopes.map(async (scope) =>
           sharedPool.query(sql`
             INSERT INTO scopes (id, tenant_id, resource_id, name, description)
             VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
@@ -365,7 +367,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         `);
 
         // Insert scopes in new tenant's own context
-        const scopeInsertPromises = tenantOwnData.scopes.map((scope) =>
+        const scopeInsertPromises = tenantOwnData.scopes.map(async (scope) =>
           sharedPool.query(sql`
             INSERT INTO scopes (id, tenant_id, resource_id, name, description)
             VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
@@ -398,7 +400,6 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
                   VALUES (${generateStandardId()}, ${adminTenantId}, ${userRole.id}, ${scope.id})
                 `);
               }
-              return Promise.resolve();
             });
             await Promise.all(scopeAssignmentPromises);
             unknownConsole.info(
@@ -461,9 +462,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         id: newTenant.id,
         name: newTenant.name,
         tag: newTenant.tag,
-        createdAt: newTenant.created_at
-          ? newTenant.created_at.toISOString()
-          : new Date().toISOString(),
+        createdAt: newTenant.created_at?.toISOString() ?? new Date().toISOString(),
         isSuspended: newTenant.is_suspended,
       };
 
@@ -534,7 +533,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         id: tenant.id,
         name: tenant.name,
         tag: tenant.tag,
-        createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
+        createdAt: tenant.created_at?.toISOString() ?? new Date().toISOString(),
         isSuspended: tenant.is_suspended,
       };
 

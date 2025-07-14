@@ -92,7 +92,7 @@ function MfaSection() {
           : 'profile.set_up_mfa.backup_code_name') as AdminConsoleKey,
       value: existingVerification?.createdAt ?? undefined,
       renderer: (value: string | undefined) => {
-        if (value) {
+        if (value != null) {
           return (
             <div className={styles.factorStatus}>
               <div className={styles.statusBadge}>{t('profile.set_up_mfa.configured')}</div>
@@ -107,11 +107,11 @@ function MfaSection() {
       action:
         isConfigured && existingVerification
           ? {
-              name: 'general.delete' as const,
+              name: 'general.delete' as AdminConsoleKey,
               handler: async () => handleDelete(existingVerification),
             }
           : {
-              name: 'profile.set_up_mfa.setup' as const,
+              name: 'profile.set_up_mfa.setup' as AdminConsoleKey,
               handler: async () => {
                 handleSetupMfa(factor.type);
               },

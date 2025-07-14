@@ -37,7 +37,7 @@ const useCurrentTenantScopes = () => {
       canUpdateMemberRole: Boolean(scopes?.includes(TenantScope.UpdateMemberRole)) || !isCloud,
       canManageTenant: Boolean(scopes?.includes(TenantScope.ManageTenant)) || !isCloud,
     }),
-    [scopes, isCloud]
+    [scopes]
   );
 
   return useMemo(

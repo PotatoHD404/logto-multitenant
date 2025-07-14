@@ -12,13 +12,10 @@ function TenantStatusTag({ tenantData, className }: Props) {
   const { usage, quota, openInvoices, isSuspended, subscription } = tenantData;
 
   // Defensive checks for all fields that might be undefined in OSS
-  const { planId, isEnterprisePlan } = subscription || {
-    planId: 'development',
-    isEnterprisePlan: false,
-  };
-  const { activeUsers = 0, tokenUsage = 0 } = usage || {};
-  const { mauLimit = null, tokenLimit = null } = quota || {};
-  const openInvoicesSafe = openInvoices || [];
+  const { planId, isEnterprisePlan } = subscription;
+  const { activeUsers = 0, tokenUsage = 0 } = usage;
+  const { mauLimit = null, tokenLimit = null } = quota;
+  const openInvoicesSafe = openInvoices;
 
   /**
    * Tenant status priority:

@@ -6,14 +6,14 @@
 
 import { TenantRole, OrganizationInvitationStatus } from '@logto/schemas';
 import { createMockUtils } from '@logto/shared/esm';
+import { type WithAuthContext } from '@logto/shared/esm/koa/koa-auth';
+import { type IRouterParamContext } from 'koa-router';
 
 import { mockEnvSet } from '#src/test-utils/env-set.js';
 import { MockTenant } from '#src/test-utils/tenant.js';
 import { createRequester } from '#src/utils/test-utils.js';
 
 import { createMockContext } from '#src/test-utils/koa-auth/index.js';
-import { WithAuthContext } from '@logto/shared/esm/koa/koa-auth';
-import { IRouterParamContext } from 'koa-router';
 
 const { jest } = import.meta;
 const { mockEsmDefault } = createMockUtils(jest);

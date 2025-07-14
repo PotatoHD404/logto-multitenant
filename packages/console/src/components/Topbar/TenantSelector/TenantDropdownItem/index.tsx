@@ -21,10 +21,7 @@ type Props = {
 function TenantDropdownItem({ tenantData, isSelected, onClick }: Props) {
   const { name, tag, regionName, subscription } = tenantData;
 
-  const { planId, isEnterprisePlan } = subscription || {
-    planId: 'development',
-    isEnterprisePlan: false,
-  };
+  const { planId, isEnterprisePlan } = subscription;
 
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
 

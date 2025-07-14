@@ -54,7 +54,7 @@ function koaTenantMemberAuth<StateT, ContextT extends IRouterParamContext, Respo
     assertThat(ctx.auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
 
     const { scopes, id: userId } = ctx.auth;
-    const tenantId = ctx.params.tenantId;
+    const { tenantId } = ctx.params;
 
     assertThat(tenantId, new RequestError({ code: 'request.invalid_input', status: 400 }));
 
@@ -74,7 +74,7 @@ function koaTenantMemberAuth<StateT, ContextT extends IRouterParamContext, Respo
       // Check for system tenant protection
       if (operation === 'remove' || operation === 'update-role') {
         assertThat(
-          !isProtectedFromDeletion(tenantId!),
+          !isProtectedFromDeletion(tenantId),
           new RequestError({ code: 'auth.forbidden', status: 403 })
         );
       }
@@ -84,7 +84,7 @@ function koaTenantMemberAuth<StateT, ContextT extends IRouterParamContext, Respo
 
     // Level 2: Check if user is a member of the specific tenant organization
     // Level 3: Check tenant-specific member operation permissions
-    const userScopes = await tenantOrg.getUserScopes(tenantId!, userId);
+    const userScopes = await tenantOrg.getUserScopes(tenantId, userId);
     const requiredScopes = TENANT_MEMBER_OPERATION_SCOPES[operation];
     const hasSpecificPermission = requiredScopes
       ? requiredScopes.every((scope) => userScopes.includes(scope))
@@ -106,7 +106,7 @@ function koaTenantMemberAuth<StateT, ContextT extends IRouterParamContext, Respo
     // Additional protection for system tenants
     if (operation === 'remove' || operation === 'update-role') {
       assertThat(
-        !isProtectedFromDeletion(tenantId!),
+        !isProtectedFromDeletion(tenantId),
         new RequestError({ code: 'auth.forbidden', status: 403 })
       );
     }

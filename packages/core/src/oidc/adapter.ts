@@ -52,32 +52,38 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
   ];
 
   // Add specific console paths for logout redirects
-  const consolePaths = adminUrlSet.deduplicated().flatMap((url) =>
-    consolePages.map((page) => appendPath(url, `/console${page}`).href)
-  );
+  const consolePaths = adminUrlSet
+    .deduplicated()
+    .flatMap((url) => consolePages.map((page) => appendPath(url, `/console${page}`).href));
 
   const updatedPostLogoutRedirectUris = [...postLogoutRedirectUris, ...consolePaths];
 
   // Add tenant-specific logout redirect URIs for OSS
-  let finalPostLogoutRedirectUris = updatedPostLogoutRedirectUris;
-  
-  if (!EnvSet.values.isCloud) {
-    // For OSS, we need to support dynamic tenant IDs in logout redirect URIs.
-    // Since we can't pre-register all possible tenant IDs, we'll use a more flexible approach:
-    // 1. Add the base console path (for tenant-independent routes)
-    // 2. Add common tenant IDs (default, admin)
-    // 3. The console should ideally use tenant-independent logout flows when possible
+  const finalPostLogoutRedirectUris = (() => {
+    if (!EnvSet.values.isCloud) {
+      // For OSS, we need to support dynamic tenant IDs in logout redirect URIs.
+      // Since we can't pre-register all possible tenant IDs, we'll use a more flexible approach:
+      // 1. Add the base console path (for tenant-independent routes)
+      // 2. Add common tenant IDs (default, admin)
+      // 3. The console should ideally use tenant-independent logout flows when possible
 
-    const basePaths = adminUrlSet.deduplicated().map((url) => appendPath(url, '/console').href);
-    const commonTenantIds = ['default', 'admin'];
-    const tenantSpecificUrls = adminUrlSet
-      .deduplicated()
-      .flatMap((url) =>
-        commonTenantIds.map((tenantId) => appendPath(url, `/console/${tenantId}`).href)
-      );
-    
-    finalPostLogoutRedirectUris = [...updatedPostLogoutRedirectUris, ...basePaths, ...tenantSpecificUrls];
-  }
+      const basePaths = adminUrlSet.deduplicated().map((url) => appendPath(url, '/console').href);
+      const commonTenantIds = ['default', 'admin'];
+      const tenantSpecificUrls = adminUrlSet
+        .deduplicated()
+        .flatMap((url) =>
+          commonTenantIds.map((tenantId) => appendPath(url, `/console/${tenantId}`).href)
+        );
+
+      return [
+        ...updatedPostLogoutRedirectUris,
+        ...basePaths,
+        ...tenantSpecificUrls,
+      ];
+    }
+
+    return updatedPostLogoutRedirectUris;
+  })();
 
   return {
     ...data,

@@ -43,7 +43,7 @@ export const verifyBearerTokenFromRequest = async (
 
   const [keys, issuer] = await getKeysAndIssuer(envSet);
   const bearerToken = extractBearerTokenFromHeaders(request.headers);
-  
+
   return verifyJwtToken(bearerToken, keys, issuer, audience);
 };
 

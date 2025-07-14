@@ -11,6 +11,8 @@ import type { ConnectorLibrary } from '#src/libraries/connector.js';
 import type Queries from '#src/tenants/Queries.js';
 import { unknownConsole } from '#src/utils/console.js';
 
+type NotificationType = 'invitation_sent' | 'invitation_accepted' | 'invitation_expired' | 'invitation_revoked' | 'invitation_resent';
+
 /**
  * Get pending invitations that are about to expire (within 24 hours).
  */
@@ -23,8 +25,6 @@ async function getPendingExpiredInvitations(): Promise<
     expiresAt: number;
   }>
 > {
-  const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
-
   try {
     // This would query the database for invitations expiring soon
     // For now, return empty array as we don't have direct database access here
@@ -58,7 +58,7 @@ async function processExpiredInvitations(
           await sendNotificationToInviter(
             {
               inviterEmail: inviter.primaryEmail ?? undefined,
-              type: 'invitation_expired', // Assuming a fixed type for this context
+              type: 'invitation_expired' as NotificationType,
               tenantName: `Tenant ${tenantId}`, // Use tenant ID as fallback name
               inviteeEmail: invitation.invitee,
               role: TenantRole.Collaborator, // Default role, should be determined from invitation
@@ -81,7 +81,7 @@ async function processExpiredInvitations(
 async function sendNotificationToInviter(
   context: {
     inviterEmail?: string;
-    type: string;
+    type: NotificationType;
     tenantName: string;
     inviteeEmail: string;
     role: TenantRole;
@@ -100,7 +100,7 @@ async function sendNotificationToInviter(
   try {
     const emailConnector = await connectorLibrary.getMessageConnector(ConnectorType.Email);
 
-    const subject = getNotificationSubject(type as any, tenantName); // Assuming type is string here
+    const subject = getNotificationSubject(type, tenantName);
     const content = getNotificationContent(context);
 
     await emailConnector.sendMessage({
@@ -152,7 +152,7 @@ async function logNotificationEvent(context: {
 /**
  * Get notification subject based on event type.
  */
-function getNotificationSubject(type: string, tenantName: string): string {
+function getNotificationSubject(type: NotificationType, tenantName: string): string {
   switch (type) {
     case 'invitation_sent': {
       return `Invitation sent for ${tenantName}`;
@@ -179,7 +179,7 @@ function getNotificationSubject(type: string, tenantName: string): string {
  * Get notification content based on event type.
  */
 function getNotificationContent(context: {
-  type: string;
+  type: NotificationType;
   tenantName: string;
   inviteeEmail: string;
   role: TenantRole;

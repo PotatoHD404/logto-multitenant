@@ -95,12 +95,12 @@ function SetupBackupCodeModal() {
     const codesText = backupCodes.codes.join('\n');
     const blob = new Blob([codesText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'backup-codes.txt';
-    document.body.append(a);
-    a.click();
-    a.remove();
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = 'backup-codes.txt';
+    document.body.append(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
     URL.revokeObjectURL(url);
     toast.success(t('profile.set_up_mfa.backup_codes_downloaded'));
   }, [backupCodes, t]);
@@ -203,7 +203,7 @@ function SetupBackupCodeModal() {
 
             <div className={styles.codesList}>
               {backupCodes.codes.map((code, index) => (
-                <div key={index} className={styles.codeItem}>
+                <div key={`backup-code-${index}`} className={styles.codeItem}>
                   <span className={styles.codeNumber}>{index + 1}.</span>
                   <span className={styles.codeValue}>{code}</span>
                 </div>
@@ -241,8 +241,8 @@ function SetupBackupCodeModal() {
             <input
               type="checkbox"
               checked={isConfirmed}
-              onChange={(e) => {
-                setIsConfirmed(e.target.checked);
+              onChange={(event) => {
+                setIsConfirmed(event.target.checked);
               }}
             />
             {t('profile.set_up_mfa.confirm_backup_codes_saved')}

@@ -19,8 +19,8 @@ const base64UrlToArrayBuffer = (base64url: string): ArrayBuffer => {
   const base64 = base64url.replaceAll('-', '+').replaceAll('_', '/');
   const binaryString = Buffer.from(base64, 'base64').toString('binary');
   const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.codePointAt(i) ?? 0;
+  for (let index = 0; index < binaryString.length; index++) {
+    bytes[index] = binaryString.codePointAt(index) ?? 0;
   }
   return bytes.buffer;
 };
@@ -29,10 +29,14 @@ const base64UrlToArrayBuffer = (base64url: string): ArrayBuffer => {
 const arrayBufferToBase64Url = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCodePoint(bytes[i] ?? 0);
+  for (let index = 0; index < bytes.byteLength; index++) {
+    binary += String.fromCodePoint(bytes[index] ?? 0);
   }
-  return Buffer.from(binary, 'binary').toString('base64').replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  return Buffer.from(binary, 'binary')
+    .toString('base64')
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
 };
 
 function SetupWebAuthnModal() {
@@ -134,16 +138,16 @@ function SetupWebAuthnModal() {
       }
 
       const publicKeyCredential = credential as PublicKeyCredential;
-      const response_data = publicKeyCredential.response as AuthenticatorAttestationResponse;
+      const responseData = publicKeyCredential.response as AuthenticatorAttestationResponse;
 
       // Step 4: Format the response for the backend
       const webAuthnResponse = {
         id: publicKeyCredential.id,
         rawId: arrayBufferToBase64Url(publicKeyCredential.rawId),
         response: {
-          clientDataJSON: arrayBufferToBase64Url(response_data.clientDataJSON),
-          attestationObject: arrayBufferToBase64Url(response_data.attestationObject),
-          transports: response_data.getTransports() ?? [],
+          clientDataJSON: arrayBufferToBase64Url(responseData.clientDataJSON),
+          attestationObject: arrayBufferToBase64Url(responseData.attestationObject),
+          transports: responseData.getTransports() ?? [],
         },
         type: publicKeyCredential.type,
       };

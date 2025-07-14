@@ -255,7 +255,9 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
       });
 
       const invitationResults = await Promise.all(invitationPromises);
-      const invitations = invitationResults.filter((invitation): invitation is NonNullable<typeof invitation> => invitation !== null);
+      const invitations = invitationResults.filter(
+        (invitation): invitation is NonNullable<typeof invitation> => invitation !== null
+      );
 
       ctx.status = 201;
       ctx.body = { count: invitations.length };

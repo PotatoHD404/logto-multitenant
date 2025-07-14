@@ -63,7 +63,7 @@ function CreateSecretModal({ appId, isOpen, onClose }: Props) {
     return () => {
       clearInterval(interval);
     };
-  }, [expirationYears]);
+  }, [expirationYears, expirationDate]);
 
   const submit = handleSubmit(
     trySubmitSafe(async ({ lifeSpanInYears }) => {
