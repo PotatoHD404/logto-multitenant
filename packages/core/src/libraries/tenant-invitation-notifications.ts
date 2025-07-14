@@ -64,11 +64,11 @@ async function processExpiredInvitations(
             {
               inviterEmail: inviter.primaryEmail ?? undefined,
               type: 'invitation_expired',
-              tenantName: `Tenant ${tenantId}`, // Use tenant ID as fallback name
+              tenantName: `Tenant ${tenantId}`,
               inviteeEmail: invitation.invitee,
-              role: TenantRole.Collaborator, // Default role, should be determined from invitation
-              accepterName: undefined, // No accepter for expired invitations
-              accepterEmail: undefined, // No accepter for expired invitations
+              role: TenantRole.Collaborator,
+              accepterName: undefined,
+              accepterEmail: undefined,
             },
             connectorLibrary
           );
@@ -174,6 +174,10 @@ function getNotificationSubject(type: NotificationType, tenantName: string): str
     case 'invitation_resent': {
       return `Invitation resent for ${tenantName}`;
     }
+    default: {
+      // Unreachable code removed
+      return '';
+    }
   }
 }
 
@@ -195,20 +199,16 @@ function getNotificationContent(context: {
     case 'invitation_sent': {
       return `You have successfully sent an invitation to ${inviteeEmail} to join ${tenantName} as a ${roleText}.`;
     }
-
     case 'invitation_accepted': {
       const accepterInfo = accepterName ? `${accepterName} (${accepterEmail})` : accepterEmail;
       return `${accepterInfo} has accepted your invitation to join ${tenantName} as a ${roleText}.`;
     }
-
     case 'invitation_expired': {
       return `The invitation sent to ${inviteeEmail} to join ${tenantName} as a ${roleText} has expired.`;
     }
-
     case 'invitation_revoked': {
       return `You have revoked the invitation for ${inviteeEmail} to join ${tenantName} as a ${roleText}.`;
     }
-
     case 'invitation_resent': {
       return `You have resent the invitation to ${inviteeEmail} to join ${tenantName} as a ${roleText}.`;
     }

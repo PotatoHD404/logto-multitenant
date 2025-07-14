@@ -114,7 +114,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
         );
 
         const duplicateConnector = await getLogtoConnectorByTargetAndPlatform(
-          metadata?.target || connectorFactory.metadata.target,
+          metadata?.target ?? connectorFactory.metadata.target,
           connectorFactory.metadata.platform
         );
         assertThat(

@@ -20,6 +20,7 @@ const base64UrlToArrayBuffer = (base64url: string): ArrayBuffer => {
   const binaryString = Buffer.from(base64, 'base64').toString('binary');
   const bytes = new Uint8Array(binaryString.length);
   for (const [index, char] of binaryString.split('').entries()) {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
     bytes[index] = char.codePointAt(0) ?? 0;
   }
   return bytes.buffer;
@@ -28,10 +29,7 @@ const base64UrlToArrayBuffer = (base64url: string): ArrayBuffer => {
 // Helper function to convert ArrayBuffer to base64url
 const arrayBufferToBase64Url = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
-  const binary = bytes.reduce(
-    (accumulator, byte) => accumulator + String.fromCodePoint(byte ?? 0),
-    ''
-  );
+  const binary = bytes.reduce((accumulator, byte) => accumulator + String.fromCodePoint(byte), '');
   return Buffer.from(binary, 'binary')
     .toString('base64')
     .replaceAll('+', '-')
@@ -113,12 +111,15 @@ function SetupWebAuthnModal() {
           },
           pubKeyCredParams: data.options.pubKeyCredParams.map((param) => ({
             alg: param.alg,
+            // eslint-disable-next-line no-restricted-syntax
             type: param.type as PublicKeyCredentialType,
           })),
           timeout: data.options.timeout,
           excludeCredentials: data.options.excludeCredentials?.map((cred) => ({
             id: base64UrlToArrayBuffer(cred.id),
+            // eslint-disable-next-line no-restricted-syntax
             type: cred.type as PublicKeyCredentialType,
+            // eslint-disable-next-line no-restricted-syntax
             transports: cred.transports as AuthenticatorTransport[],
           })),
           authenticatorSelection: data.options.authenticatorSelection
@@ -137,7 +138,13 @@ function SetupWebAuthnModal() {
         throw new Error('Failed to create WebAuthn credential');
       }
 
+      // Type guard for PublicKeyCredential
+      if (!('rawId' in credential) || !('response' in credential)) {
+        throw new Error('Invalid credential object');
+      }
+      // eslint-disable-next-line no-restricted-syntax
       const publicKeyCredential = credential as PublicKeyCredential;
+      // eslint-disable-next-line no-restricted-syntax
       const responseData = publicKeyCredential.response as AuthenticatorAttestationResponse;
 
       // Step 4: Format the response for the backend
@@ -147,7 +154,7 @@ function SetupWebAuthnModal() {
         response: {
           clientDataJSON: arrayBufferToBase64Url(responseData.clientDataJSON),
           attestationObject: arrayBufferToBase64Url(responseData.attestationObject),
-          transports: responseData.getTransports() ?? [],
+          transports: responseData.getTransports(),
         },
         type: publicKeyCredential.type,
       };

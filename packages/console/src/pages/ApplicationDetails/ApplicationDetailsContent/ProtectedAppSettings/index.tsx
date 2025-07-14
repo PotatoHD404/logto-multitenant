@@ -163,9 +163,10 @@ function ProtectedAppSettings({ data }: Props) {
                   {t('protected_app.form.errors.localhost')}
                 </Trans>
               ) : (
-                errors.protectedAppMetadata?.origin?.message ||
-                (errors.protectedAppMetadata?.origin?.type === 'required' &&
-                  t('protected_app.form.errors.url_required'))
+                (errors.protectedAppMetadata?.origin?.message ??
+                (errors.protectedAppMetadata?.origin?.type === 'required'
+                  ? t('protected_app.form.errors.url_required')
+                  : undefined))
               )
             }
             placeholder={t('protected_app.form.url_field_placeholder')}

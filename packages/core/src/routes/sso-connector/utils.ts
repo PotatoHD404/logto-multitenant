@@ -28,9 +28,10 @@ export const parseFactoryDetail = (
     logo,
     logoDark,
 
-    description: (isKeyOfI18nPhrases(locale, description) && description[locale]) || description.en,
+    description:
+      (isKeyOfI18nPhrases(locale, description) ? description[locale] : undefined) ?? description.en,
 
-    name: (isKeyOfI18nPhrases(locale, name) && name[locale]) || name.en,
+    name: (isKeyOfI18nPhrases(locale, name) ? name[locale] : undefined) ?? name.en,
   };
 };
 
@@ -76,7 +77,7 @@ export const fetchConnectorProviderDetails = async (
   return {
     ...connector,
 
-    name: (isKeyOfI18nPhrases(locale, name) && name[locale]) || name.en,
+    name: (isKeyOfI18nPhrases(locale, name) ? name[locale] : undefined) ?? name.en,
     providerType,
     providerLogo: logo,
     providerLogoDark: logoDark,

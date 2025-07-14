@@ -309,8 +309,7 @@ export const shouldThrow = () => !EnvSet.values.isProduction || EnvSet.values.is
  * **CAUTION**: This function mutates the input document.
  */
 export const pruneSwaggerDocument = (document: OpenAPIV3.Document) => {
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  const prune = (object: {}) => {
+  const prune = (object: Record<string, unknown>) => {
     if (isKeyInObject(object, '$ref')) {
       for (const key of Object.keys(object)) {
         if (key !== '$ref') {
@@ -323,12 +322,12 @@ export const pruneSwaggerDocument = (document: OpenAPIV3.Document) => {
 
     for (const value of Object.values(object)) {
       if (isObject(value)) {
-        prune(value);
+        prune(value as Record<string, unknown>);
       }
     }
   };
 
-  prune(document);
+  prune(document as unknown as Record<string, unknown>);
 };
 
 /**

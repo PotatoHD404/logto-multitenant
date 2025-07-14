@@ -146,9 +146,9 @@ function TenantBasicSettings() {
 
     setIsDeleting(true);
     try {
-      isCloud
-        ? await cloudApi.delete(`/api/tenants/:tenantId`, { params: { tenantId: currentTenantId } })
-        : await crossTenantApi.delete(`tenants/${currentTenantId}`);
+      await (isCloud
+        ? cloudApi.delete(`/api/tenants/:tenantId`, { params: { tenantId: currentTenantId } })
+        : crossTenantApi.delete(`tenants/${currentTenantId}`));
       setIsDeletionModalOpen(false);
       removeTenant(currentTenantId);
       navigateTenant('');

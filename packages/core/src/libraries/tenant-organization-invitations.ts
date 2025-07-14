@@ -3,14 +3,47 @@ import { generateStandardId } from '@logto/shared';
 
 import RequestError from '#src/errors/RequestError/index.js';
 
-export const createInvitation = async (
+type AdminOrganizations = {
+  invitations: {
+    insert: (data: {
+      id: string;
+      organizationId: string;
+      invitee: string;
+      inviterId: string;
+      status: OrganizationInvitationStatus;
+      expiresAt: number;
+    }) => Promise<{ id: string }>;
+    findEntities: (filter: { organizationId: string }) => Promise<
+      Array<{
+        id: string;
+        invitee: string;
+        status: OrganizationInvitationStatus;
+        createdAt: string;
+        expiresAt: string;
+        organizationRoles: Array<{ name: string }>;
+      }>
+    >;
+  };
+  relations: {
+    invitationsRoles: {
+      insert: (data: {
+        organizationInvitationId: string;
+        organizationRoleId: string;
+      }) => Promise<void>;
+    };
+  };
+};
+
+type TenantRoleFunction = (role: TenantRole) => { id: string };
+
+const createInvitation = async (
   tenantId: string,
   email: string,
   role: TenantRole,
   inviterId: string,
-  getAdminOrganizations: Function,
-  ensureTenantOrganization: Function,
-  getTenantRole: Function
+  getAdminOrganizations: () => Promise<AdminOrganizations>,
+  ensureTenantOrganization: (tenantId: string) => Promise<string>,
+  getTenantRole: TenantRoleFunction
 ) => {
   const organizations = await getAdminOrganizations();
   const organizationId = await ensureTenantOrganization(tenantId);
@@ -50,11 +83,11 @@ export const createInvitation = async (
   }
 };
 
-export const getTenantInvitations = async (
+const getTenantInvitations = async (
   tenantId: string,
-  { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {},
-  getAdminOrganizations: Function,
-  ensureTenantOrganization: Function
+  getAdminOrganizations: () => Promise<AdminOrganizations>,
+  ensureTenantOrganization: (tenantId: string) => Promise<string>,
+  { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {}
 ) => {
   const organizations = await getAdminOrganizations();
   const organizationId = await ensureTenantOrganization(tenantId);
@@ -69,7 +102,7 @@ export const getTenantInvitations = async (
 
   return {
     totalCount: invitations.length,
-    invitations: paginatedInvitations.map((invitation: any) => ({
+    invitations: paginatedInvitations.map((invitation) => ({
       id: invitation.id,
       email: invitation.invitee,
       role: invitation.organizationRoles[0]?.name ?? TenantRole.Collaborator,
@@ -81,3 +114,5 @@ export const getTenantInvitations = async (
     })),
   };
 };
+
+export { createInvitation, getTenantInvitations };

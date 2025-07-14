@@ -252,7 +252,7 @@ export const useAdminApi = (
   const { currentTenantId } = useContext(TenantsContext);
 
   const config = useMemo(() => {
-    const targetTenantId = tenantId ?? currentTenantId ?? defaultTenantId;
+    const targetTenantId = tenantId ?? (currentTenantId || defaultTenantId);
 
     // Use the organization token for the specific tenant being managed
     // Each tenant has a corresponding organization t-{tenantId} in the admin tenant

@@ -35,7 +35,7 @@ const pickLogoForCurrentTheme = (
   );
   const builtInLogo = pickLogoForCurrentThemeHelper(isDarkMode, logo, logoDark);
 
-  return configuredLogo || builtInLogo;
+  return configuredLogo ?? builtInLogo;
 };
 
 function SsoConnectorLogo({ className, containerClassName, data }: Props) {

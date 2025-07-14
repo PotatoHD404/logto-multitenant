@@ -242,7 +242,7 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
       const { tenantId } = ctx.guard.params;
       const { emails, role } = ctx.guard.body;
 
-      const invitationPromises = emails.map(async (email) => {
+      const invitationPromises = emails.map(async (email: string) => {
         try {
           return await tenantOrg.createInvitation(tenantId, email, role, ctx.auth.id);
         } catch (error) {
@@ -256,7 +256,10 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
 
       const invitationResults = await Promise.all(invitationPromises);
       const invitations = invitationResults.filter(
-        (invitation): invitation is NonNullable<typeof invitation> => invitation !== null
+        (
+          invitation: unknown
+        ): invitation is Exclude<(typeof invitationResults)[number], undefined> =>
+          invitation !== null
       );
 
       ctx.status = 201;

@@ -179,8 +179,8 @@ export const isEmailBlocklistPolicyEnabled = (emailBlockListPolicy: EmailBlockli
   const { blockDisposableAddresses, blockSubaddressing, customBlocklist } = emailBlockListPolicy;
 
   return (
-    blockDisposableAddresses ||
-    blockSubaddressing ||
+    blockDisposableAddresses ??
+    blockSubaddressing ??
     (customBlocklist && customBlocklist.length > 0)
   );
 };

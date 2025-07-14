@@ -146,12 +146,12 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
       const payload = {
         ...rest,
         ...conditional(
-          filteredSocialSignInConnectorTargets && {
+          (filteredSocialSignInConnectorTargets ?? false) && {
             socialSignInConnectorTargets: filteredSocialSignInConnectorTargets,
           }
         ),
         ...conditional(
-          emailBlocklistPolicy && {
+          emailBlocklistPolicy !== undefined && {
             emailBlocklistPolicy: parseEmailBlocklistPolicy(emailBlocklistPolicy),
           }
         ),
@@ -161,7 +161,7 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
 
       void quota.reportSubscriptionUpdatesUsage('mfaEnabled');
 
-      if (sentinelPolicy ?? captchaPolicy ?? emailBlocklistPolicy) {
+      if (sentinelPolicy || captchaPolicy || emailBlocklistPolicy) {
         void quota.reportSubscriptionUpdatesUsage('securityFeaturesEnabled');
       }
 

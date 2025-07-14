@@ -35,11 +35,11 @@ function LeaveCard() {
 
     setIsLoading(true);
     try {
-      isCloud
-        ? await cloudApi.delete(`/api/tenants/:tenantId/members/:userId`, {
+      await (isCloud
+        ? cloudApi.delete(`/api/tenants/:tenantId/members/:userId`, {
             params: { tenantId: currentTenantId, userId: user.id },
           })
-        : await localApi.delete(`api/tenants/${currentTenantId}/members/${user.id}`);
+        : localApi.delete(`api/tenants/${currentTenantId}/members/${user.id}`));
       removeTenant(currentTenantId);
       navigateTenant('');
     } finally {

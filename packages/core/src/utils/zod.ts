@@ -210,10 +210,9 @@ export const zodTypeToSwagger = (
   }
 
   if (config instanceof ZodNativeEnum || config instanceof ZodEnum) {
+    // Zod enums are always objects with string values
     return {
       type: 'string',
-      // Type from Zod is any
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       enum: Object.values(config.enum),
     };
   }
@@ -227,21 +226,18 @@ export const zodTypeToSwagger = (
   }
 
   if (config instanceof ZodUnion || config instanceof ZodDiscriminatedUnion) {
+    // ZodUnion.options is not strictly typed, so we use a type guard
+    const options = Array.isArray(config.options) ? config.options : [];
     return {
-      // ZodUnion.options type is any
-      // eslint-disable-next-line no-restricted-syntax
-      oneOf: (config.options as unknown[]).map((option) => zodTypeToSwagger(option)),
+      oneOf: options.map((option: unknown) => zodTypeToSwagger(option)),
     };
   }
 
   if (config instanceof ZodObject) {
-    // Type from Zod is any
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const entries = Object.entries(config.shape);
     const required = entries
       .filter(([, value]) => !(value instanceof ZodOptional))
       .map(([key]) => key);
-
     return {
       type: 'object',
       required: conditional(required.length > 0 && required),

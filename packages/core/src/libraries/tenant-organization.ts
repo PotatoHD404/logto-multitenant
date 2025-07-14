@@ -5,7 +5,13 @@
  * that represent user tenants for member management.
  */
 
-import { TenantRole, adminTenantId, getTenantRole, getTenantOrganizationId } from '@logto/schemas';
+import {
+  TenantRole,
+  adminTenantId,
+  getTenantRole,
+  getTenantOrganizationId,
+  OrganizationInvitationStatus,
+} from '@logto/schemas';
 import { sql } from '@silverhand/slonik';
 
 import { type SearchOptions } from '#src/database/utils.js';
@@ -214,14 +220,8 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     return scopes.map((scope) => scope.name);
   };
 
-  /**
-   * Get tenant permissions for a user based on their organization roles.
-   * This maps organization scopes to actual tenant permission strings.
-   */
   const getTenantPermissions = async (tenantId: string, userId: string): Promise<string[]> => {
     const scopes = await getUserScopes(tenantId, userId);
-
-    // Map organization scopes to tenant permissions
     const permissions = new Set<string>();
 
     for (const scope of scopes) {
@@ -358,6 +358,67 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     };
   };
 
+  // Add invitation management methods
+  const getTenantInvitations = async (
+    tenantId: string,
+    { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {}
+  ) => {
+    const organizations = await getAdminOrganizations();
+    const organizationId = await ensureTenantOrganization(tenantId);
+    const invitations = await organizations.invitations.findEntities({ organizationId });
+    const paginatedInvitations = invitations.slice(offset, offset + limit);
+    return {
+      totalCount: invitations.length,
+      invitations: paginatedInvitations.map((invitation: Record<string, unknown>) => ({
+        id: invitation.id as string,
+        email: invitation.invitee as string,
+        role:
+          (invitation.organizationRoles as Array<{ name: string }>)[0]?.name ??
+          TenantRole.Collaborator,
+        status: OrganizationInvitationStatus.Pending,
+        createdAt: new Date(invitation.createdAt as string).toISOString(),
+        expiresAt: new Date(invitation.expiresAt as string).toISOString(),
+        invitee: invitation.invitee as string,
+        organizationRoles: invitation.organizationRoles as Array<{ name: string }>,
+      })),
+    };
+  };
+
+  const createInvitation = async (
+    tenantId: string,
+    email: string,
+    role: TenantRole,
+    inviterId: string
+  ) => {
+    const organizations = await getAdminOrganizations();
+    const organizationId = await ensureTenantOrganization(tenantId);
+    const roleId = role;
+    try {
+      const invitation = await organizations.invitations.insert({
+        id: email + '-' + Date.now(), // Use a unique id logic as needed
+        organizationId,
+        invitee: email,
+        inviterId,
+        status: OrganizationInvitationStatus.Pending,
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+      await organizations.relations.invitationsRoles.insert({
+        organizationInvitationId: invitation.id,
+        organizationRoleId: roleId,
+      });
+      return invitation;
+    } catch (error) {
+      if (error instanceof RequestError && error.code === 'entity.unique_integrity_violation') {
+        throw error;
+      }
+      throw new RequestError({
+        code: 'entity.create_failed',
+        status: 500,
+        data: { email, tenantId },
+      });
+    }
+  };
+
   return {
     ensureTenantOrganization,
     addUserToTenant,
@@ -367,5 +428,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     getTenantPermissions,
     provisionAdminUsersToNewTenant,
     getTenantMembers,
+    getTenantInvitations,
+    createInvitation,
   };
 };

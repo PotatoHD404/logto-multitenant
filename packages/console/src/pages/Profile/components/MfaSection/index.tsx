@@ -63,6 +63,7 @@ function MfaSection() {
     return (
       <FormCard title="profile.set_up_mfa.title">
         <div className={styles.error}>
+          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {error.body?.message ?? error.message ?? t('general.unknown_error')}
         </div>
       </FormCard>
@@ -85,6 +86,7 @@ function MfaSection() {
 
     return {
       key: factor.type,
+      // eslint-disable-next-line no-restricted-syntax
       label: (factor.type === MfaFactor.TOTP
         ? 'profile.set_up_mfa.totp_name'
         : factor.type === MfaFactor.WebAuthn
@@ -92,7 +94,7 @@ function MfaSection() {
           : 'profile.set_up_mfa.backup_code_name') as AdminConsoleKey,
       value: existingVerification?.createdAt,
       renderer: (value: string | undefined) => {
-        if (value !== null && value !== undefined) {
+        if (value) {
           return (
             <div className={styles.factorStatus}>
               <div className={styles.statusBadge}>{t('profile.set_up_mfa.configured')}</div>
@@ -107,12 +109,14 @@ function MfaSection() {
       action:
         isConfigured && existingVerification
           ? {
+              // eslint-disable-next-line no-restricted-syntax
               name: 'general.delete' as AdminConsoleKey,
               handler: async () => {
                 await handleDelete(existingVerification);
               },
             }
           : {
+              // eslint-disable-next-line no-restricted-syntax
               name: 'profile.set_up_mfa.setup' as AdminConsoleKey,
               handler: async () => {
                 handleSetupMfa(factor.type);

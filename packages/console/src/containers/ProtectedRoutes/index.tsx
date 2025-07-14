@@ -26,7 +26,10 @@ type LocalTenantResponse = {
 
 // Add a type guard for TenantTag
 function isTenantTag(tag: unknown): tag is TenantTag {
-  return typeof tag === 'string' && Object.values(TenantTag).includes(tag as TenantTag);
+  if (typeof tag !== 'string') {
+    return false;
+  }
+  return tag === TenantTag.Development || tag === TenantTag.Production;
 }
 
 /**
@@ -90,7 +93,7 @@ export default function ProtectedRoutes() {
                 name: tenant.name,
                 tag,
                 createdAt: new Date(tenant.createdAt),
-                isSuspended: tenant.isSuspended ?? false,
+                isSuspended: typeof tenant.isSuspended === 'boolean' ? tenant.isSuspended : false,
               };
             });
             resetTenants(tenantResponses);

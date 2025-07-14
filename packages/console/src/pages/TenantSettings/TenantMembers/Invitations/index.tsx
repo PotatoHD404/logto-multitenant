@@ -1,3 +1,4 @@
+import type { AdminConsoleKey } from '@logto/phrases';
 import { OrganizationInvitationStatus } from '@logto/schemas';
 import classNames from 'classnames';
 import { useContext, useState } from 'react';
@@ -105,7 +106,7 @@ function Invitations() {
       toast.success(t('messages.invitation_revoked'));
     } catch (error) {
       console.error('Failed to revoke invitation:', error);
-      toast.error(t('errors.generic'));
+      toast.error(t('errors.generic', { defaultValue: 'An error occurred.' }));
     }
   };
 
@@ -202,6 +203,7 @@ function Invitations() {
                 new Date(invitation.expiresAt)
               );
               const effectiveStatus = isExpired ? 'Expired' : status;
+              // eslint-disable-next-line no-restricted-syntax
               const color =
                 invitationStatusColorMap[effectiveStatus as keyof typeof invitationStatusColorMap];
 
@@ -212,7 +214,11 @@ function Invitations() {
                     variant="cell"
                     type={color}
                   >
-                    <DynamicT forKey={`tenant_members.invitation_statuses.${effectiveStatus}`} />
+                    {/* Ensure all possible keys for invitation_statuses are present in the translation type definition */}
+                    {/* eslint-disable-next-line no-restricted-syntax */}
+                    <DynamicT
+                      forKey={`invitation_statuses.${effectiveStatus}` as AdminConsoleKey}
+                    />
                   </Tag>
                 </div>
               );
@@ -247,15 +253,6 @@ function Invitations() {
               <ActionsButton
                 fieldName="tenant_members.user"
                 deleteConfirmation="tenant_members.delete_user_confirm"
-                customActions={[
-                  {
-                    key: 'revoke',
-                    name: t('revoke'),
-                    handler: () => {
-                      void handleRevoke(invitation.id);
-                    },
-                  },
-                ]}
                 textOverrides={{
                   edit: 'tenant_members.menu_options.resend',
                   delete: 'tenant_members.menu_options.delete',
@@ -271,7 +268,9 @@ function Invitations() {
                 onDelete={
                   canRemoveMember
                     ? () => {
-                        void handleDelete(invitation.id);
+                        if ('id' in invitation) {
+                          void handleDelete(invitation.id);
+                        }
                       }
                     : undefined
                 }

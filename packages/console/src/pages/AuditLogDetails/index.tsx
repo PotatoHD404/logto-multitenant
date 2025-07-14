@@ -53,13 +53,13 @@ function AuditLogDetails() {
     conditional(
       hookId &&
         t('log_details.back_to', {
-          name: hookData?.name || t('general.unnamed'),
+          name: hookData?.name ?? t('general.unnamed'),
         })
     ) ??
     conditional(
       appId &&
         t('log_details.back_to', {
-          name: appData?.name || t('general.unnamed'),
+          name: appData?.name ?? t('general.unnamed'),
         })
     ) ??
     t('log_details.back_to_logs');

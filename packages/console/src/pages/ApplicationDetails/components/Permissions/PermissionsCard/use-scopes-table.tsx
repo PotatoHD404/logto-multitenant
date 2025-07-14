@@ -34,7 +34,10 @@ type ResourceScopeTableRowDataType = {
   resourceName: string;
 } & ApplicationUserConsentScopesResponse['resourceScopes'][number]['scopes'][number];
 
-export type ScopesTableRowDataType = UserScopeTableRowDataType | OrganizationScopeTableRowDataType;
+export type ScopesTableRowDataType =
+  | UserScopeTableRowDataType
+  | OrganizationScopeTableRowDataType
+  | ResourceScopeTableRowDataType;
 
 type ScopesTableRowGroupType = {
   key: string;
@@ -88,7 +91,7 @@ const useScopesTable = () => {
           id: scope,
           name: scope,
           // We have ':' in the user scope, need to change the nsSeparator to '|' to avoid i18n ns matching
-          description: experienceT(`descriptions.${scope}`, { nsSeparator: '|' }),
+          description: String(experienceT(`descriptions.${scope}`, { nsSeparator: '|' })),
         })),
       };
 
@@ -158,18 +161,24 @@ const useScopesTable = () => {
 
       if (type === ApplicationUserConsentScopeType.ResourceScopes) {
         const { resourceId } = scope;
-
         await api.patch(`api/resources/${resourceId}/scopes/${id}`, {
           json: {
             description,
           },
         });
-
-        return;
       }
 
       if (type === ApplicationUserConsentScopeType.OrganizationScopes) {
         await api.patch(`api/organization-scopes/${id}`, {
+          json: {
+            description,
+          },
+        });
+      }
+
+      if (type === ApplicationUserConsentScopeType.OrganizationResourceScopes) {
+        const { resourceId } = scope;
+        await api.patch(`api/organization-resources/${resourceId}/scopes/${id}`, {
           json: {
             description,
           },

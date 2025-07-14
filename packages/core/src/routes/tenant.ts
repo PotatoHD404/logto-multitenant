@@ -260,7 +260,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
 
       if (!disabled) {
         ctx.set('X-Total-Count', String(totalCount));
-        ctx.set('X-Page-Count', String(Math.ceil(totalCount / (limit ?? 1))));
+        ctx.set('X-Page-Count', String(Math.ceil(totalCount / (limit || 1))));
       }
 
       return next();
@@ -488,7 +488,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       const { auth } = ctx;
 
       assertThat(auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
-      const { id: userId } = auth as { id: string };
+      const { id: userId } = auth;
 
       const sharedPool = await EnvSet.sharedPool;
       const tenant = await sharedPool.maybeOne<TenantDatabaseRow>(sql`
@@ -557,7 +557,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     koaTenantWriteAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { id } = ctx.guard.params;
-      const updates = ctx.guard.body as { name?: string; tag?: TenantTag };
+      const updates = ctx.guard.body;
 
       assertThat(
         Object.keys(updates).length > 0,

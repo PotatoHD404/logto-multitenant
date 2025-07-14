@@ -50,7 +50,7 @@ function SetupBackupCodeModal() {
     }
 
     const generateCodes = async () => {
-      setIsLoading(true);
+      setIsLoading(() => true);
       try {
         const response = await api.post('me/mfa-verifications', {
           json: { type: MfaFactor.BackupCode },
@@ -63,7 +63,7 @@ function SetupBackupCodeModal() {
           return true;
         });
       } finally {
-        setIsLoading(false);
+        setIsLoading(() => false);
       }
     };
 
@@ -96,7 +96,9 @@ function SetupBackupCodeModal() {
     const blob = new Blob([codesText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const downloadLink = document.createElement('a');
+    // eslint-disable-next-line @silverhand/fp/no-mutation
     downloadLink.href = url;
+    // eslint-disable-next-line @silverhand/fp/no-mutation
     downloadLink.download = 'backup-codes.txt';
     document.body.append(downloadLink);
     downloadLink.click();
@@ -116,7 +118,7 @@ function SetupBackupCodeModal() {
       onClose();
     } catch (error: unknown) {
       void handleError(error, async (_, message) => {
-        setError(() => message);
+        setError(message);
         return true;
       });
     }
@@ -202,9 +204,9 @@ function SetupBackupCodeModal() {
             </div>
 
             <div className={styles.codesList}>
-              {backupCodes.codes.map((code, index) => (
-                <div key={`backup-code-${code}-${index}`} className={styles.codeItem}>
-                  <span className={styles.codeNumber}>{index + 1}.</span>
+              {backupCodes.codes.map((code) => (
+                <div key={`backup-code-${code}`} className={styles.codeItem}>
+                  <span className={styles.codeNumber}>{backupCodes.codes.indexOf(code) + 1}.</span>
                   <span className={styles.codeValue}>{code}</span>
                 </div>
               ))}
@@ -242,7 +244,7 @@ function SetupBackupCodeModal() {
               type="checkbox"
               checked={isConfirmed}
               onChange={(event) => {
-                setIsConfirmed(() => event.target.checked);
+                setIsConfirmed(event.target.checked);
               }}
             />
             {t('profile.set_up_mfa.confirm_backup_codes_saved')}

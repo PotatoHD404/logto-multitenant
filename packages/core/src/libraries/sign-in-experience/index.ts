@@ -84,7 +84,8 @@ export const createSignInExperienceLibrary = (
       const factory = ssoConnectorFactories[providerName];
       const { name, logo, logoDark } = factory;
 
-      const providerNameInLocale = (isKeyOfI18nPhrases(locale, name) && name[locale]) || name.en;
+      const providerNameInLocale =
+        (isKeyOfI18nPhrases(locale, name) ? name[locale] : undefined) ?? name.en;
 
       return {
         id,
