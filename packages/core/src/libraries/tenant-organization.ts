@@ -10,7 +10,7 @@ import { generateStandardId } from '@logto/shared';
 import type { CommonQueryMethods } from '@silverhand/slonik';
 
 import RequestError from '#src/errors/RequestError/index.js';
-import type Queries from '#src/tenants/Queries.js';
+import Queries from '#src/tenants/Queries.js';
 import { EnvSet } from '#src/env-set/index.js';
 import { sql } from '@silverhand/slonik';
 
@@ -18,13 +18,19 @@ export type TenantOrganizationLibrary = ReturnType<typeof createTenantOrganizati
 
 export const createTenantOrganizationLibrary = (queries: Queries) => {
   const {
-    organizations,
     tenants,
   } = queries;
 
+  // Create admin tenant queries to ensure all organization operations happen in admin tenant
+  const getAdminOrganizations = async () => {
+    const sharedPool = await EnvSet.sharedPool;
+    const adminQueries = new Queries(sharedPool, queries.wellKnownCache, adminTenantId, queries.envSet);
+    return adminQueries.organizations;
+  };
+
   const ensureTenantOrganization = async (tenantId: string, tenantName?: string) => {
     const organizationId = getTenantOrganizationId(tenantId);
-    
+    const organizations = await getAdminOrganizations();
     try {
       // Check if organization already exists
       await organizations.findById(organizationId);
@@ -38,6 +44,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
         // Special case for admin tenant: use "Admin tenant" instead of "Tenant admin"
         const organizationName = tenantId === adminTenantId ? 'Admin tenant' : `Tenant ${displayName}`;
         
+        const organizations = await getAdminOrganizations();
         await organizations.insert({
           id: organizationId,
           tenantId: adminTenantId,
@@ -60,6 +67,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
   };
 
   const addUserToTenant = async (tenantId: string, userId: string, role: TenantRole = TenantRole.Collaborator) => {
+    const organizations = await getAdminOrganizations();
     const organizationId = await ensureTenantOrganization(tenantId);
     
     // Check if user is already a member
@@ -91,6 +99,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
 
   const removeUserFromTenant = async (tenantId: string, userId: string) => {
     const organizationId = getTenantOrganizationId(tenantId);
+    const organizations = await getAdminOrganizations();
     
     // Check if user is a member
     const isMember = await organizations.relations.users.exists({
@@ -133,6 +142,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
 
   const updateUserRole = async (tenantId: string, userId: string, newRole: TenantRole) => {
     const organizationId = getTenantOrganizationId(tenantId);
+    const organizations = await getAdminOrganizations();
     
     // Check if user is a member
     const isMember = await organizations.relations.users.exists({
@@ -172,6 +182,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
 
   const getUserScopes = async (tenantId: string, userId: string): Promise<string[]> => {
     const organizationId = getTenantOrganizationId(tenantId);
+    const organizations = await getAdminOrganizations();
     
     // Check if user is a member
     const isMember = await organizations.relations.users.exists({
@@ -238,6 +249,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
    */
   const provisionAdminUsersToNewTenant = async (tenantId: string) => {
     const { isCloud } = EnvSet.values;
+    const organizations = await getAdminOrganizations();
     
     // Only do this for local OSS multi-tenant setups
     if (isCloud) {
@@ -290,6 +302,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {},
     search?: any
   ) => {
+    const organizations = await getAdminOrganizations();
     const organizationId = await ensureTenantOrganization(tenantId);
     
     const [totalCount, members] = await organizations.relations.users.getUsersByOrganizationId(
@@ -320,6 +333,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     role: TenantRole,
     inviterId: string
   ) => {
+    const organizations = await getAdminOrganizations();
     const organizationId = await ensureTenantOrganization(tenantId);
     
     // Get role ID for the specified tenant role
@@ -360,6 +374,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     tenantId: string,
     { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {}
   ) => {
+    const organizations = await getAdminOrganizations();
     const organizationId = await ensureTenantOrganization(tenantId);
     
     // Use findEntities method with organizationId filter
