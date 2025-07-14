@@ -98,13 +98,15 @@ function koaOrganizationAuth<StateT, ContextT extends IRouterParamContext, Respo
 
 // Break down complex function into smaller functions
 function extractFromAuthContext(auth: AuthContext): string | undefined {
-  if (auth?.audience) {
-    const audience = Array.isArray(auth.audience) ? auth.audience[0] : auth.audience;
-    if (typeof audience === 'string' && audience.startsWith('urn:logto:organization:')) {
-      const organizationId = getOrganizationIdFromUrn(audience);
-      if (organizationId) {
-        return organizationId;
-      }
+  if (!auth.audience) {
+    return undefined;
+  }
+  
+  const audience = Array.isArray(auth.audience) ? auth.audience[0] : auth.audience;
+  if (typeof audience === 'string' && audience.startsWith('urn:logto:organization:')) {
+    const organizationId = getOrganizationIdFromUrn(audience);
+    if (organizationId) {
+      return organizationId;
     }
   }
   return undefined;

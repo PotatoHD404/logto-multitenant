@@ -24,6 +24,11 @@ type LocalTenantResponse = {
   isSuspended?: boolean;
 };
 
+// Add a type guard for TenantTag
+function isTenantTag(tag: unknown): tag is TenantTag {
+  return typeof tag === 'string' && Object.values(TenantTag).includes(tag as TenantTag);
+}
+
 /**
  * The container for all protected routes. It renders `<AppLoading />` when the user is not
  * authenticated or the user is authenticated but the tenant is not initialized.
@@ -77,14 +82,17 @@ export default function ProtectedRoutes() {
             const tenants = await crossTenantApi.get('tenants').json<LocalTenantResponse[]>();
 
             // Convert local API response to match TenantResponse format
-            const tenantResponses: TenantResponse[] = tenants.map((tenant) => ({
-              ...defaultTenantResponse,
-              id: tenant.id,
-              name: tenant.name,
-              tag: tenant.tag as TenantTag,
-              createdAt: new Date(tenant.createdAt),
-              isSuspended: tenant.isSuspended ?? false,
-            }));
+            const tenantResponses: TenantResponse[] = tenants.map((tenant) => {
+              const tag = isTenantTag(tenant.tag) ? tenant.tag : TenantTag.Development;
+              return {
+                ...defaultTenantResponse,
+                id: tenant.id,
+                name: tenant.name,
+                tag,
+                createdAt: new Date(tenant.createdAt),
+                isSuspended: tenant.isSuspended ?? false,
+              };
+            });
             resetTenants(tenantResponses);
           }
         } catch (error) {

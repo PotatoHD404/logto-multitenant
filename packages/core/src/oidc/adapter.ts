@@ -75,11 +75,7 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
           commonTenantIds.map((tenantId) => appendPath(url, `/console/${tenantId}`).href)
         );
 
-      return [
-        ...updatedPostLogoutRedirectUris,
-        ...basePaths,
-        ...tenantSpecificUrls,
-      ];
+      return [...updatedPostLogoutRedirectUris, ...basePaths, ...tenantSpecificUrls];
     }
 
     return updatedPostLogoutRedirectUris;

@@ -11,7 +11,12 @@ import type { ConnectorLibrary } from '#src/libraries/connector.js';
 import type Queries from '#src/tenants/Queries.js';
 import { unknownConsole } from '#src/utils/console.js';
 
-type NotificationType = 'invitation_sent' | 'invitation_accepted' | 'invitation_expired' | 'invitation_revoked' | 'invitation_resent';
+type NotificationType =
+  | 'invitation_sent'
+  | 'invitation_accepted'
+  | 'invitation_expired'
+  | 'invitation_revoked'
+  | 'invitation_resent';
 
 /**
  * Get pending invitations that are about to expire (within 24 hours).
@@ -58,7 +63,7 @@ async function processExpiredInvitations(
           await sendNotificationToInviter(
             {
               inviterEmail: inviter.primaryEmail ?? undefined,
-              type: 'invitation_expired' as NotificationType,
+              type: 'invitation_expired',
               tenantName: `Tenant ${tenantId}`, // Use tenant ID as fallback name
               inviteeEmail: invitation.invitee,
               role: TenantRole.Collaborator, // Default role, should be determined from invitation
@@ -169,9 +174,6 @@ function getNotificationSubject(type: NotificationType, tenantName: string): str
     case 'invitation_resent': {
       return `Invitation resent for ${tenantName}`;
     }
-    default: {
-      return `Notification for ${tenantName}`;
-    }
   }
 }
 
@@ -209,9 +211,6 @@ function getNotificationContent(context: {
 
     case 'invitation_resent': {
       return `You have resent the invitation to ${inviteeEmail} to join ${tenantName} as a ${roleText}.`;
-    }
-    default: {
-      return `Notification for ${tenantName}`;
     }
   }
 }

@@ -58,8 +58,12 @@ export default function adminUserSessionsRoutes<T extends ManagementApiRouter>(
         id: session.id,
         sessionUid: session.sessionUid,
         deviceInfo: {
-          userAgent: typeof session.lastSubmission?.userAgent === 'string' ? session.lastSubmission.userAgent : undefined,
-          ip: typeof session.lastSubmission?.ip === 'string' ? session.lastSubmission.ip : undefined,
+          userAgent:
+            typeof session.lastSubmission?.userAgent === 'string'
+              ? session.lastSubmission.userAgent
+              : undefined,
+          ip:
+            typeof session.lastSubmission?.ip === 'string' ? session.lastSubmission.ip : undefined,
         },
         createdAt: session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now(),
         lastActiveAt: session.updatedAt ? new Date(session.updatedAt).getTime() : undefined,

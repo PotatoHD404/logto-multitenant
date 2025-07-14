@@ -201,7 +201,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     }),
     koaTenantManagementAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
-      const { limit, offset, disabled } = ctx.pagination;
+      const { limit, offset, disabled } = ctx.pagination as { limit: number; offset: number; disabled: boolean };
       const { auth } = ctx;
 
       assertThat(auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
@@ -446,7 +446,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         await tenantOrg.ensureTenantOrganization(newTenant.id, newTenant.name);
 
         // Assign the creating user as an admin of the new tenant
-        const userId = ctx.auth.id;
+        const userId = ctx.auth?.id;
         await tenantOrg.addUserToTenant(newTenant.id, userId, TenantRole.Admin);
       } catch (error) {
         // If organization creation or user assignment fails, log the error but don't block tenant creation
@@ -462,7 +462,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         id: newTenant.id,
         name: newTenant.name,
         tag: newTenant.tag,
-        createdAt: newTenant.created_at?.toISOString() ?? new Date().toISOString(),
+        createdAt: newTenant.created_at.toISOString(),
         isSuspended: newTenant.is_suspended,
       };
 
@@ -484,7 +484,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       const { auth } = ctx;
 
       assertThat(auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
-      const { id: userId } = auth;
+      const { id: userId } = auth as { id: string };
 
       const sharedPool = await EnvSet.sharedPool;
       const tenant = await sharedPool.maybeOne<TenantDatabaseRow>(sql`
@@ -533,7 +533,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         id: tenant.id,
         name: tenant.name,
         tag: tenant.tag,
-        createdAt: tenant.created_at?.toISOString() ?? new Date().toISOString(),
+        createdAt: tenant.created_at.toISOString(),
         isSuspended: tenant.is_suspended,
       };
 
@@ -553,7 +553,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     koaTenantWriteAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { id } = ctx.guard.params;
-      const updates = ctx.guard.body;
+      const updates = ctx.guard.body as { name?: string; tag?: TenantTag };
 
       assertThat(
         Object.keys(updates).length > 0,
@@ -608,7 +608,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         id: tenant.id,
         name: tenant.name,
         tag: tenant.tag,
-        createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
+        createdAt: tenant.created_at.toISOString(),
         isSuspended: tenant.is_suspended,
       };
 
@@ -643,7 +643,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
 
       try {
         // Drop the database role if it exists
-        if (tenant.db_user) {
+        if (tenant.db_user && tenant.db_user.length > 0) {
           await sharedPool.query(sql`
             DROP ROLE IF EXISTS ${sql.identifier([tenant.db_user])}
           `);

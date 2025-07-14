@@ -179,5 +179,3 @@ const useInkeepConfigs = () => {
     [theme, t, isRtl]
   );
 };
-
-// export default useInkeepConfigs;

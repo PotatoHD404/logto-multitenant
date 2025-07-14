@@ -90,9 +90,9 @@ function MfaSection() {
         : factor.type === MfaFactor.WebAuthn
           ? 'profile.set_up_mfa.webauthn_name'
           : 'profile.set_up_mfa.backup_code_name') as AdminConsoleKey,
-      value: existingVerification?.createdAt ?? undefined,
+      value: existingVerification?.createdAt,
       renderer: (value: string | undefined) => {
-        if (value != null) {
+        if (value !== null && value !== undefined) {
           return (
             <div className={styles.factorStatus}>
               <div className={styles.statusBadge}>{t('profile.set_up_mfa.configured')}</div>
@@ -108,7 +108,9 @@ function MfaSection() {
         isConfigured && existingVerification
           ? {
               name: 'general.delete' as AdminConsoleKey,
-              handler: async () => handleDelete(existingVerification),
+              handler: async () => {
+                await handleDelete(existingVerification);
+              },
             }
           : {
               name: 'profile.set_up_mfa.setup' as AdminConsoleKey,

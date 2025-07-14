@@ -59,7 +59,7 @@ function SetupBackupCodeModal() {
         setBackupCodes(data);
       } catch (error: unknown) {
         void handleError(error, async (_, message) => {
-          setError(message);
+          setError(() => message);
           return true;
         });
       } finally {
@@ -116,7 +116,7 @@ function SetupBackupCodeModal() {
       onClose();
     } catch (error: unknown) {
       void handleError(error, async (_, message) => {
-        setError(message);
+        setError(() => message);
         return true;
       });
     }
@@ -203,7 +203,7 @@ function SetupBackupCodeModal() {
 
             <div className={styles.codesList}>
               {backupCodes.codes.map((code, index) => (
-                <div key={`backup-code-${index}`} className={styles.codeItem}>
+                <div key={`backup-code-${code}-${index}`} className={styles.codeItem}>
                   <span className={styles.codeNumber}>{index + 1}.</span>
                   <span className={styles.codeValue}>{code}</span>
                 </div>
@@ -242,7 +242,7 @@ function SetupBackupCodeModal() {
               type="checkbox"
               checked={isConfirmed}
               onChange={(event) => {
-                setIsConfirmed(event.target.checked);
+                setIsConfirmed(() => event.target.checked);
               }}
             />
             {t('profile.set_up_mfa.confirm_backup_codes_saved')}
