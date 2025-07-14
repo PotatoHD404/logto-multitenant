@@ -42,7 +42,7 @@ export class TenantInvitationEmailLibrary {
       // Prepare email template data
       const templateData = {
         tenantName,
-        inviterName: inviterName || 'Someone',
+        inviterName: inviterName ?? 'Someone',
         role: role === TenantRole.Admin ? 'Administrator' : 'Collaborator',
         invitationUrl,
         expiresAt,
@@ -75,7 +75,7 @@ export class TenantInvitationEmailLibrary {
   generateInvitationUrl(invitationId: string): string {
     // This would typically be configured based on the tenant's domain
     // For now, use a default pattern
-    return `${process.env.LOGTO_ENDPOINT || 'http://localhost:3001'}/invitation/${invitationId}`;
+    return `${process.env.LOGTO_ENDPOINT ?? 'http://localhost:3001'}/invitation/${invitationId}`;
   }
 
   /**

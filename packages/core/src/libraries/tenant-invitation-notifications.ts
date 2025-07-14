@@ -121,6 +121,60 @@ export class TenantInvitationNotificationLibrary {
   }
 
   /**
+   * Get pending invitations that are about to expire (within 24 hours).
+   */
+  async getPendingExpiredInvitations(): Promise<
+    Array<{
+      id: string;
+      invitee: string;
+      inviterId: string;
+      organizationId: string;
+      expiresAt: number;
+    }>
+  > {
+    const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
+
+    try {
+      // This would query the database for invitations expiring soon
+      // For now, return empty array as we don't have direct database access here
+      return [];
+    } catch (error) {
+      unknownConsole.error('Failed to get pending expired invitations:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Process expired invitations and send notifications.
+   */
+  async processExpiredInvitations(): Promise<void> {
+    const expiredInvitations = await this.getPendingExpiredInvitations();
+
+    for (const invitation of expiredInvitations) {
+      try {
+        // Get tenant and inviter details
+        const tenantId = invitation.organizationId.replace(/^t-/, '');
+        const tenant = await this.queries.tenants.findTenantSuspendStatusById(tenantId);
+        const inviter = await this.queries.users.findUserById(invitation.inviterId);
+
+        if (tenant && inviter) {
+          await this.notifyInvitationExpired({
+            tenantId,
+            tenantName: `Tenant ${tenantId}`, // Use tenant ID as fallback name
+            invitationId: invitation.id,
+            inviteeEmail: invitation.invitee,
+            inviterEmail: inviter.primaryEmail ?? undefined,
+            inviterName: inviter.name ?? undefined,
+            role: TenantRole.Collaborator, // Default role, should be determined from invitation
+          });
+        }
+      } catch (error) {
+        unknownConsole.error('Failed to process expired invitation:', invitation.id, error);
+      }
+    }
+  }
+
+  /**
    * Send notification email to the inviter.
    */
   private async sendNotificationToInviter(context: InvitationNotificationContext): Promise<void> {
@@ -197,9 +251,6 @@ export class TenantInvitationNotificationLibrary {
       case InvitationNotificationType.InvitationResent: {
         return `Invitation resent for ${tenantName}`;
       }
-      default: {
-        return `Invitation update for ${tenantName}`;
-      }
     }
   }
 
@@ -230,64 +281,6 @@ export class TenantInvitationNotificationLibrary {
 
       case InvitationNotificationType.InvitationResent: {
         return `You have resent the invitation to ${inviteeEmail} to join ${tenantName} as a ${roleText}.`;
-      }
-
-      default: {
-        return `There has been an update to the invitation for ${inviteeEmail} to join ${tenantName}.`;
-      }
-    }
-  }
-
-  /**
-   * Get pending invitations that are about to expire (within 24 hours).
-   */
-  async getPendingExpiredInvitations(): Promise<
-    Array<{
-      id: string;
-      invitee: string;
-      inviterId: string;
-      organizationId: string;
-      expiresAt: number;
-    }>
-  > {
-    const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
-
-    try {
-      // This would query the database for invitations expiring soon
-      // For now, return empty array as we don't have direct database access here
-      return [];
-    } catch (error) {
-      unknownConsole.error('Failed to get pending expired invitations:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Process expired invitations and send notifications.
-   */
-  async processExpiredInvitations(): Promise<void> {
-    const expiredInvitations = await this.getPendingExpiredInvitations();
-
-    for (const invitation of expiredInvitations) {
-      try {
-        // Get tenant and inviter details
-        const tenantId = invitation.organizationId.replace(/^t-/, '');
-        const tenant = await this.queries.tenants.findTenantSuspendStatusById(tenantId);
-        const inviter = await this.queries.users.findUserById(invitation.inviterId);
-
-        if (tenant && inviter) {
-          await this.notifyInvitationExpired({
-            tenantId,
-            tenantName: `Tenant ${tenantId}`, // Use tenant ID as fallback name
-            invitationId: invitation.id,
-            inviteeEmail: invitation.invitee,
-            inviterEmail: inviter.primaryEmail ?? undefined,
-            inviterName: inviter.name ?? undefined,
-            role: TenantRole.Collaborator, // Default role, should be determined from invitation
-          });
-        }
-      } catch (error) {
-        unknownConsole.error('Failed to process expired invitation:', invitation.id, error);
       }
     }
   }

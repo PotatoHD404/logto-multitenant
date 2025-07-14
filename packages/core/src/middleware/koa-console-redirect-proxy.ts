@@ -19,8 +19,8 @@ export default function koaConsoleRedirectProxy<
     // Check for authentication more robustly
     const hasAuthHeader = Boolean(ctx.headers.authorization?.startsWith('Bearer '));
     const hasSessionCookie = Boolean(
-      ctx.cookies.get('logto:admin') ||
-        ctx.cookies.get('_interaction') ||
+      ctx.cookies.get('logto:admin') ??
+        ctx.cookies.get('_interaction') ??
         ctx.cookies.get('_session')
     );
     const isAuthenticated = hasAuthHeader || hasSessionCookie;

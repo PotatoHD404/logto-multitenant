@@ -48,12 +48,12 @@ const tenantResponseGuard = object({
 });
 
 // Helper function to convert tenant database row to LocalTenantResponse format
-const convertTenantToLocalTenantResponse = (tenant: any) => ({
+const convertTenantToLocalTenantResponse = (tenant: TenantDatabaseRow) => ({
   id: tenant.id,
   name: tenant.name,
   tag: tenant.tag,
-  createdAt: tenant.createdAt ? new Date(tenant.createdAt).toISOString() : new Date().toISOString(),
-  isSuspended: tenant.isSuspended || false,
+  createdAt: new Date(tenant.created_at).toISOString(),
+  isSuspended: tenant.is_suspended,
 });
 
 /**
@@ -146,7 +146,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
   }
 
   // Reject all non admin tenant IDs
-  if (tenant.id != adminTenantId) {
+  if (tenant.id !== adminTenantId) {
     return;
   }
 
@@ -247,7 +247,6 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
             }
           } catch {
             // If we can't check membership, skip this tenant
-            continue;
           }
         }
       }

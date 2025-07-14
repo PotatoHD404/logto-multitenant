@@ -40,16 +40,18 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
 
   const ensureTenantOrganization = async (tenantId: string, tenantName?: string) => {
     const organizationId = getTenantOrganizationId(tenantId);
-    
+
     try {
       const organizations = await getAdminOrganizations();
-      const existingOrganization = await organizations.findById(organizationId);
-      if (existingOrganization) {
+      try {
+        await organizations.findById(organizationId);
         return organizationId;
+      } catch {
+        // Organization doesn't exist, create it
       }
 
       // Use the provided tenant name, or fall back to tenant ID as display name
-      const displayName = tenantName || tenantId;
+      const displayName = tenantName ?? tenantId;
 
       // Special case for admin tenant: use "Admin tenant" instead of "Tenant admin"
       const organizationName =
@@ -263,6 +265,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
         }
         case 'manage:tenant': {
           permissions.add('manage:tenant');
+          break;
         }
 
         default: {

@@ -1,12 +1,11 @@
-import { TenantTag, adminTenantId, getTenantOrganizationId, TenantRole } from '@logto/schemas';
+import { TenantTag, adminTenantId, getTenantOrganizationId } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { sql, type CommonQueryMethods } from '@silverhand/slonik';
 
 import { EnvSet } from '#src/env-set/index.js';
 import { unknownConsole } from '#src/utils/console.js';
-import { getTenantRole } from '@logto/schemas';
 
-export type TenantData = {
+type TenantData = {
   id: string;
   name: string;
   tag: TenantTag;
@@ -16,12 +15,12 @@ export type TenantData = {
   isSuspended: boolean;
 };
 
-export type CreateTenantData = {
+type CreateTenantData = {
   name: string;
   tag?: TenantTag;
 };
 
-export type UpdateTenantData = {
+type UpdateTenantData = {
   name?: string;
   tag?: TenantTag;
 };
@@ -159,7 +158,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
     const id = generateStandardId();
     // For local OSS, use Production tag (no dev/prod distinction)
     // For cloud, use Development tag as default
-    const tag = data.tag || (EnvSet.values.isCloud ? TenantTag.Development : TenantTag.Production);
+    const tag = data.tag ?? (EnvSet.values.isCloud ? TenantTag.Development : TenantTag.Production);
     const databaseUser = `logto_tenant_${id}`;
     const databaseUserPassword = generateStandardId(32);
 
@@ -185,7 +184,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
   ): Promise<TenantData | undefined> => {
     const existing = await findTenantById(id);
     if (!existing) {
-      return null;
+      return undefined;
     }
 
     // Build update query dynamically
