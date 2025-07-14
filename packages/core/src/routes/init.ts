@@ -1,6 +1,14 @@
-import { getManagementApiResourceIndicator, getTenantOrganizationId, adminTenantId } from '@logto/schemas';
+import { buildOrganizationUrn } from '@logto/core-kit';
+import {
+  getManagementApiResourceIndicator,
+  getTenantOrganizationId,
+  adminTenantId,
+} from '@logto/schemas';
+import { jwtVerify, createLocalJWKSet } from 'jose';
 import Koa from 'koa';
+import type { MiddlewareType } from 'koa';
 import Router from 'koa-router';
+import type { IRouterParamContext } from 'koa-router';
 
 import { EnvSet } from '#src/env-set/index.js';
 import koaAuditLog from '#src/middleware/koa-audit-log.js';
@@ -9,16 +17,15 @@ import { koaManagementApiHooks } from '#src/middleware/koa-management-api-hooks.
 import koaTenantGuard from '#src/middleware/koa-tenant-guard.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 
-import koaAuth, { verifyBearerTokenFromRequest } from '../middleware/koa-auth/index.js';
-import { extractBearerTokenFromHeaders, getAdminTenantTokenValidationSet } from '../middleware/koa-auth/utils.js';
-import koaOidcAuth from '../middleware/koa-auth/koa-oidc-auth.js';
-import koaCors from '../middleware/koa-cors.js';
-import { buildOrganizationUrn } from '@logto/core-kit';
-import { jwtVerify, createLocalJWKSet } from 'jose';
-import type { MiddlewareType } from 'koa';
-import type { IRouterParamContext } from 'koa-router';
-import type { WithAuthContext } from '../middleware/koa-auth/index.js';
 import RequestError from '../errors/RequestError/index.js';
+import { verifyBearerTokenFromRequest } from '../middleware/koa-auth/index.js';
+import type { WithAuthContext } from '../middleware/koa-auth/index.js';
+import koaOidcAuth from '../middleware/koa-auth/koa-oidc-auth.js';
+import {
+  extractBearerTokenFromHeaders,
+  getAdminTenantTokenValidationSet,
+} from '../middleware/koa-auth/utils.js';
+import koaCors from '../middleware/koa-cors.js';
 import assertThat from '../utils/assert-that.js';
 
 import { accountApiPrefix } from './account/constants.js';
@@ -63,8 +70,8 @@ import statusRoutes from './status.js';
 import subjectTokenRoutes from './subject-token.js';
 import swaggerRoutes from './swagger/index.js';
 import systemRoutes from './system.js';
-import tenantRoutes from './tenant.js';
 import tenantMemberRoutes from './tenant-members.js';
+import tenantRoutes from './tenant.js';
 import type { AnonymousRouter, ManagementApiRouter, UserRouter } from './types.js';
 import userAssetsRoutes from './user-assets.js';
 import verificationRoutes, { verificationApiPrefix } from './verification/index.js';
@@ -75,7 +82,7 @@ import wellKnownOpenApiRoutes from './well-known/well-known.openapi.js';
 /**
  * Custom organization auth middleware for management API that accepts organization tokens
  * and validates tenant-specific access.
- * 
+ *
  * IMPORTANT: Organization tokens should ONLY be validated against admin tenant keys,
  * not the target tenant's keys, to maintain proper security isolation.
  */
@@ -86,43 +93,39 @@ function koaOrganizationManagementAuth<StateT, ContextT extends IRouterParamCont
     // For organization tokens, construct the expected audience for this tenant
     const expectedAudience = getTenantOrganizationId(tenant.id);
     const organizationAudience = buildOrganizationUrn(expectedAudience);
-    
+
     // Organization tokens are issued by admin tenant, so we need to validate against admin tenant keys only
     // We can't use the target tenant's envSet as it would include both target + admin keys
     // Instead, we need to manually validate using admin tenant keys only
     const bearerToken = extractBearerTokenFromHeaders(ctx.request.headers);
     const adminKeys = await getAdminTenantTokenValidationSet();
-    
+
     if (adminKeys.keys.length === 0) {
       throw new RequestError({ code: 'auth.unauthorized', status: 401 });
     }
-    
-    const { payload: { sub, client_id: clientId, scope = '' } } = await jwtVerify(
-      bearerToken,
-      createLocalJWKSet({ keys: adminKeys.keys }),
-      {
-        issuer: adminKeys.issuer,
-        audience: organizationAudience,
-      }
-    );
+
+    const {
+      payload: { sub, client_id: clientId, scope = '' },
+    } = await jwtVerify(bearerToken, createLocalJWKSet({ keys: adminKeys.keys }), {
+      issuer: adminKeys.issuer,
+      audience: organizationAudience,
+    });
 
     assertThat(sub, new RequestError({ code: 'auth.jwt_sub_missing', status: 401 }));
-    
+
     const scopes = String(scope).split(' ');
 
     // Validate scopes - organization tokens have specific scopes
-    const hasValidScopes = scopes.some((scope: string) => 
-      scope === 'all' || 
-      scope.includes('manage:') || 
-      scope.includes('read:') || 
-      scope.includes('write:') || 
-      scope.includes('delete:')
+    const hasValidScopes = scopes.some(
+      (scope: string) =>
+        scope === 'all' ||
+        scope.includes('manage:') ||
+        scope.includes('read:') ||
+        scope.includes('write:') ||
+        scope.includes('delete:')
     );
 
-    assertThat(
-      hasValidScopes,
-      new RequestError({ code: 'auth.forbidden', status: 403 })
-    );
+    assertThat(hasValidScopes, new RequestError({ code: 'auth.forbidden', status: 403 }));
 
     ctx.auth = {
       type: sub === clientId ? 'app' : 'user',
@@ -145,15 +148,14 @@ function koaCrossTenantManagementAuth<StateT, ContextT extends IRouterParamConte
     // For cross-tenant operations, use the admin tenant's management API resource indicator
     // This ensures tokens issued by the admin tenant are accepted for cross-tenant operations
     const managementApiAudience = getManagementApiResourceIndicator(adminTenantId);
-    
+
     // Verify JWT with the admin tenant's management API audience
     // Skip tenant context to avoid blacklist check against wrong tenant
     // (JWT issued by admin tenant but processed in default tenant context)
     const { sub, clientId, scopes } = await verifyBearerTokenFromRequest(
       tenant.envSet,
       ctx.request,
-      managementApiAudience, // Validate audience matches admin tenant management API
-      undefined // Skip blacklist check for cross-tenant operations
+      managementApiAudience // Skip blacklist check for cross-tenant operations
     );
 
     // Debug logging
@@ -161,24 +163,22 @@ function koaCrossTenantManagementAuth<StateT, ContextT extends IRouterParamConte
       managementApiAudience,
       scopes,
       path: ctx.request.path,
-      method: ctx.request.method
+      method: ctx.request.method,
     });
 
     // Validate scopes - management API tokens should have tenant management scopes
-    const hasValidScopes = scopes.some(scope => 
-      scope === 'all' || 
-      scope === 'create:tenant' ||
-      scope === 'manage:tenant:self' ||
-      scope.includes('tenant:') ||
-      scope.includes('manage:tenant')
+    const hasValidScopes = scopes.some(
+      (scope) =>
+        scope === 'all' ||
+        scope === 'create:tenant' ||
+        scope === 'manage:tenant:self' ||
+        scope.includes('tenant:') ||
+        scope.includes('manage:tenant')
     );
 
     console.log('Scope validation result:', { hasValidScopes, scopes });
 
-    assertThat(
-      hasValidScopes,
-      new RequestError({ code: 'auth.forbidden', status: 403 })
-    );
+    assertThat(hasValidScopes, new RequestError({ code: 'auth.forbidden', status: 403 }));
 
     ctx.auth = {
       type: sub === clientId ? 'app' : 'user',
@@ -189,8 +189,6 @@ function koaCrossTenantManagementAuth<StateT, ContextT extends IRouterParamConte
     return next();
   };
 }
-
-
 
 /**
  * Create routers for admin tenant - organization-based multi-tenancy for managing all tenants
@@ -260,9 +258,9 @@ const createAdminRouters = (tenant: TenantContext) => {
   crossTenantRouter.use(koaTenantGuard(tenant.id, tenant.queries));
   crossTenantRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
 
-  // Cross-tenant operations - only tenant listing routes 
+  // Cross-tenant operations - only tenant listing routes
   tenantRoutes(crossTenantRouter, tenant);
-  // tenantMemberRoutes(crossTenantRouter, tenant); // This is tenant-specific, not cross-tenant
+  // TenantMemberRoutes(crossTenantRouter, tenant); // This is tenant-specific, not cross-tenant
 
   // Anonymous routers for admin tenant
   const anonymousRouter: AnonymousRouter = new Router();
@@ -354,13 +352,7 @@ const createRegularRouters = (tenant: TenantContext) => {
     interactionRouter,
   ]);
 
-  return [
-    experienceRouter,
-    interactionRouter,
-    anonymousRouter,
-    logtoAnonymousRouter,
-    userRouter,
-  ];
+  return [experienceRouter, interactionRouter, anonymousRouter, logtoAnonymousRouter, userRouter];
 };
 
 export default function initApis(tenant: TenantContext): Koa {
@@ -375,10 +367,10 @@ export default function initApis(tenant: TenantContext): Koa {
   apisApp.use(koaBodyEtag());
 
   // Use different router creation functions for admin vs regular tenants
-  // const routers = tenant.id === adminTenantId 
+  // const routers = tenant.id === adminTenantId
   //   ? createAdminRouters(tenant)
   //   : createRegularRouters(tenant);
-  
+
   // Create both admin and regular routers
   const routers = createAdminRouters(tenant);
   routers.push(...createRegularRouters(tenant));

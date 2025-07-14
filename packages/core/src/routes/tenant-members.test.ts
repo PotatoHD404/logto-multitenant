@@ -9,8 +9,9 @@ import { createMockUtils } from '@logto/shared/esm';
 
 import { mockEnvSet } from '#src/test-utils/env-set.js';
 import { MockTenant } from '#src/test-utils/tenant.js';
-import { createMockContext } from '#src/test-utils/koa-auth/index.js';
 import { createRequester } from '#src/utils/test-utils.js';
+
+import { createMockContext } from '#src/test-utils/koa-auth/index.js';
 
 const { jest } = import.meta;
 const { mockEsmDefault } = createMockUtils(jest);
@@ -59,7 +60,7 @@ const tenantMemberRoutes = await import('./tenant-members.js');
 describe('Multi-Tenant Invitation Flow', () => {
   const mockTenant = new MockTenant();
   const mockContext = createMockContext();
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -79,7 +80,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantA),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: userId };
             return next();
           },
@@ -107,7 +108,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantA),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: userId };
             return next();
           },
@@ -148,7 +149,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: adminUserId };
             return next();
           },
@@ -175,15 +176,13 @@ describe('Multi-Tenant Invitation Flow', () => {
       const tenantId = 'tenant-123';
       const collaboratorUserId = 'collaborator-user';
 
-      mockTenantOrganizationLibrary.getTenantPermissions.mockResolvedValue([
-        'read:tenant_members',
-      ]);
+      mockTenantOrganizationLibrary.getTenantPermissions.mockResolvedValue(['read:tenant_members']);
 
       const request = createRequester({
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: collaboratorUserId };
             return next();
           },
@@ -221,7 +220,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: userId };
             return next();
           },
@@ -274,7 +273,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: userId };
             return next();
           },
@@ -316,7 +315,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: userId };
             return next();
           },
@@ -354,7 +353,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: adminUserId };
             return next();
           },
@@ -374,13 +373,13 @@ describe('Multi-Tenant Invitation Flow', () => {
         'manage:tenant',
       ]);
 
-      mockTenantOrganizationLibrary.updateUserRole.mockResolvedValue(undefined);
+      mockTenantOrganizationLibrary.updateUserRole.mockResolvedValue();
 
       const request = createRequester({
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: adminUserId };
             return next();
           },
@@ -416,7 +415,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: userId };
             return next();
           },
@@ -446,7 +445,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: userId };
             return next();
           },
@@ -469,7 +468,7 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: userId };
             return next();
           },
@@ -496,19 +495,18 @@ describe('Multi-Tenant Invitation Flow', () => {
         anonymousRoutes: tenantMemberRoutes.default,
         tenantContext: mockTenant.create(tenantId),
         middlewares: [
-          (ctx, next) => {
+          async (ctx, next) => {
             ctx.auth = { sub: userId };
             return next();
           },
         ],
       });
 
-      const response = await request.get(`/tenants/${tenantId}/members/${userId}/scopes`).expect(200);
+      const response = await request
+        .get(`/tenants/${tenantId}/members/${userId}/scopes`)
+        .expect(200);
 
-      expect(response.body).toEqual([
-        'read:tenant_members',
-        'invite:tenant_members',
-      ]);
+      expect(response.body).toEqual(['read:tenant_members', 'invite:tenant_members']);
     });
   });
-}); 
+});

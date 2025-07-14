@@ -31,17 +31,11 @@ export default function initMeApis(tenant: TenantContext): Koa {
 
   const meRouter = new Router<unknown, WithAuthContext & WithI18nContext>();
 
-  meRouter.use(
-    koaAuth(tenant.envSet, getProfileApiResourceIndicator()),
-    async (ctx, next) => {
-      assertThat(
-        ctx.auth.type === 'user',
-        new RequestError({ code: 'auth.forbidden', status: 403 })
-      );
+  meRouter.use(koaAuth(tenant.envSet, getProfileApiResourceIndicator()), async (ctx, next) => {
+    assertThat(ctx.auth.type === 'user', new RequestError({ code: 'auth.forbidden', status: 403 }));
 
-      return next();
-    }
-  );
+    return next();
+  });
 
   userRoutes(meRouter, tenant);
   socialRoutes(meRouter, tenant);

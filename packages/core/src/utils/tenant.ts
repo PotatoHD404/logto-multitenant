@@ -1,4 +1,4 @@
-import { adminTenantId, defaultTenantId } from '@logto/schemas';
+import { adminTenantId } from '@logto/schemas';
 import { type UrlSet } from '@logto/shared';
 import { conditionalString, trySafe } from '@silverhand/essentials';
 import { type CommonQueryMethods } from '@silverhand/slonik';
@@ -44,9 +44,13 @@ const matchPathBasedTenantId = (urlSet: UrlSet, url: URL) => {
   const endpointSegments = found.pathname.split('/');
 
   const potentialTenantId = urlSegments[found.pathname === '/' ? 1 : endpointSegments.length];
-  
+
   // Exclude reserved paths that shouldn't be treated as tenant IDs
-  if (potentialTenantId === 'api' || potentialTenantId === 'oidc' || potentialTenantId === '.well-known') {
+  if (
+    potentialTenantId === 'api' ||
+    potentialTenantId === 'oidc' ||
+    potentialTenantId === '.well-known'
+  ) {
     return;
   }
 
@@ -59,16 +63,12 @@ const matchPathBasedTenantId = (urlSet: UrlSet, url: URL) => {
  */
 const matchManagementApiTenantId = (url: URL) => {
   const pathSegments = url.pathname.split('/').filter(Boolean);
-  
+
   // Check if the path starts with 'm' and has at least 3 segments: ['m', tenantId, 'api', ...]
   if (pathSegments.length >= 3 && pathSegments[0] === 'm' && pathSegments[2] === 'api') {
     return pathSegments[1];
   }
-  
-  return undefined;
 };
-
-
 
 const cacheKey = 'custom-domain';
 const getDomainCacheKey = (url: URL | string) =>
@@ -112,14 +112,7 @@ export const getTenantId = async (
   url: URL
 ): Promise<[tenantId: string | undefined, isCustomDomain: boolean]> => {
   const {
-    values: {
-      isProduction,
-      isIntegrationTest,
-      developmentTenantId,
-      urlSet,
-      adminUrlSet,
-      isCloud,
-    },
+    values: { isProduction, isIntegrationTest, developmentTenantId, urlSet, adminUrlSet, isCloud },
     sharedPool,
   } = EnvSet;
   const pool = await sharedPool;
@@ -129,17 +122,20 @@ export const getTenantId = async (
   // These requests should ONLY be accessible on admin endpoints!
   const managementApiTenantId = matchManagementApiTenantId(url);
   if (managementApiTenantId) {
-    const isOnAdminEndpoint = adminUrlSet.deduplicated().some((endpoint) => isEndpointOf(url, endpoint));
-    
+    const isOnAdminEndpoint = adminUrlSet
+      .deduplicated()
+      .some((endpoint) => isEndpointOf(url, endpoint));
+
     if (isOnAdminEndpoint) {
       // Allow management API access on admin endpoints
-      debugConsole.warn(`Found management API pattern for tenant ${managementApiTenantId}, routing to target tenant.`);
+      debugConsole.warn(
+        `Found management API pattern for tenant ${managementApiTenantId}, routing to target tenant.`
+      );
       return [managementApiTenantId, false];
-    } else {
-      // Block management API access on non-admin endpoints
-      debugConsole.warn(`Blocked management API pattern on non-admin endpoint: ${url.toString()}`);
-      return [undefined, false];
     }
+    // Block management API access on non-admin endpoints
+    debugConsole.warn(`Blocked management API pattern on non-admin endpoint: ${url.toString()}`);
+    return [undefined, false];
   }
 
   // Admin tenant check
@@ -163,7 +159,9 @@ export const getTenantId = async (
     if (customDomainTenantId) {
       // Security: Prevent admin tenant access via custom domain on regular servers
       if (customDomainTenantId === adminTenantId) {
-        debugConsole.warn(`Blocked admin tenant access via custom domain on regular server: ${url.toString()}`);
+        debugConsole.warn(
+          `Blocked admin tenant access via custom domain on regular server: ${url.toString()}`
+        );
         return [undefined, false];
       }
       return [customDomainTenantId, true];
@@ -187,12 +185,13 @@ export const getTenantId = async (
     if (domainBasedTenantId) {
       // Security: Prevent admin tenant access via domain-based routing on regular servers
       if (domainBasedTenantId === adminTenantId) {
-        debugConsole.warn(`Blocked admin tenant access via domain-based routing on regular server: ${url.toString()}`);
+        debugConsole.warn(
+          `Blocked admin tenant access via domain-based routing on regular server: ${url.toString()}`
+        );
         return [undefined, false];
       }
       return [domainBasedTenantId, false];
     }
-
 
     // 5. Handle plain /api/... requests (should use default tenant)
     // This comes AFTER custom domain and path-based checks
@@ -214,7 +213,9 @@ export const getTenantId = async (
   if (customDomainTenantId) {
     // Security: Prevent admin tenant access via custom domain in cloud too
     if (customDomainTenantId === adminTenantId) {
-      debugConsole.warn(`Blocked admin tenant access via custom domain in cloud: ${url.toString()}`);
+      debugConsole.warn(
+        `Blocked admin tenant access via custom domain in cloud: ${url.toString()}`
+      );
       return [undefined, false];
     }
     return [customDomainTenantId, true];
@@ -226,7 +227,9 @@ export const getTenantId = async (
     const pathBasedTenantId = matchPathBasedTenantId(urlSet, url);
     // Security: Prevent admin tenant access via path-based routing in cloud too
     if (pathBasedTenantId === adminTenantId) {
-      debugConsole.warn(`Blocked admin tenant access via path-based routing in cloud: ${url.toString()}`);
+      debugConsole.warn(
+        `Blocked admin tenant access via path-based routing in cloud: ${url.toString()}`
+      );
       return [undefined, false];
     }
     return [pathBasedTenantId, false];

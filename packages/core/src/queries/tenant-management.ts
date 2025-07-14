@@ -1,6 +1,6 @@
+import { TenantTag, adminTenantId, getTenantOrganizationId } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import { sql, type CommonQueryMethods } from '@silverhand/slonik';
-import { TenantTag, adminTenantId, getTenantOrganizationId, getTenantRole, TenantRole } from '@logto/schemas';
 
 import { EnvSet } from '#src/env-set/index.js';
 
@@ -8,8 +8,8 @@ export type TenantData = {
   id: string;
   name: string;
   tag: TenantTag;
-  dbUser: string | null;
-  dbUserPassword: string | null;
+  dbUser: string | undefined;
+  dbUserPassword: string | undefined;
   createdAt: Date;
   isSuspended: boolean;
 };
@@ -26,14 +26,15 @@ export type UpdateTenantData = {
 
 const createTenantManagementQueries = (pool: CommonQueryMethods) => {
   const findAllTenants = async (limit?: number, offset?: number): Promise<TenantData[]> => {
-    const query = limit && offset !== undefined
-      ? sql`
+    const query =
+      limit && offset !== undefined
+        ? sql`
           SELECT id, name, tag, db_user, db_user_password, created_at, is_suspended
           FROM tenants 
           ORDER BY created_at DESC
           LIMIT ${limit} OFFSET ${offset}
         `
-      : sql`
+        : sql`
           SELECT id, name, tag, db_user, db_user_password, created_at, is_suspended
           FROM tenants 
           ORDER BY created_at DESC
@@ -51,7 +52,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
     }));
   };
 
-  const findTenantById = async (id: string): Promise<TenantData | null> => {
+  const findTenantById = async (id: string): Promise<TenantData | undefined> => {
     const result = await pool.maybeOne(sql`
       SELECT id, name, tag, db_user, db_user_password, created_at, is_suspended
       FROM tenants 
@@ -86,7 +87,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
    */
   const createTenantOrganization = async (tenantId: string, tenantName: string) => {
     const { isCloud } = EnvSet.values;
-    
+
     // Only create tenant organizations for local OSS multi-tenant setup
     if (isCloud) {
       return;
@@ -123,7 +124,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
         await pool.query(sql`
           INSERT INTO organization_user_relations (tenant_id, organization_id, user_id)
           VALUES ${sql.join(
-            adminUsers.map(user => sql`(${adminTenantId}, ${organizationId}, ${user.id})`),
+            adminUsers.map((user) => sql`(${adminTenantId}, ${organizationId}, ${user.id})`),
             sql`, `
           )}
           ON CONFLICT (organization_id, user_id) DO NOTHING;
@@ -132,13 +133,17 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
         await pool.query(sql`
           INSERT INTO organization_role_user_relations (tenant_id, organization_id, organization_role_id, user_id)
           VALUES ${sql.join(
-            adminUsers.map(user => sql`(${adminTenantId}, ${organizationId}, 'admin', ${user.id})`),
+            adminUsers.map(
+              (user) => sql`(${adminTenantId}, ${organizationId}, 'admin', ${user.id})`
+            ),
             sql`, `
           )}
           ON CONFLICT (organization_id, organization_role_id, user_id) DO NOTHING;
         `);
 
-        console.log(`Added ${adminUsers.length} admin users to tenant organization ${organizationId}`);
+        console.log(
+          `Added ${adminUsers.length} admin users to tenant organization ${organizationId}`
+        );
       }
 
       console.log(`Created tenant organization ${organizationId} for tenant ${tenantId}`);
@@ -153,12 +158,12 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
     // For local OSS, use Production tag (no dev/prod distinction)
     // For cloud, use Development tag as default
     const tag = data.tag || (EnvSet.values.isCloud ? TenantTag.Development : TenantTag.Production);
-    const dbUser = `logto_tenant_${id}`;
-    const dbUserPassword = generateStandardId(32);
+    const databaseUser = `logto_tenant_${id}`;
+    const databaseUserPassword = generateStandardId(32);
 
     await pool.query(sql`
       INSERT INTO tenants (id, name, tag, db_user, db_user_password, created_at, is_suspended)
-      VALUES (${id}, ${data.name}, ${tag}, ${dbUser}, ${dbUserPassword}, NOW(), false)
+      VALUES (${id}, ${data.name}, ${tag}, ${databaseUser}, ${databaseUserPassword}, NOW(), false)
     `);
 
     const tenant = await findTenantById(id);
@@ -172,7 +177,10 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
     return tenant;
   };
 
-  const updateTenant = async (id: string, data: UpdateTenantData): Promise<TenantData | null> => {
+  const updateTenant = async (
+    id: string,
+    data: UpdateTenantData
+  ): Promise<TenantData | undefined> => {
     const existing = await findTenantById(id);
     if (!existing) {
       return null;
@@ -217,7 +225,7 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
       `);
     }
 
-    return await findTenantById(id);
+    return findTenantById(id);
   };
 
   const deleteTenant = async (id: string): Promise<boolean> => {
@@ -269,4 +277,4 @@ const createTenantManagementQueries = (pool: CommonQueryMethods) => {
   };
 };
 
-export default createTenantManagementQueries; 
+export default createTenantManagementQueries;

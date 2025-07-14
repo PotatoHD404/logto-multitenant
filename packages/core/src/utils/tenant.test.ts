@@ -186,18 +186,26 @@ describe('getTenantId()', () => {
       PORT: '3001',
       ENDPOINT: 'http://localhost:3001',
     };
-    findActiveDomain.mockResolvedValueOnce(undefined);
-    
+    findActiveDomain.mockResolvedValueOnce();
+
     // Test tenant1.localhost:3001 -> tenant1
-    await expect(getTenantIdFirstElement(new URL('http://tenant1.localhost:3001'))).resolves.toBe('tenant1');
-    
+    await expect(getTenantIdFirstElement(new URL('http://tenant1.localhost:3001'))).resolves.toBe(
+      'tenant1'
+    );
+
     // Test myapp.localhost:3001 -> myapp
-    await expect(getTenantIdFirstElement(new URL('http://myapp.localhost:3001/api/test'))).resolves.toBe('myapp');
-    
+    await expect(
+      getTenantIdFirstElement(new URL('http://myapp.localhost:3001/api/test'))
+    ).resolves.toBe('myapp');
+
     // Test regular localhost:3001 -> undefined (no tenant ID)
-    await expect(getTenantIdFirstElement(new URL('http://localhost:3001'))).resolves.toBe(undefined);
-    
+    await expect(getTenantIdFirstElement(new URL('http://localhost:3001'))).resolves.toBe(
+      undefined
+    );
+
     // Test that admin tenant is blocked
-    await expect(getTenantIdFirstElement(new URL('http://admin.localhost:3001'))).resolves.toBe(undefined);
+    await expect(getTenantIdFirstElement(new URL('http://admin.localhost:3001'))).resolves.toBe(
+      undefined
+    );
   });
 });

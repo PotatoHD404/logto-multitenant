@@ -11,7 +11,6 @@ import { z } from 'zod';
 
 import koaGuard from '#src/middleware/koa-guard.js';
 
-
 import RequestError from '../../errors/RequestError/index.js';
 import { buildVerificationRecordByIdAndType } from '../../libraries/verification.js';
 import assertThat from '../../utils/assert-that.js';

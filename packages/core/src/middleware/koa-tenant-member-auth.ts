@@ -1,15 +1,24 @@
+import { TenantScope, TenantManagementScope, PredefinedScope } from '@logto/schemas';
 import type { MiddlewareType } from 'koa';
 import type { IRouterParamContext } from 'koa-router';
-import { TenantScope, TenantManagementScope, PredefinedScope } from '@logto/schemas';
 
 import RequestError from '#src/errors/RequestError/index.js';
-import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
-import { hasRequiredTenantScope, isProtectedFromDeletion } from '#src/middleware/koa-tenant-auth.js';
 import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
+import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
+import {
+  hasRequiredTenantScope,
+  isProtectedFromDeletion,
+} from '#src/middleware/koa-tenant-auth.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
 
-export type TenantMemberOperation = 'read' | 'invite' | 'remove' | 'update-role' | 'read-invitations' | 'create-invitations';
+export type TenantMemberOperation =
+  | 'read'
+  | 'invite'
+  | 'remove'
+  | 'update-role'
+  | 'read-invitations'
+  | 'create-invitations';
 
 /**
  * Map tenant member operations to their required tenant scopes
@@ -26,14 +35,15 @@ const TENANT_MEMBER_OPERATION_SCOPES: Record<TenantMemberOperation, TenantScope[
 /**
  * Map tenant member operations to general tenant management scopes
  */
-const TENANT_MEMBER_OPERATION_TENANT_SCOPES: Record<TenantMemberOperation, TenantManagementScope> = {
-  read: TenantManagementScope.Read,
-  invite: TenantManagementScope.Write,
-  remove: TenantManagementScope.Write,
-  'update-role': TenantManagementScope.Write,
-  'read-invitations': TenantManagementScope.Read,
-  'create-invitations': TenantManagementScope.Write,
-};
+const TENANT_MEMBER_OPERATION_TENANT_SCOPES: Record<TenantMemberOperation, TenantManagementScope> =
+  {
+    read: TenantManagementScope.Read,
+    invite: TenantManagementScope.Write,
+    remove: TenantManagementScope.Write,
+    'update-role': TenantManagementScope.Write,
+    'read-invitations': TenantManagementScope.Read,
+    'create-invitations': TenantManagementScope.Write,
+  };
 
 /**
  * Check if the authenticated user has the required tenant-specific scopes for a member operation.
@@ -47,9 +57,9 @@ export const hasRequiredTenantMemberScope = async (
   try {
     const userScopes = await tenantOrg.getUserScopes(tenantId, userId);
     const requiredScopes = TENANT_MEMBER_OPERATION_SCOPES[operation];
-    
+
     // Check if user has all required scopes for this operation
-    return requiredScopes.every(scope => userScopes.includes(scope));
+    return requiredScopes.every((scope) => userScopes.includes(scope));
   } catch {
     // If we can't get user scopes, they don't have access
     return false;
@@ -63,26 +73,34 @@ export const hasRequiredTenantMemberScope = async (
  * 2. Tenant-specific access (user must be a member of the tenant organization)
  * 3. Granular member operation permissions (TenantScope)
  */
-export default function koaTenantMemberAuth<StateT, ContextT extends IRouterParamContext, ResponseBodyT>(
+export default function koaTenantMemberAuth<
+  StateT,
+  ContextT extends IRouterParamContext,
+  ResponseBodyT,
+>(
   operation: TenantMemberOperation,
   queries: Queries
 ): MiddlewareType<StateT, WithAuthContext<ContextT>, ResponseBodyT> {
   const tenantOrg = createTenantOrganizationLibrary(queries);
-  
+
   return async (ctx, next) => {
     // Ensure the user is authenticated
     assertThat(ctx.auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
 
     const { scopes, id: userId } = ctx.auth;
-    const tenantId = ctx.params?.tenantId as string;
+    const tenantId = ctx.params.tenantId!;
 
     assertThat(tenantId, new RequestError({ code: 'request.invalid_input', status: 400 }));
 
     // Level 1: Check general tenant management permissions
     const requiredTenantScope = TENANT_MEMBER_OPERATION_TENANT_SCOPES[operation];
-    const hasTenantManagementScope = hasRequiredTenantScope(scopes, 
-      requiredTenantScope === TenantManagementScope.Read ? 'read' :
-      requiredTenantScope === TenantManagementScope.Write ? 'write' : 'delete'
+    const hasTenantManagementScope = hasRequiredTenantScope(
+      scopes,
+      requiredTenantScope === TenantManagementScope.Read
+        ? 'read'
+        : requiredTenantScope === TenantManagementScope.Write
+          ? 'write'
+          : 'delete'
     );
 
     // If user has 'all' scope or appropriate tenant management scope, they can access any tenant
@@ -94,7 +112,7 @@ export default function koaTenantMemberAuth<StateT, ContextT extends IRouterPara
           new RequestError({ code: 'auth.forbidden', status: 403 })
         );
       }
-      
+
       return next();
     }
 
@@ -109,14 +127,14 @@ export default function koaTenantMemberAuth<StateT, ContextT extends IRouterPara
 
     assertThat(
       hasSpecificPermission,
-      new RequestError({ 
-        code: 'auth.forbidden', 
+      new RequestError({
+        code: 'auth.forbidden',
         status: 403,
-        data: { 
+        data: {
           operation,
           tenantId,
-          requiredScopes: TENANT_MEMBER_OPERATION_SCOPES[operation]
-        }
+          requiredScopes: TENANT_MEMBER_OPERATION_SCOPES[operation],
+        },
       })
     );
 
@@ -140,24 +158,29 @@ export const koaTenantMemberReadAuth = (queries: Queries) => koaTenantMemberAuth
 /**
  * Middleware for inviting members to tenant
  */
-export const koaTenantMemberInviteAuth = (queries: Queries) => koaTenantMemberAuth('invite', queries);
+export const koaTenantMemberInviteAuth = (queries: Queries) =>
+  koaTenantMemberAuth('invite', queries);
 
 /**
  * Middleware for removing members from tenant
  */
-export const koaTenantMemberRemoveAuth = (queries: Queries) => koaTenantMemberAuth('remove', queries);
+export const koaTenantMemberRemoveAuth = (queries: Queries) =>
+  koaTenantMemberAuth('remove', queries);
 
 /**
  * Middleware for updating member roles in tenant
  */
-export const koaTenantMemberUpdateRoleAuth = (queries: Queries) => koaTenantMemberAuth('update-role', queries);
+export const koaTenantMemberUpdateRoleAuth = (queries: Queries) =>
+  koaTenantMemberAuth('update-role', queries);
 
 /**
  * Middleware for reading tenant invitations
  */
-export const koaTenantMemberReadInvitationsAuth = (queries: Queries) => koaTenantMemberAuth('read-invitations', queries);
+export const koaTenantMemberReadInvitationsAuth = (queries: Queries) =>
+  koaTenantMemberAuth('read-invitations', queries);
 
 /**
  * Middleware for creating tenant invitations
  */
-export const koaTenantMemberCreateInvitationsAuth = (queries: Queries) => koaTenantMemberAuth('create-invitations', queries); 
+export const koaTenantMemberCreateInvitationsAuth = (queries: Queries) =>
+  koaTenantMemberAuth('create-invitations', queries);

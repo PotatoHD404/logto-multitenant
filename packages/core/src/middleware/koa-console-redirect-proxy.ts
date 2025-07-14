@@ -19,9 +19,9 @@ export default function koaConsoleRedirectProxy<
     // Check for authentication more robustly
     const hasAuthHeader = Boolean(ctx.headers.authorization?.startsWith('Bearer '));
     const hasSessionCookie = Boolean(
-      ctx.cookies.get('logto:admin') || 
-      ctx.cookies.get('_interaction') ||
-      ctx.cookies.get('_session')
+      ctx.cookies.get('logto:admin') ||
+        ctx.cookies.get('_interaction') ||
+        ctx.cookies.get('_session')
     );
     const isAuthenticated = hasAuthHeader || hasSessionCookie;
 
@@ -29,15 +29,15 @@ export default function koaConsoleRedirectProxy<
     if (ctx.path === '/' || ctx.path === ossConsolePath) {
       if (!hasUser) {
         // No users exist, show welcome page for account creation
-      ctx.redirect(path.join(ossConsolePath, '/welcome'));
+        ctx.redirect(path.join(ossConsolePath, '/welcome'));
         return;
       }
 
       if (isAuthenticated) {
         // User exists and is authenticated, redirect to console
         ctx.redirect(path.join(ossConsolePath, '/default'));
-      return;
-    }
+        return;
+      }
 
       // User exists but not authenticated, redirect to sign-in
       ctx.redirect('/sign-in?app_id=admin-console');
@@ -45,19 +45,17 @@ export default function koaConsoleRedirectProxy<
     }
 
     // Welcome page handling
-    if (ctx.path === path.join(ossConsolePath, '/welcome')) {
-      if (hasUser) {
-        if (isAuthenticated) {
-          // User exists and is authenticated, redirect to console
-          ctx.redirect(path.join(ossConsolePath, '/default'));
-          return;
-        }
-        // User exists but not authenticated, redirect to sign-in
-        ctx.redirect('/sign-in?app_id=admin-console');
+    if (ctx.path === path.join(ossConsolePath, '/welcome') && hasUser) {
+      if (isAuthenticated) {
+        // User exists and is authenticated, redirect to console
+        ctx.redirect(path.join(ossConsolePath, '/default'));
         return;
       }
-      // No users exist, stay on welcome page
+      // User exists but not authenticated, redirect to sign-in
+      ctx.redirect('/sign-in?app_id=admin-console');
+      return;
     }
+    // No users exist, stay on welcome page
 
     return next();
   };

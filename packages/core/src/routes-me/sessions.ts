@@ -24,17 +24,21 @@ export default function sessionsRoutes<T extends AuthedMeRouter>(
     koaPagination({ defaultPageSize: 20 }),
     koaGuard({
       response: z.object({
-        data: z.array(z.object({
-          id: z.string(),
-          sessionUid: z.string(),
-          deviceInfo: z.object({
-            userAgent: z.string().optional(),
-            ip: z.string().optional(),
-          }).optional(),
-          createdAt: z.number(),
-          lastActiveAt: z.number().optional(),
-          expiresAt: z.number(),
-        })),
+        data: z.array(
+          z.object({
+            id: z.string(),
+            sessionUid: z.string(),
+            deviceInfo: z
+              .object({
+                userAgent: z.string().optional(),
+                ip: z.string().optional(),
+              })
+              .optional(),
+            createdAt: z.number(),
+            lastActiveAt: z.number().optional(),
+            expiresAt: z.number(),
+          })
+        ),
         totalCount: z.number(),
       }),
       status: 200,
@@ -48,13 +52,13 @@ export default function sessionsRoutes<T extends AuthedMeRouter>(
 
       // Fetch sessions from database
       const allSessions = await findSessionsByUserId(userId);
-      
+
       // Apply pagination
       const totalCount = allSessions.length;
       const sessions = allSessions.slice(offset, offset + limit);
 
       // Transform sessions to response format
-      const sessionData = sessions.map(session => ({
+      const sessionData = sessions.map((session) => ({
         id: session.id,
         sessionUid: session.sessionUid,
         deviceInfo: {
@@ -94,7 +98,7 @@ export default function sessionsRoutes<T extends AuthedMeRouter>(
       try {
         await revokeSessionByUid(sessionUid, userId);
         ctx.status = 204;
-      } catch (error) {
+      } catch {
         throw new RequestError({ code: 'entity.not_found', status: 404 });
       }
 
@@ -106,7 +110,10 @@ export default function sessionsRoutes<T extends AuthedMeRouter>(
     '/sessions',
     koaGuard({
       query: z.object({
-        except_current: z.string().optional().transform(val => val === 'true'),
+        except_current: z
+          .string()
+          .optional()
+          .transform((value) => value === 'true'),
       }),
       status: [204],
     }),
@@ -130,4 +137,4 @@ export default function sessionsRoutes<T extends AuthedMeRouter>(
       return next();
     }
   );
-} 
+}

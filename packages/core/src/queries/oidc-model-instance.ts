@@ -3,17 +3,17 @@ import {
   type OidcModelInstance,
   type OidcModelInstancePayload,
 } from '@logto/schemas';
-import { conditional, conditionalString, type Nullable } from '@silverhand/essentials';
+import { generateStandardId } from '@logto/shared';
+import { conditional, type Nullable } from '@silverhand/essentials';
 import { sql, type CommonQueryMethods, type ValueExpression } from '@silverhand/slonik';
 import { addSeconds, isBefore } from 'date-fns';
-import { generateStandardId } from '@logto/shared';
 
-import { buildInsertIntoWithPool } from '#src/database/insert-into.js';
-import { DeletionError } from '#src/errors/SlonikError/index.js';
-import { convertToIdentifiers, convertToTimestamp } from '#src/utils/sql.js';
-import { type EnvSet } from '#src/env-set/index.js';
 import { JwtBlacklistCache, JwtBlacklistCacheKey } from '#src/caches/jwt-blacklist.js';
 import { type CacheStore } from '#src/caches/types.js';
+import { buildInsertIntoWithPool } from '#src/database/insert-into.js';
+import { type EnvSet } from '#src/env-set/index.js';
+import { DeletionError } from '#src/errors/SlonikError/index.js';
+import { convertToIdentifiers, convertToTimestamp } from '#src/utils/sql.js';
 
 export type WithConsumed<T> = T & { consumed?: boolean };
 export type QueryResult = Pick<OidcModelInstance, 'payload' | 'consumedAt'>;
@@ -72,14 +72,18 @@ const jwtBlacklistTable = convertToIdentifiers({
     sessionUid: 'session_uid',
     expiresAt: 'expires_at',
     revokedAt: 'revoked_at',
-    tenantId: 'tenant_id'
-  }
+    tenantId: 'tenant_id',
+  },
 });
 
-export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?: EnvSet, cacheStore?: CacheStore) => {
-  
+export const createOidcModelInstanceQueries = (
+  pool: CommonQueryMethods,
+  envSet?: EnvSet,
+  cacheStore?: CacheStore
+) => {
   // Initialize JWT blacklist cache if cache store is available
-  const jwtBlacklistCache = cacheStore && envSet ? new JwtBlacklistCache(envSet.tenantId, cacheStore) : undefined;
+  const jwtBlacklistCache =
+    cacheStore && envSet ? new JwtBlacklistCache(envSet.tenantId, cacheStore) : undefined;
 
   const upsertInstance = buildInsertIntoWithPool(pool)(OidcModelInstances, {
     onConflict: {
@@ -150,15 +154,15 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?
    * Find active sessions for a specific user with metadata from session extensions
    */
   const findSessionsByUserId = async (userId: string) => {
-    const { table: sessionExtTable, fields: sessionExtFields } = convertToIdentifiers({ 
-      table: 'oidc_session_extensions', 
+    const { table: sessionExtensionTable, fields: sessionExtensionFields } = convertToIdentifiers({
+      table: 'oidc_session_extensions',
       fields: {
         sessionUid: 'session_uid',
-        accountId: 'account_id', 
+        accountId: 'account_id',
         lastSubmission: 'last_submission',
         createdAt: 'created_at',
-        updatedAt: 'updated_at'
-      }
+        updatedAt: 'updated_at',
+      },
     });
 
     return pool.any<{
@@ -174,22 +178,28 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?
         s.${fields.payload}->>'uid' as session_uid,
         s.${fields.payload},
         s.${fields.expiresAt} as expires_at,
-        ext.${sessionExtFields.lastSubmission} as last_submission,
-        ext.${sessionExtFields.updatedAt} as updated_at
+        ext.${sessionExtensionFields.lastSubmission} as last_submission,
+        ext.${sessionExtensionFields.updatedAt} as updated_at
       from ${table} s
-      left join ${sessionExtTable} ext on s.${fields.payload}->>'uid' = ext.${sessionExtFields.sessionUid}
+      left join ${sessionExtensionTable} ext on s.${fields.payload}->>'uid' = ext.${sessionExtensionFields.sessionUid}
       where s.${fields.modelName} = 'Session'
         and s.${fields.payload}->>'accountId' = ${userId}
         and s.${fields.expiresAt} > now()
         and s.${fields.consumedAt} is null
-      order by ext.${sessionExtFields.createdAt} desc, s.${fields.expiresAt} desc
+      order by ext.${sessionExtensionFields.createdAt} desc, s.${fields.expiresAt} desc
     `);
   };
 
   /**
    * Add a JWT token to the blacklist with cache invalidation
    */
-  const addToJwtBlacklist = async (jti: string, userId: string, sessionUid: string, expiresAt: Date, tenantId?: string) => {
+  const addToJwtBlacklist = async (
+    jti: string,
+    userId: string,
+    sessionUid: string,
+    expiresAt: Date,
+    tenantId?: string
+  ) => {
     await pool.query(sql`
       insert into ${jwtBlacklistTable.table} (
         ${jwtBlacklistTable.fields.id},
@@ -213,8 +223,12 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?
 
     // Cache the blacklisted status for future lookups
     if (jwtBlacklistCache) {
-      await jwtBlacklistCache.set(JwtBlacklistCacheKey.JwtBlacklist, jti, true, 
-        Math.floor((expiresAt.getTime() - Date.now()) / 1000)); // TTL in seconds until token expires
+      await jwtBlacklistCache.set(
+        JwtBlacklistCacheKey.JwtBlacklist,
+        jti,
+        true,
+        Math.floor((expiresAt.getTime() - Date.now()) / 1000)
+      ); // TTL in seconds until token expires
     }
   };
 
@@ -237,7 +251,7 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?
       where ${jwtBlacklistTable.fields.jti} = ${jti}
         and ${jwtBlacklistTable.fields.expiresAt} > now()
     `);
-    
+
     const isBlacklisted = (result?.count ?? '0') !== '0';
 
     // Cache the result with TTL if cache is available
@@ -276,7 +290,7 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?
 
     // Add each token to the blacklist
     await Promise.all(
-      tokens.map(token => 
+      tokens.map(async (token) =>
         addToJwtBlacklist(token.jti, userId, sessionId, token.expiresAt, envSet?.tenantId)
       )
     );
@@ -308,10 +322,10 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods, envSet?
   const revokeSessionByUid = async (sessionUid: string, userId: string) => {
     // First, blacklist all JWT tokens associated with this session
     await revokeJwtTokensBySessionId(sessionUid, userId);
-    
+
     // Then revoke all tokens associated with this session
     await revokeTokensBySessionId(sessionUid);
-    
+
     // Finally revoke the session itself
     const result = await pool.query(sql`
       delete from ${table}

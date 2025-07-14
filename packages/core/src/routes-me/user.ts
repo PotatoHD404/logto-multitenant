@@ -1,5 +1,11 @@
 import { emailRegEx, PasswordPolicyChecker, usernameRegEx } from '@logto/core-kit';
-import { userInfoSelectFields, jsonObjectGuard, interaction, saml, jwtCustomizer } from '@logto/schemas';
+import {
+  userInfoSelectFields,
+  jsonObjectGuard,
+  interaction,
+  saml,
+  jwtCustomizer,
+} from '@logto/schemas';
 import { condArray, conditional, pick } from '@silverhand/essentials';
 import { literal, object, string, number } from 'zod';
 
@@ -77,25 +83,22 @@ export default function userRoutes<T extends AuthedMeRouter>(
     }
   );
 
-  router.delete(
-    '/',
-    async (ctx, next) => {
-      const { id: userId } = ctx.auth;
+  router.delete('/', async (ctx, next) => {
+    const { id: userId } = ctx.auth;
 
-      const user = await findUserById(userId);
-      assertThat(!user.isSuspended, new RequestError({ code: 'user.suspended', status: 401 }));
+    const user = await findUserById(userId);
+    assertThat(!user.isSuspended, new RequestError({ code: 'user.suspended', status: 401 }));
 
-      // Sign out the user before deleting the account
-      await signOutUser(userId);
-      
-      // Delete the user account
-      await deleteUserById(userId);
+    // Sign out the user before deleting the account
+    await signOutUser(userId);
 
-      ctx.status = 204;
+    // Delete the user account
+    await deleteUserById(userId);
 
-      return next();
-    }
-  );
+    ctx.status = 204;
+
+    return next();
+  });
 
   router.get('/custom-data', async (ctx, next) => {
     const { id: userId } = ctx.auth;
@@ -228,17 +231,29 @@ export default function userRoutes<T extends AuthedMeRouter>(
       ]);
 
       // Filter out sensitive payload information
-      const filteredLogs = logs.map(log => {
+      const filteredLogs = logs.map((log) => {
         const safePayload: Record<string, unknown> = {};
-        
+
         // Include non-sensitive information
-        if (log.payload.ip) safePayload.ip = log.payload.ip;
-        if (log.payload.userAgent) safePayload.userAgent = log.payload.userAgent;
-        if (log.payload.result) safePayload.result = log.payload.result;
-        if (log.payload.error) safePayload.error = log.payload.error;
-        if (log.payload.interactionEvent) safePayload.interactionEvent = log.payload.interactionEvent;
-        if (log.payload.applicationId) safePayload.applicationId = log.payload.applicationId;
-        
+        if (log.payload.ip) {
+          safePayload.ip = log.payload.ip;
+        }
+        if (log.payload.userAgent) {
+          safePayload.userAgent = log.payload.userAgent;
+        }
+        if (log.payload.result) {
+          safePayload.result = log.payload.result;
+        }
+        if (log.payload.error) {
+          safePayload.error = log.payload.error;
+        }
+        if (log.payload.interactionEvent) {
+          safePayload.interactionEvent = log.payload.interactionEvent;
+        }
+        if (log.payload.applicationId) {
+          safePayload.applicationId = log.payload.applicationId;
+        }
+
         return {
           id: log.id,
           key: log.key,

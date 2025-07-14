@@ -4,10 +4,9 @@
  * Handles notifications for invitation sent, accepted, expired, and other events.
  */
 
-import { TenantRole } from '@logto/schemas';
 import { ConnectorType, TemplateType } from '@logto/connector-kit';
+import { TenantRole } from '@logto/schemas';
 
-import RequestError from '#src/errors/RequestError/index.js';
 import type { ConnectorLibrary } from '#src/libraries/connector.js';
 import type Queries from '#src/tenants/Queries.js';
 
@@ -43,7 +42,9 @@ export class TenantInvitationNotificationLibrary {
   /**
    * Send notification for invitation sent event.
    */
-  async notifyInvitationSent(context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>): Promise<void> {
+  async notifyInvitationSent(
+    context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>
+  ): Promise<void> {
     const notificationContext: InvitationNotificationContext = {
       ...context,
       type: InvitationNotificationType.InvitationSent,
@@ -57,7 +58,9 @@ export class TenantInvitationNotificationLibrary {
   /**
    * Send notification for invitation accepted event.
    */
-  async notifyInvitationAccepted(context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>): Promise<void> {
+  async notifyInvitationAccepted(
+    context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>
+  ): Promise<void> {
     const notificationContext: InvitationNotificationContext = {
       ...context,
       type: InvitationNotificationType.InvitationAccepted,
@@ -71,7 +74,9 @@ export class TenantInvitationNotificationLibrary {
   /**
    * Send notification for invitation expired event.
    */
-  async notifyInvitationExpired(context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>): Promise<void> {
+  async notifyInvitationExpired(
+    context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>
+  ): Promise<void> {
     const notificationContext: InvitationNotificationContext = {
       ...context,
       type: InvitationNotificationType.InvitationExpired,
@@ -85,7 +90,9 @@ export class TenantInvitationNotificationLibrary {
   /**
    * Send notification for invitation revoked event.
    */
-  async notifyInvitationRevoked(context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>): Promise<void> {
+  async notifyInvitationRevoked(
+    context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>
+  ): Promise<void> {
     const notificationContext: InvitationNotificationContext = {
       ...context,
       type: InvitationNotificationType.InvitationRevoked,
@@ -99,7 +106,9 @@ export class TenantInvitationNotificationLibrary {
   /**
    * Send notification for invitation resent event.
    */
-  async notifyInvitationResent(context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>): Promise<void> {
+  async notifyInvitationResent(
+    context: Omit<InvitationNotificationContext, 'type' | 'timestamp'>
+  ): Promise<void> {
     const notificationContext: InvitationNotificationContext = {
       ...context,
       type: InvitationNotificationType.InvitationResent,
@@ -114,7 +123,8 @@ export class TenantInvitationNotificationLibrary {
    * Send notification email to the inviter.
    */
   private async sendNotificationToInviter(context: InvitationNotificationContext): Promise<void> {
-    const { inviterEmail, type, tenantName, inviteeEmail, role, accepterName, accepterEmail } = context;
+    const { inviterEmail, type, tenantName, inviteeEmail, role, accepterName, accepterEmail } =
+      context;
 
     if (!inviterEmail) {
       return; // Skip if no inviter email
@@ -171,18 +181,24 @@ export class TenantInvitationNotificationLibrary {
    */
   private getNotificationSubject(type: InvitationNotificationType, tenantName: string): string {
     switch (type) {
-      case InvitationNotificationType.InvitationSent:
+      case InvitationNotificationType.InvitationSent: {
         return `Invitation sent for ${tenantName}`;
-      case InvitationNotificationType.InvitationAccepted:
+      }
+      case InvitationNotificationType.InvitationAccepted: {
         return `Invitation accepted for ${tenantName}`;
-      case InvitationNotificationType.InvitationExpired:
+      }
+      case InvitationNotificationType.InvitationExpired: {
         return `Invitation expired for ${tenantName}`;
-      case InvitationNotificationType.InvitationRevoked:
+      }
+      case InvitationNotificationType.InvitationRevoked: {
         return `Invitation revoked for ${tenantName}`;
-      case InvitationNotificationType.InvitationResent:
+      }
+      case InvitationNotificationType.InvitationResent: {
         return `Invitation resent for ${tenantName}`;
-      default:
+      }
+      default: {
         return `Invitation update for ${tenantName}`;
+      }
     }
   }
 
@@ -194,39 +210,47 @@ export class TenantInvitationNotificationLibrary {
     const roleText = role === TenantRole.Admin ? 'Administrator' : 'Collaborator';
 
     switch (type) {
-      case InvitationNotificationType.InvitationSent:
+      case InvitationNotificationType.InvitationSent: {
         return `You have successfully sent an invitation to ${inviteeEmail} to join ${tenantName} as a ${roleText}.`;
-      
-      case InvitationNotificationType.InvitationAccepted:
+      }
+
+      case InvitationNotificationType.InvitationAccepted: {
         const accepterInfo = accepterName ? `${accepterName} (${accepterEmail})` : accepterEmail;
         return `${accepterInfo} has accepted your invitation to join ${tenantName} as a ${roleText}.`;
-      
-      case InvitationNotificationType.InvitationExpired:
+      }
+
+      case InvitationNotificationType.InvitationExpired: {
         return `The invitation sent to ${inviteeEmail} to join ${tenantName} as a ${roleText} has expired.`;
-      
-      case InvitationNotificationType.InvitationRevoked:
+      }
+
+      case InvitationNotificationType.InvitationRevoked: {
         return `You have revoked the invitation for ${inviteeEmail} to join ${tenantName} as a ${roleText}.`;
-      
-      case InvitationNotificationType.InvitationResent:
+      }
+
+      case InvitationNotificationType.InvitationResent: {
         return `You have resent the invitation to ${inviteeEmail} to join ${tenantName} as a ${roleText}.`;
-      
-      default:
+      }
+
+      default: {
         return `There has been an update to the invitation for ${inviteeEmail} to join ${tenantName}.`;
+      }
     }
   }
 
   /**
    * Get pending invitations that are about to expire (within 24 hours).
    */
-  async getPendingExpiredInvitations(): Promise<Array<{
-    id: string;
-    invitee: string;
-    inviterId: string;
-    organizationId: string;
-    expiresAt: number;
-  }>> {
+  async getPendingExpiredInvitations(): Promise<
+    Array<{
+      id: string;
+      invitee: string;
+      inviterId: string;
+      organizationId: string;
+      expiresAt: number;
+    }>
+  > {
     const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
-    
+
     try {
       // This would query the database for invitations expiring soon
       // For now, return empty array as we don't have direct database access here
@@ -275,4 +299,4 @@ export const createTenantInvitationNotificationLibrary = (
   tenantId: string,
   queries: Queries,
   connectorLibrary: ConnectorLibrary
-) => new TenantInvitationNotificationLibrary(tenantId, queries, connectorLibrary); 
+) => new TenantInvitationNotificationLibrary(tenantId, queries, connectorLibrary);

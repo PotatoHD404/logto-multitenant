@@ -1,26 +1,40 @@
-import { TenantTag, adminTenantId, TenantRole, createAdminDataInAdminTenant, createAdminData, getManagementApiResourceIndicator, PredefinedScope, getTenantOrganizationId, createDefaultSignInExperience, createDefaultAdminConsoleConfig, createDefaultAccountCenter, LogtoConfigs, SignInExperiences, AccountCenters } from '@logto/schemas';
-import { generateStandardId, generateTenantId} from '@logto/shared';
-import { sql } from '@silverhand/slonik';
-import { object, string, nativeEnum, boolean } from 'zod';
-import type { Next, MiddlewareType } from 'koa';
-
-import { EnvSet } from '#src/env-set/index.js';
-import RequestError from '#src/errors/RequestError/index.js';
-import koaGuard from '#src/middleware/koa-guard.js';
-import koaPagination from '#src/middleware/koa-pagination.js';
-import { createTenantAuthMiddleware } from '#src/middleware/koa-tenant-auth.js';
-import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
-import assertThat from '#src/utils/assert-that.js';
-import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
-
-// Import database utilities for proper tenant creation
-import { createTenantDatabaseMetadata } from '@logto/core-kit';
-import { getDatabaseName } from '@logto/cli/lib/queries/database.js';
-
-// Import OIDC seeding functionality
 import { seedOidcConfigs } from '@logto/cli/lib/commands/database/seed/oidc-config.js';
 import { seedPreConfiguredManagementApiAccessRole } from '@logto/cli/lib/commands/database/seed/roles.js';
 import { insertInto } from '@logto/cli/lib/database.js';
+import { getDatabaseName } from '@logto/cli/lib/queries/database.js';
+import { createTenantDatabaseMetadata } from '@logto/core-kit';
+import {
+  TenantTag,
+  adminTenantId,
+  TenantRole,
+  createAdminData,
+  getManagementApiResourceIndicator,
+  PredefinedScope,
+  getTenantOrganizationId,
+  createDefaultSignInExperience,
+  createDefaultAdminConsoleConfig,
+  createDefaultAccountCenter,
+  LogtoConfigs,
+  SignInExperiences,
+  AccountCenters,
+} from '@logto/schemas';
+import { generateStandardId, generateTenantId } from '@logto/shared';
+import { sql } from '@silverhand/slonik';
+import type { Next, MiddlewareType } from 'koa';
+import { object, string, nativeEnum, boolean } from 'zod';
+
+import { EnvSet } from '#src/env-set/index.js';
+import RequestError from '#src/errors/RequestError/index.js';
+import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
+import { type WithAuthContext } from '#src/middleware/koa-auth/index.js';
+import koaGuard from '#src/middleware/koa-guard.js';
+import koaPagination from '#src/middleware/koa-pagination.js';
+import { createTenantAuthMiddleware } from '#src/middleware/koa-tenant-auth.js';
+import assertThat from '#src/utils/assert-that.js';
+
+// Import database utilities for proper tenant creation
+
+// Import OIDC seeding functionality
 
 import type { ManagementApiRouter, RouterInitArgs, ManagementApiRouterContext } from './types.js';
 
@@ -110,17 +124,15 @@ const createTenantGuard = object({
   name: string().min(1).max(128),
   // For local OSS, use Production tag (no dev/prod distinction)
   // For cloud, use Development tag as default
-  tag: nativeEnum(TenantTag).optional().default(
-    EnvSet.values.isCloud ? TenantTag.Development : TenantTag.Production
-  ),
+  tag: nativeEnum(TenantTag)
+    .optional()
+    .default(EnvSet.values.isCloud ? TenantTag.Development : TenantTag.Production),
 });
 
 const updateTenantGuard = object({
   name: string().min(1).max(128).optional(),
   tag: nativeEnum(TenantTag).optional(),
 });
-
-
 
 export default function tenantRoutes<T extends ManagementApiRouter>(
   ...[router, tenant]: RouterInitArgs<T>
@@ -139,9 +151,12 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
 
   const { queries } = tenant;
   const tenantOrg = createTenantOrganizationLibrary(queries);
-  
+
   // Simple auth check - rely on management router's auth middleware for JWT verification
-  const koaTenantManagementAuth: MiddlewareType<unknown, WithAuthContext<ManagementApiRouterContext>, unknown> = async (ctx, next) => {
+  const koaTenantManagementAuth: MiddlewareType<
+    unknown,
+    WithAuthContext<ManagementApiRouterContext>
+  > = async (ctx, next) => {
     // Ensure the user is authenticated (JWT verification handled by management router)
     assertThat(ctx.auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
 
@@ -149,7 +164,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
 
     // Check if user has any tenant management scope
     // Organization tokens should have the necessary scopes for tenant management
-    const hasTenantManagementScope = 
+    const hasTenantManagementScope =
       scopes.has(PredefinedScope.All) ||
       scopes.has('manage:tenant') ||
       scopes.has('read:data') ||
@@ -158,17 +173,21 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
 
     assertThat(
       hasTenantManagementScope,
-      new RequestError({ 
-        code: 'auth.forbidden', 
+      new RequestError({
+        code: 'auth.forbidden',
         status: 403,
-        data: { message: 'Missing required tenant management scopes', availableScopes: Array.from(scopes) }
+        data: {
+          message: 'Missing required tenant management scopes',
+          availableScopes: Array.from(scopes),
+        },
       })
     );
 
     return next();
   };
 
-  const { koaTenantWriteAuth, koaTenantDeleteAuth, koaTenantCreateAuth } = createTenantAuthMiddleware(queries, tenant.id);
+  const { koaTenantWriteAuth, koaTenantDeleteAuth, koaTenantCreateAuth } =
+    createTenantAuthMiddleware(queries, tenant.id);
 
   // List all tenants that the authenticated user has access to
   // Accepts organization tokens from any tenant, checks tenant management scopes
@@ -183,11 +202,11 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { limit, offset, disabled } = ctx.pagination;
       const { auth } = ctx;
-      
+
       assertThat(auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
-      
+
       const { id: userId } = auth;
-      
+
       // Get all tenants from database
       const sharedPool = await EnvSet.sharedPool;
       const allTenants = await sharedPool.any<TenantDatabaseRow>(sql`
@@ -195,11 +214,11 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         FROM tenants 
         ORDER BY created_at DESC
       `);
-      
+
       // For users with tenant management scopes, show all tenants they have permission to manage
       // This allows cross-tenant access with proper authorization
       const { scopes } = auth;
-      const hasTenantManagementScope = 
+      const hasTenantManagementScope =
         scopes.has(PredefinedScope.All) ||
         scopes.has('manage:tenant') ||
         scopes.has('read:data') ||
@@ -207,7 +226,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         scopes.has('delete:data');
 
       let accessibleTenants: TenantDatabaseRow[] = [];
-      
+
       if (hasTenantManagementScope) {
         // Users with tenant management scopes can see all tenants
         accessibleTenants = [...allTenants];
@@ -221,7 +240,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
               organizationId,
               userId,
             });
-            
+
             if (isMember) {
               accessibleTenants.push(tenant);
             }
@@ -231,13 +250,13 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           }
         }
       }
-      
+
       // Apply pagination to filtered results if not disabled
       const totalCount = accessibleTenants.length;
-      const paginatedTenants = disabled 
-        ? accessibleTenants 
+      const paginatedTenants = disabled
+        ? accessibleTenants
         : accessibleTenants.slice(offset, offset + limit);
-      
+
       ctx.body = paginatedTenants.map((tenant) => ({
         id: tenant.id,
         name: tenant.name,
@@ -245,7 +264,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         createdAt: tenant.created_at ? tenant.created_at.toISOString() : new Date().toISOString(),
         isSuspended: tenant.is_suspended,
       }));
-      
+
       if (!disabled) {
         ctx.pagination.totalCount = totalCount;
       }
@@ -274,7 +293,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       // Get database name and generate proper database credentials
       const database = await getDatabaseName(sharedPool, true);
       const { parentRole, role, password } = createTenantDatabaseMetadata(database, id);
-      
+
       // Create tenant record using shared admin pool
       const newTenant = await sharedPool.one<TenantDatabaseRow>(sql`
         INSERT INTO tenants (id, name, tag, db_user, db_user_password, created_at, is_suspended)
@@ -302,7 +321,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       // Seed essential default data for the new tenant
       try {
         const { isCloud } = EnvSet.values;
-        
+
         // Create default sign-in experience
         const signInExperience = createDefaultSignInExperience(newTenant.id, isCloud);
         await sharedPool.query(insertInto(signInExperience, SignInExperiences.table));
@@ -324,7 +343,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       try {
         // Create Management API resource in admin tenant (for admin management)
         const adminData = createOssAdminData(newTenant.id);
-        
+
         // Insert resource in admin tenant
         await sharedPool.query(sql`
           INSERT INTO resources (id, tenant_id, name, indicator, access_token_ttl)
@@ -341,7 +360,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
 
         // Create Management API resource in the new tenant's own context (for its OIDC provider)
         const tenantOwnData = createAdminData(newTenant.id);
-        
+
         // Insert resource in new tenant's own context
         await sharedPool.query(sql`
           INSERT INTO resources (id, tenant_id, name, indicator, access_token_ttl)
@@ -355,7 +374,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
             VALUES (${scope.id}, ${scope.tenantId}, ${scope.resourceId}, ${scope.name}, ${scope.description})
           `);
         }
-        
+
         // Grant the admin tenant 'user' role access to the new tenant's Management API
         // This allows users in the admin tenant to manage the new tenant
         try {
@@ -363,7 +382,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           const userRole = await sharedPool.maybeOne<{ id: string }>(sql`
             SELECT id FROM roles WHERE tenant_id = ${adminTenantId} AND name = 'user'
           `);
-          
+
           if (userRole) {
             // Assign all new tenant Management API scopes to the user role
             for (const scope of adminData.scopes) {
@@ -374,7 +393,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
                 AND role_id = ${userRole.id} 
                 AND scope_id = ${scope.id}
               `);
-              
+
               if (!existingAssignment) {
                 await sharedPool.query(sql`
                   INSERT INTO roles_scopes (id, tenant_id, role_id, scope_id)
@@ -382,25 +401,38 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
                 `);
               }
             }
-            console.log(`Successfully granted user role access to tenant ${newTenant.id} Management API`);
+            console.log(
+              `Successfully granted user role access to tenant ${newTenant.id} Management API`
+            );
           }
         } catch (error) {
-          console.error(`Failed to grant user role access to tenant ${newTenant.id} Management API:`, error);
+          console.error(
+            `Failed to grant user role access to tenant ${newTenant.id} Management API:`,
+            error
+          );
           // Don't throw as this shouldn't block tenant creation
         }
-        
+
         console.log(`Successfully created Management API resource for tenant ${newTenant.id}`);
       } catch (error) {
-        console.error(`Failed to create Management API resource for tenant ${newTenant.id}:`, error);
+        console.error(
+          `Failed to create Management API resource for tenant ${newTenant.id}:`,
+          error
+        );
         // Don't throw error as this shouldn't block tenant creation
       }
 
       // Seed pre-configured management API access role
       try {
         await seedPreConfiguredManagementApiAccessRole(sharedPool, newTenant.id);
-        console.log(`Successfully created pre-configured Management API access role for tenant ${newTenant.id}`);
+        console.log(
+          `Successfully created pre-configured Management API access role for tenant ${newTenant.id}`
+        );
       } catch (error) {
-        console.error(`Failed to create pre-configured Management API access role for tenant ${newTenant.id}:`, error);
+        console.error(
+          `Failed to create pre-configured Management API access role for tenant ${newTenant.id}:`,
+          error
+        );
         // Don't throw error as this shouldn't block tenant creation
       }
 
@@ -409,14 +441,17 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
       // for user management purposes
       try {
         await tenantOrg.ensureTenantOrganization(newTenant.id, newTenant.name);
-        
+
         // Assign the creating user as an admin of the new tenant
         const userId = ctx.auth.id;
         await tenantOrg.addUserToTenant(newTenant.id, userId, TenantRole.Admin);
       } catch (error) {
         // If organization creation or user assignment fails, log the error but don't block tenant creation
         // The organization and user assignment can be created later when needed
-        console.error(`Failed to initialize tenant organization or assign user for tenant ${newTenant.id}:`, error);
+        console.error(
+          `Failed to initialize tenant organization or assign user for tenant ${newTenant.id}:`,
+          error
+        );
       }
 
       ctx.status = 201;
@@ -424,7 +459,9 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         id: newTenant.id,
         name: newTenant.name,
         tag: newTenant.tag,
-        createdAt: newTenant.created_at ? newTenant.created_at.toISOString() : new Date().toISOString(),
+        createdAt: newTenant.created_at
+          ? newTenant.created_at.toISOString()
+          : new Date().toISOString(),
         isSuspended: newTenant.is_suspended,
       };
 
@@ -444,10 +481,10 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     async (ctx: ManagementApiRouterContext, next: Next) => {
       const { id } = ctx.guard.params;
       const { auth } = ctx;
-      
+
       assertThat(auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
       const { id: userId } = auth;
-      
+
       const sharedPool = await EnvSet.sharedPool;
       const tenant = await sharedPool.maybeOne<TenantDatabaseRow>(sql`
         SELECT id, name, tag, created_at, is_suspended
@@ -470,13 +507,13 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
           organizationId,
           userId,
         });
-        
+
         assertThat(
           isMember,
           new RequestError({
             code: 'auth.forbidden',
             status: 403,
-            data: { message: `Access denied to tenant: ${id}` }
+            data: { message: `Access denied to tenant: ${id}` },
           })
         );
       } catch (error) {
@@ -487,7 +524,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         throw new RequestError({
           code: 'auth.forbidden',
           status: 403,
-          data: { message: `Access denied to tenant: ${id}` }
+          data: { message: `Access denied to tenant: ${id}` },
         });
       }
 

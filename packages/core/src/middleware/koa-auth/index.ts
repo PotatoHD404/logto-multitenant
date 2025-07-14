@@ -9,9 +9,9 @@ import { z } from 'zod';
 
 import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
+import type TenantContext from '#src/tenants/TenantContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { devConsole, debugConsole } from '#src/utils/console.js';
-import type TenantContext from '#src/tenants/TenantContext.js';
 
 import { type WithAuthContext, type TokenInfo } from './types.js';
 import { extractBearerTokenFromHeaders, getAdminTenantTokenValidationSet } from './utils.js';
@@ -43,7 +43,7 @@ export const verifyBearerTokenFromRequest = async (
 
   const getKeysAndIssuer = async (): Promise<[JWK[], string[]]> => {
     const { publicJwks, issuer } = envSet.oidc;
-    
+
     debugConsole.warn('envSet.tenantId:', envSet.tenantId);
     debugConsole.warn('adminTenantId:', adminTenantId);
     debugConsole.warn('publicJwks length:', publicJwks.length);
@@ -67,23 +67,19 @@ export const verifyBearerTokenFromRequest = async (
   try {
     const bearerToken = extractBearerTokenFromHeaders(request.headers);
     debugConsole.warn('Bearer token length:', bearerToken.length);
-    debugConsole.warn('Bearer token first 50 chars:', bearerToken.substring(0, 50));
-    
+    debugConsole.warn('Bearer token first 50 chars:', bearerToken.slice(0, 50));
+
     const [keys, issuer] = await getKeysAndIssuer();
     debugConsole.warn('Total keys for verification:', keys.length);
     debugConsole.warn('Issuers for verification:', issuer);
     debugConsole.warn('Audience for verification:', audience);
-    
+
     const {
       payload: { sub, client_id: clientId, scope = '', jti },
-    } = await jwtVerify(
-      bearerToken,
-      createLocalJWKSet({ keys }),
-      {
-        issuer,
-        audience,
-      }
-    );
+    } = await jwtVerify(bearerToken, createLocalJWKSet({ keys }), {
+      issuer,
+      audience,
+    });
 
     assertThat(sub, new RequestError({ code: 'auth.jwt_sub_missing', status: 401 }));
 
@@ -98,9 +94,12 @@ export const verifyBearerTokenFromRequest = async (
     return { sub, clientId, scopes: z.string().parse(scope).split(' ') };
   } catch (error: unknown) {
     debugConsole.warn('JWT verification failed with error:', error);
-    debugConsole.warn('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    debugConsole.warn(
+      'Error type:',
+      error instanceof Error ? error.constructor.name : typeof error
+    );
     debugConsole.warn('Error message:', error instanceof Error ? error.message : String(error));
-    
+
     if (error instanceof RequestError) {
       throw error;
     }

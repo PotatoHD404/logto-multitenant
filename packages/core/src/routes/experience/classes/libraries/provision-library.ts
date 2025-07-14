@@ -284,9 +284,18 @@ export class ProvisionLibrary {
     });
 
     // For multi-tenant OSS, add the first admin user to ALL tenant organizations
-    if (!isCloud) {
-             // Get all tenants
-       const sharedPool = await EnvSet.sharedPool;
+    if (isCloud) {
+      // For cloud, only add to default tenant organization (original behavior)
+      const organizationId = getTenantOrganizationId(defaultTenantId);
+      await organizations.relations.users.insert({ organizationId, userId: id });
+      await organizations.relations.usersRoles.insert({
+        organizationId,
+        userId: id,
+        organizationRoleId: getTenantRole(TenantRole.Admin).id,
+      });
+    } else {
+      // Get all tenants
+      const sharedPool = await EnvSet.sharedPool;
       const allTenants = await sharedPool.any<{ id: string }>(sql`
         select id from tenants;
       `);
@@ -294,11 +303,11 @@ export class ProvisionLibrary {
       // Add user to all tenant organizations with admin role
       for (const tenant of allTenants) {
         const organizationId = getTenantOrganizationId(tenant.id);
-        
+
         try {
           // Add user to organization
           await organizations.relations.users.insert({ organizationId, userId: id });
-          
+
           // Assign admin role to user in organization
           await organizations.relations.usersRoles.insert({
             organizationId,
@@ -310,15 +319,6 @@ export class ProvisionLibrary {
           console.warn(`Failed to add admin user to organization ${organizationId}:`, error);
         }
       }
-    } else {
-      // For cloud, only add to default tenant organization (original behavior)
-      const organizationId = getTenantOrganizationId(defaultTenantId);
-      await organizations.relations.users.insert({ organizationId, userId: id });
-      await organizations.relations.usersRoles.insert({
-        organizationId,
-        userId: id,
-        organizationRoleId: getTenantRole(TenantRole.Admin).id,
-      });
     }
   }
 

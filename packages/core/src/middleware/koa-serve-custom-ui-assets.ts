@@ -26,8 +26,10 @@ export default function koaServeCustomUiAssets(customUiAssetId: string) {
     assertThat(tenantId, 'session.not_found', 404);
 
     // Support multiple storage providers for local deployments
-    let downloadFile: any, isFileExisted: any, getFileProperties: any;
-    
+    let downloadFile: any;
+    let isFileExisted: any;
+    let getFileProperties: any;
+
     if (experienceBlobsProviderConfig.provider === 'AzureStorage') {
       const { container, connectionString } = experienceBlobsProviderConfig;
       const azureStorage = buildAzureStorage(connectionString, container);
@@ -37,9 +39,13 @@ export default function koaServeCustomUiAssets(customUiAssetId: string) {
     } else {
       // For other storage providers, serving is not currently supported
       // Local deployments should use Azure Storage for full functionality
-      throw new RequestError({ code: 'storage.not_configured', status: 500 }, {
-        details: 'Custom UI assets serving is currently only supported with Azure Storage. Please configure Azure Storage for full functionality.',
-      });
+      throw new RequestError(
+        { code: 'storage.not_configured', status: 500 },
+        {
+          details:
+            'Custom UI assets serving is currently only supported with Azure Storage. Please configure Azure Storage for full functionality.',
+        }
+      );
     }
 
     const contextPath = `${tenantId}/${customUiAssetId}`;

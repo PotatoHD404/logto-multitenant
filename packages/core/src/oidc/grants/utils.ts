@@ -171,7 +171,7 @@ export const handleOrganizationToken = async ({
   /* eslint-disable @silverhand/fp/no-mutation */
   const audience = buildOrganizationUrn(organizationId);
 
-  /** 
+  /**
    * For organization tokens, issue all available scopes that the user has in the organization.
    * This ensures admin console and other organization-aware clients get proper permissions.
    * The scope filtering here should be more permissive than regular resource tokens since

@@ -80,7 +80,7 @@ export const extractBearerTokenFromHeaders = ({ authorization }: IncomingHttpHea
   );
 
   const token = authorization.slice(bearerTokenIdentifier.length + 1);
-  
+
   // Check if token is empty after extracting
   assertThat(
     token && token.trim().length > 0,

@@ -13,7 +13,11 @@ import {
   generateBackupCodes,
   validateBackupCodes,
 } from '../routes/interaction/utils/backup-code-validation.js';
-import { generateTotpSecret, validateTotpSecret, validateTotpToken } from '../routes/interaction/utils/totp-validation.js';
+import {
+  generateTotpSecret,
+  validateTotpSecret,
+  validateTotpToken,
+} from '../routes/interaction/utils/totp-validation.js';
 import { generateWebAuthnRegistrationOptions } from '../routes/interaction/utils/webauthn.js';
 import type { RouterInitArgs } from '../routes/types.js';
 
@@ -41,7 +45,7 @@ export default function mfaVerificationsRoutes<T extends AuthedMeRouter>(
       const { id: userId } = ctx.auth;
       const user = await findUserById(userId);
       assertThat(!user.isSuspended, new RequestError({ code: 'user.suspended', status: 401 }));
-      
+
       ctx.body = transpileUserMfaVerifications(user.mfaVerifications);
       return next();
     }
@@ -88,19 +92,27 @@ export default function mfaVerificationsRoutes<T extends AuthedMeRouter>(
               name: z.string(),
               displayName: z.string(),
             }),
-            pubKeyCredParams: z.array(z.object({
-              alg: z.number(),
-              type: z.string(),
-            })),
+            pubKeyCredParams: z.array(
+              z.object({
+                alg: z.number(),
+                type: z.string(),
+              })
+            ),
             timeout: z.number(),
-            excludeCredentials: z.array(z.object({
-              id: z.string(),
-              type: z.string(),
-              transports: z.array(z.string()).optional(),
-            })).optional(),
-            authenticatorSelection: z.object({
-              residentKey: z.string().optional(),
-            }).optional(),
+            excludeCredentials: z
+              .array(
+                z.object({
+                  id: z.string(),
+                  type: z.string(),
+                  transports: z.array(z.string()).optional(),
+                })
+              )
+              .optional(),
+            authenticatorSelection: z
+              .object({
+                residentKey: z.string().optional(),
+              })
+              .optional(),
           }),
         }),
       ]),
@@ -110,7 +122,7 @@ export default function mfaVerificationsRoutes<T extends AuthedMeRouter>(
       const { id: userId } = ctx.auth;
       const user = await findUserById(userId);
       const { id, mfaVerifications, username, primaryEmail, primaryPhone, name } = user;
-      
+
       assertThat(!user.isSuspended, new RequestError({ code: 'user.suspended', status: 401 }));
 
       const { type } = ctx.guard.body;
@@ -135,7 +147,7 @@ export default function mfaVerificationsRoutes<T extends AuthedMeRouter>(
               status: 422,
             })
           );
-          
+
           assertThat(
             validateTotpToken(ctx.guard.body.secret, ctx.guard.body.code),
             new RequestError({
@@ -143,7 +155,7 @@ export default function mfaVerificationsRoutes<T extends AuthedMeRouter>(
               status: 422,
             })
           );
-          
+
           await addUserMfaVerification(id, { type: MfaFactor.TOTP, secret: ctx.guard.body.secret });
           ctx.body = {
             type: MfaFactor.TOTP,
@@ -261,4 +273,4 @@ export default function mfaVerificationsRoutes<T extends AuthedMeRouter>(
       return next();
     }
   );
-} 
+}

@@ -45,7 +45,7 @@ export const createDomainLibrary = (queries: Queries) => {
 
   const syncDomainStatus = async (domain: Domain): Promise<Domain> => {
     const { hostnameProviderConfig } = SystemContext.shared;
-    
+
     // For local OSS, if Cloudflare is not configured, return domain as-is
     if (!hostnameProviderConfig) {
       if (EnvSet.values.isCloud) {
@@ -69,13 +69,13 @@ export const createDomainLibrary = (queries: Queries) => {
 
   const addDomain = async (hostname: string): Promise<Domain> => {
     const { hostnameProviderConfig } = SystemContext.shared;
-    
+
     // For local OSS, if Cloudflare is not configured, create a domain without cloud integration
     if (!hostnameProviderConfig) {
       if (EnvSet.values.isCloud) {
         assertThat(false, 'domain.not_configured');
       }
-      
+
       // Create a domain without Cloudflare integration for local OSS
       const insertedDomain = await insertDomain({
         domain: hostname,
@@ -91,7 +91,7 @@ export const createDomainLibrary = (queries: Queries) => {
         ],
         errorMessage: null,
       });
-      
+
       return insertedDomain;
     }
 
@@ -127,13 +127,13 @@ export const createDomainLibrary = (queries: Queries) => {
 
   const deleteDomain = async (id: string) => {
     const { hostnameProviderConfig } = SystemContext.shared;
-    
+
     // For local OSS, if Cloudflare is not configured, skip cloud operations
     if (!hostnameProviderConfig) {
       if (EnvSet.values.isCloud) {
         assertThat(false, 'domain.not_configured');
       }
-      
+
       // Just delete from database for local OSS
       const domain = await findDomainById(id);
       await deleteDomainById(id);

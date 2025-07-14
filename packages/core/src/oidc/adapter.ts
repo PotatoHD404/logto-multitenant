@@ -30,10 +30,7 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
 
   // For OSS, also include tenant-specific logout redirect URIs
   // The console's useRedirectUri hook generates paths like /console/{tenantId} for logout
-  const postLogoutRedirectUris = [
-    ...(data.post_logout_redirect_uris ?? []),
-    ...urls.map(String),
-  ];
+  const postLogoutRedirectUris = [...(data.post_logout_redirect_uris ?? []), ...urls.map(String)];
 
   // Add specific console pages that can be used for logout redirects
   const consolePages = [
@@ -55,11 +52,11 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
   ];
 
   // Add specific console paths for logout redirects
-  adminUrlSet.deduplicated().forEach((url) => {
-    consolePages.forEach((page) => {
+  for (const url of adminUrlSet.deduplicated()) {
+    for (const page of consolePages) {
       postLogoutRedirectUris.push(appendPath(url, `/console${page}`).href);
-    });
-  });
+    }
+  }
 
   // Add tenant-specific logout redirect URIs for OSS
   if (!EnvSet.values.isCloud) {
@@ -68,15 +65,17 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
     // 1. Add the base console path (for tenant-independent routes)
     // 2. Add common tenant IDs (default, admin)
     // 3. The console should ideally use tenant-independent logout flows when possible
-    
+
     const basePaths = adminUrlSet.deduplicated().map((url) => appendPath(url, '/console').href);
     postLogoutRedirectUris.push(...basePaths);
-    
+
     // Add common tenant IDs that are likely to be used
     const commonTenantIds = ['default', 'admin'];
-    const tenantSpecificUrls = adminUrlSet.deduplicated().flatMap((url) => 
-      commonTenantIds.map(tenantId => appendPath(url, `/console/${tenantId}`).href)
-    );
+    const tenantSpecificUrls = adminUrlSet
+      .deduplicated()
+      .flatMap((url) =>
+        commonTenantIds.map((tenantId) => appendPath(url, `/console/${tenantId}`).href)
+      );
     postLogoutRedirectUris.push(...tenantSpecificUrls);
   }
 

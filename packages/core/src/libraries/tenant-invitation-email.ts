@@ -84,7 +84,7 @@ export class TenantInvitationEmailLibrary {
    */
   async createInvitationMagicLink(invitationId: string, email: string): Promise<string> {
     const token = generateStandardId();
-    
+
     // For now, just return the invitation URL with a token
     // In a full implementation, this would store the token in a database
     return `${this.generateInvitationUrl(invitationId)}?token=${token}`;
@@ -98,4 +98,4 @@ export const createTenantInvitationEmailLibrary = (
   tenantId: string,
   queries: Queries,
   connectorLibrary: ConnectorLibrary
-) => new TenantInvitationEmailLibrary(tenantId, queries, connectorLibrary); 
+) => new TenantInvitationEmailLibrary(tenantId, queries, connectorLibrary);

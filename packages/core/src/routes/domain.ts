@@ -13,10 +13,10 @@ export default function domainRoutes<T extends ManagementApiRouter>(
   ...[router, tenant]: RouterInitArgs<T>
 ) {
   const { id: tenantId, queries, libraries } = tenant;
-  
+
   // Create tenant auth middleware with the actual current tenant ID from context
   const { koaTenantReadAuth, koaTenantWriteAuth } = createTenantAuthMiddleware(queries, tenant.id);
-  
+
   const {
     domains: { findAllDomains, findDomainById },
   } = queries;

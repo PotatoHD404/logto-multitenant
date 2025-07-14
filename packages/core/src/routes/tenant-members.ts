@@ -2,20 +2,20 @@ import { TenantRole } from '@logto/schemas';
 import { z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
+import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import koaPagination from '#src/middleware/koa-pagination.js';
-import { 
+import {
   koaTenantMemberReadAuth,
   koaTenantMemberInviteAuth,
   koaTenantMemberRemoveAuth,
   koaTenantMemberUpdateRoleAuth,
   koaTenantMemberReadInvitationsAuth,
-  koaTenantMemberCreateInvitationsAuth
+  koaTenantMemberCreateInvitationsAuth,
 } from '#src/middleware/koa-tenant-member-auth.js';
 import { userSearchKeys } from '#src/queries/user.js';
 import type { ManagementApiRouter, RouterInitArgs } from '#src/routes/types.js';
 import { parseSearchOptions } from '#src/utils/search.js';
-import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
 
 // Response types for tenant members and invitations
 const tenantMemberResponseGuard = z.object({
@@ -27,24 +27,28 @@ const tenantMemberResponseGuard = z.object({
   username: z.string().nullable(),
   role: z.nativeEnum(TenantRole),
   isOwner: z.boolean(),
-  organizationRoles: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-  })),
+  organizationRoles: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+    })
+  ),
 });
 
 const tenantInvitationResponseGuard = z.object({
-  id: z.string(), 
+  id: z.string(),
   email: z.string(),
   role: z.nativeEnum(TenantRole),
   status: z.string(),
   createdAt: z.string(),
   expiresAt: z.string(),
   invitee: z.string(),
-  organizationRoles: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-  })),
+  organizationRoles: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+    })
+  ),
 });
 
 export default function tenantMemberRoutes<T extends ManagementApiRouter>(
@@ -67,9 +71,9 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
       const { tenantId } = ctx.guard.params;
       const { q } = ctx.guard.query;
       const { limit, offset } = ctx.pagination;
-      
+
       const searchOptions = parseSearchOptions(userSearchKeys, { q });
-      
+
       try {
         const { totalCount, members } = await tenantOrg.getTenantMembers(
           tenantId,
@@ -79,7 +83,7 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
 
         ctx.pagination.totalCount = totalCount;
         ctx.body = members;
-      } catch (error) {
+      } catch {
         throw new RequestError({ code: 'entity.not_found', status: 404 });
       }
 
@@ -92,7 +96,7 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     '/tenants/:tenantId/members',
     koaGuard({
       params: z.object({ tenantId: z.string() }),
-      body: z.object({ 
+      body: z.object({
         userId: z.string(),
         role: z.nativeEnum(TenantRole).optional().default(TenantRole.Collaborator),
       }),
@@ -102,7 +106,7 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     async (ctx, next) => {
       const { tenantId } = ctx.guard.params;
       const { userId, role } = ctx.guard.body;
-      
+
       try {
         await tenantOrg.addUserToTenant(tenantId, userId, role);
         ctx.status = 201;
@@ -127,7 +131,7 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     koaTenantMemberRemoveAuth(queries),
     async (ctx, next) => {
       const { tenantId, userId } = ctx.guard.params;
-      
+
       try {
         await tenantOrg.removeUserFromTenant(tenantId, userId);
         ctx.status = 204;
@@ -154,7 +158,7 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     async (ctx, next) => {
       const { tenantId, userId } = ctx.guard.params;
       const { roleName } = ctx.guard.body;
-      
+
       try {
         await tenantOrg.updateUserRole(tenantId, userId, roleName);
         ctx.status = 200;
@@ -180,14 +184,14 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     koaTenantMemberReadAuth(queries),
     async (ctx, next) => {
       const { tenantId, userId } = ctx.guard.params;
-      
+
       try {
         const permissions = await tenantOrg.getTenantPermissions(tenantId, userId);
         ctx.body = permissions;
-      } catch (error) {
+      } catch {
         throw new RequestError({ code: 'entity.not_found', status: 404 });
       }
-      
+
       return next();
     }
   );
@@ -205,16 +209,16 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     async (ctx, next) => {
       const { tenantId } = ctx.guard.params;
       const { limit, offset } = ctx.pagination;
-      
+
       try {
-        const { totalCount, invitations } = await tenantOrg.getTenantInvitations(
-          tenantId,
-          { limit, offset }
-        );
+        const { totalCount, invitations } = await tenantOrg.getTenantInvitations(tenantId, {
+          limit,
+          offset,
+        });
 
         ctx.pagination.totalCount = totalCount;
         ctx.body = invitations;
-      } catch (error) {
+      } catch {
         throw new RequestError({ code: 'entity.not_found', status: 404 });
       }
 
@@ -237,16 +241,11 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     async (ctx, next) => {
       const { tenantId } = ctx.guard.params;
       const { emails, role } = ctx.guard.body;
-      
+
       const invitations = [];
       for (const email of emails) {
         try {
-          const invitation = await tenantOrg.createInvitation(
-            tenantId,
-            email,
-            role,
-            ctx.auth.id
-          );
+          const invitation = await tenantOrg.createInvitation(tenantId, email, role, ctx.auth.id);
           invitations.push(invitation);
         } catch (error) {
           // Skip duplicate invitations
@@ -275,12 +274,12 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     async (ctx, next) => {
       const { tenantId, invitationId } = ctx.guard.params;
       const { status } = ctx.guard.body;
-      
+
       try {
         // Update invitation status - this will be properly implemented later
         ctx.status = 200;
         ctx.body = { success: true };
-      } catch (error) {
+      } catch {
         throw new RequestError({ code: 'entity.not_found', status: 404 });
       }
 
@@ -298,11 +297,11 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     koaTenantMemberCreateInvitationsAuth(queries),
     async (ctx, next) => {
       const { tenantId, invitationId } = ctx.guard.params;
-      
+
       try {
         // Delete invitation - this will be properly implemented later
         ctx.status = 204;
-      } catch (error) {
+      } catch {
         throw new RequestError({ code: 'entity.not_found', status: 404 });
       }
 
@@ -320,16 +319,16 @@ export default function tenantMemberRoutes<T extends ManagementApiRouter>(
     koaTenantMemberCreateInvitationsAuth(queries),
     async (ctx, next) => {
       const { tenantId, invitationId } = ctx.guard.params;
-      
+
       try {
         // Resend invitation - this will be properly implemented later
         ctx.status = 200;
         ctx.body = { success: true };
-      } catch (error) {
+      } catch {
         throw new RequestError({ code: 'entity.not_found', status: 404 });
       }
 
       return next();
     }
   );
-} 
+}

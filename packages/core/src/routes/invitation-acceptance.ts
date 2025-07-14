@@ -8,11 +8,10 @@ import { TenantRole, OrganizationInvitationStatus } from '@logto/schemas';
 import { z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
+import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
 import koaAuth from '#src/middleware/koa-auth/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
-import { createTenantOrganizationLibrary } from '#src/libraries/tenant-organization.js';
 import type { ManagementApiRouter, RouterInitArgs } from '#src/routes/types.js';
-import type { WithAuthContext } from '#src/middleware/koa-auth/index.js';
 
 const invitationAcceptanceGuard = z.object({
   invitationId: z.string(),
@@ -45,47 +44,46 @@ export default function invitationAcceptanceRoutes<T extends ManagementApiRouter
       try {
         // Get the invitation details
         const invitation = await queries.organizations.invitations.findById(invitationId);
-        
+
         if (!invitation) {
           throw new RequestError({ code: 'entity.not_found', status: 404 });
         }
 
         // Verify the invitation is for the correct email
         if (invitation.invitee !== email) {
-          throw new RequestError({ 
-            code: 'invitation.invalid_email', 
-            status: 400 
+          throw new RequestError({
+            code: 'invitation.invalid_email',
+            status: 400,
           });
         }
 
         // Check if invitation is still valid
         if (invitation.status !== OrganizationInvitationStatus.Pending) {
-          throw new RequestError({ 
-            code: 'invitation.invalid_status', 
-            status: 400 
+          throw new RequestError({
+            code: 'invitation.invalid_status',
+            status: 400,
           });
         }
 
         // Check if invitation has expired
         if (invitation.expiresAt && invitation.expiresAt < Date.now()) {
-          throw new RequestError({ 
-            code: 'invitation.expired', 
-            status: 400 
+          throw new RequestError({
+            code: 'invitation.expired',
+            status: 400,
           });
         }
 
         // Extract tenant ID from organization ID (format: t-{tenantId})
         const tenantId = invitation.organizationId.replace(/^t-/, '');
-        
+
         // Get invitation roles
-        const invitationRoles = await queries.organizations.relations.invitationsRoles.findByInvitationId(
-          invitationId
-        );
-        
+        const invitationRoles =
+          await queries.organizations.relations.invitationsRoles.findByInvitationId(invitationId);
+
         if (invitationRoles.length === 0) {
-          throw new RequestError({ 
-            code: 'invitation.no_roles', 
-            status: 400 
+          throw new RequestError({
+            code: 'invitation.no_roles',
+            status: 400,
           });
         }
 
@@ -114,9 +112,9 @@ export default function invitationAcceptanceRoutes<T extends ManagementApiRouter
         if (error instanceof RequestError) {
           throw error;
         }
-        throw new RequestError({ 
-          code: 'invitation.acceptance_failed', 
-          status: 500 
+        throw new RequestError({
+          code: 'invitation.acceptance_failed',
+          status: 500,
         });
       }
 
@@ -147,16 +145,15 @@ export default function invitationAcceptanceRoutes<T extends ManagementApiRouter
 
       try {
         const invitation = await queries.organizations.invitations.findById(invitationId);
-        
+
         if (!invitation) {
           throw new RequestError({ code: 'entity.not_found', status: 404 });
         }
 
         // Get invitation roles
-        const invitationRoles = await queries.organizations.relations.invitationsRoles.findByInvitationId(
-          invitationId
-        );
-        
+        const invitationRoles =
+          await queries.organizations.relations.invitationsRoles.findByInvitationId(invitationId);
+
         const roleId = invitationRoles[0]?.organizationRoleId;
         const role = roleId?.includes('admin') ? TenantRole.Admin : TenantRole.Collaborator;
 
@@ -165,7 +162,7 @@ export default function invitationAcceptanceRoutes<T extends ManagementApiRouter
 
         // Get tenant details
         const tenant = await queries.tenants.findById(tenantId);
-        
+
         // Get inviter details
         const inviter = await queries.users.findById(invitation.inviterId);
 
@@ -184,9 +181,9 @@ export default function invitationAcceptanceRoutes<T extends ManagementApiRouter
         if (error instanceof RequestError) {
           throw error;
         }
-        throw new RequestError({ 
-          code: 'entity.not_found', 
-          status: 404 
+        throw new RequestError({
+          code: 'entity.not_found',
+          status: 404,
         });
       }
 
@@ -195,4 +192,4 @@ export default function invitationAcceptanceRoutes<T extends ManagementApiRouter
   );
 
   return router;
-} 
+}

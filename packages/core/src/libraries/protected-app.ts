@@ -31,7 +31,7 @@ export type ProtectedAppLibrary = ReturnType<typeof createProtectedAppLibrary>;
 
 const getProviderConfig = async () => {
   const { protectedAppConfigProviderConfig } = SystemContext.shared;
-  
+
   // For local OSS, if Cloudflare is not configured, return null
   if (!protectedAppConfigProviderConfig) {
     if (EnvSet.values.isCloud) {
@@ -45,7 +45,7 @@ const getProviderConfig = async () => {
 
 const getHostnameProviderConfig = async () => {
   const { protectedAppHostnameProviderConfig } = SystemContext.shared;
-  
+
   // For local OSS, if Cloudflare is not configured, return null
   if (!protectedAppHostnameProviderConfig) {
     if (EnvSet.values.isCloud) {
@@ -59,7 +59,7 @@ const getHostnameProviderConfig = async () => {
 
 const getDefaultDomain = async (): Promise<string> => {
   const providerConfig = await getProviderConfig();
-  
+
   // For local OSS, return localhost as default domain
   if (!providerConfig) {
     return 'localhost:3001';
@@ -75,7 +75,7 @@ const deleteRemoteAppConfigs = async (host: string): Promise<void> => {
   }
 
   const providerConfig = await getProviderConfig();
-  
+
   // For local OSS, skip if Cloudflare is not configured
   if (!providerConfig) {
     return;
@@ -132,7 +132,7 @@ const addDomainToRemote = async (
   hostname: string
 ): Promise<NonNullable<ProtectedAppMetadata['customDomains']>[number]> => {
   const hostnameProviderConfig = await getHostnameProviderConfig();
-  
+
   // For local OSS, if Cloudflare is not configured, return a mock domain
   if (!hostnameProviderConfig) {
     return {
@@ -181,7 +181,7 @@ const addDomainToRemote = async (
 
 const deleteDomainFromRemote = async (id: string): Promise<void> => {
   const hostnameProviderConfig = await getHostnameProviderConfig();
-  
+
   // For local OSS, skip if Cloudflare is not configured
   if (!hostnameProviderConfig) {
     return;
@@ -202,7 +202,7 @@ export const createProtectedAppLibrary = (queries: Queries) => {
     }
 
     const providerConfig = await getProviderConfig();
-    
+
     // For local OSS, skip if Cloudflare is not configured
     if (!providerConfig) {
       return;
@@ -225,11 +225,7 @@ export const createProtectedAppLibrary = (queries: Queries) => {
     };
 
     // Update default host (subdomain of the default domain)
-    await updateProtectedAppSiteConfigs(
-      providerConfig,
-      protectedAppMetadata.host,
-      siteConfigs
-    );
+    await updateProtectedAppSiteConfigs(providerConfig, protectedAppMetadata.host, siteConfigs);
 
     // Update custom domains sites
     if (customDomains && customDomains.length > 0) {

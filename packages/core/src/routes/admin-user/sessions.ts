@@ -3,7 +3,6 @@ import { z } from 'zod';
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import koaPagination from '#src/middleware/koa-pagination.js';
-import assertThat from '#src/utils/assert-that.js';
 
 import type { ManagementApiRouter, RouterInitArgs } from '../types.js';
 
@@ -21,17 +20,21 @@ export default function adminUserSessionsRoutes<T extends ManagementApiRouter>(
     koaGuard({
       params: z.object({ userId: z.string() }),
       response: z.object({
-        data: z.array(z.object({
-          id: z.string(),
-          sessionUid: z.string(),
-          deviceInfo: z.object({
-            userAgent: z.string().optional(),
-            ip: z.string().optional(),
-          }).optional(),
-          createdAt: z.number(),
-          lastActiveAt: z.number().optional(),
-          expiresAt: z.number(),
-        })),
+        data: z.array(
+          z.object({
+            id: z.string(),
+            sessionUid: z.string(),
+            deviceInfo: z
+              .object({
+                userAgent: z.string().optional(),
+                ip: z.string().optional(),
+              })
+              .optional(),
+            createdAt: z.number(),
+            lastActiveAt: z.number().optional(),
+            expiresAt: z.number(),
+          })
+        ),
         totalCount: z.number(),
       }),
       status: [200, 404],
@@ -45,13 +48,13 @@ export default function adminUserSessionsRoutes<T extends ManagementApiRouter>(
 
       // Fetch sessions from database
       const allSessions = await findSessionsByUserId(userId);
-      
+
       // Apply pagination
       const totalCount = allSessions.length;
       const sessions = allSessions.slice(offset, offset + limit);
 
       // Transform sessions to response format
-      const sessionData = sessions.map(session => ({
+      const sessionData = sessions.map((session) => ({
         id: session.id,
         sessionUid: session.sessionUid,
         deviceInfo: {
@@ -91,7 +94,7 @@ export default function adminUserSessionsRoutes<T extends ManagementApiRouter>(
       try {
         await revokeSessionByUid(sessionUid, userId);
         ctx.status = 204;
-      } catch (error) {
+      } catch {
         throw new RequestError({ code: 'entity.not_found', status: 404 });
       }
 
@@ -121,4 +124,4 @@ export default function adminUserSessionsRoutes<T extends ManagementApiRouter>(
       return next();
     }
   );
-} 
+}

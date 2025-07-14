@@ -30,7 +30,6 @@ import initApis, { initPublicWellKnownApis } from '#src/routes/init.js';
 import initMeApis from '#src/routes-me/init.js';
 import BasicSentinel from '#src/sentinel/basic-sentinel.js';
 
-import { redisCache } from '../caches/index.js';
 import { SubscriptionLibrary } from '../libraries/subscription.js';
 import koaConsentGuard from '../middleware/koa-consent-guard.js';
 
@@ -149,11 +148,9 @@ export default class Tenant implements TenantContext {
     // Sign-in experience callback via form submission
     mountCallbackRouter(app);
 
-
     // Mount cross-tenant management API routing for OSS multi-tenancy
     // Pattern: /m/{tenantId}/api/... (same as cloud)
     // ALL management APIs should only be accessible through admin port (3002)
-
 
     app.use(mount(`/m/${id}/api`, initApis(tenantContext)));
 
@@ -234,32 +231,32 @@ export default class Tenant implements TenantContext {
       // Local OSS user tenant: Hybrid mounting for multi-tenancy
       // Mount without path prefix for custom domain requests
       const directMount = mount(this.app);
-      
+
       // Mount with path prefix for path-based requests
       const pathMount = mount('/' + this.id, this.app);
-      
+
       // Create a hybrid middleware that handles both cases
       this.run = async (ctx, next) => {
         // Check if this is a custom domain request by examining the URL
         // If the URL doesn't contain the tenant ID in the path, treat it as custom domain
         const pathSegments = ctx.URL.pathname.split('/').filter(Boolean);
         const isCustomDomainRequest = pathSegments.length === 0 || pathSegments[0] !== this.id;
-        
+
         if (isCustomDomainRequest) {
           // Use direct mount for custom domain requests
           return directMount(ctx, next);
-        } else {
-          // Use path-based mount for path-based requests
-          return pathMount(ctx, next);
         }
+        // Use path-based mount for path-based requests
+        return pathMount(ctx, next);
       };
     } else {
       // Admin tenant or cloud: Use standard mounting
       // For admin tenant: Mount directly if admin URL set is configured, otherwise use path-based
-      const usePathBasedMount = !isCloud && 
-        this.id !== adminTenantId && 
+      const usePathBasedMount =
+        !isCloud &&
+        this.id !== adminTenantId &&
         !(adminUrlSet.deduplicated().length > 0 && this.id === adminTenantId);
-      
+
       this.run = usePathBasedMount ? mount('/' + this.id, this.app) : mount(this.app);
     }
   }

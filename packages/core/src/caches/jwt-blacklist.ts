@@ -28,4 +28,4 @@ export class JwtBlacklistCache extends BaseCache<JwtBlacklistCacheMap> {
   getValueGuard(key: JwtBlacklistCacheKey) {
     return getValueGuard(key);
   }
-} 
+}
