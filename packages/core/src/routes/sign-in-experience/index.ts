@@ -116,7 +116,6 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
         validateMfa(mfa);
       }
 
-      /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
       // Guard the quota for the security features enabled. Guarded properties are:
       // - sentinelPolicy: if sentinelPolicy is not empty object, security features are guarded
       // - captchaPolicy: if captchaPolicy is enabled, security features are guarded
@@ -128,7 +127,6 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
       ) {
         await quota.guardTenantUsageByKey('securityFeaturesEnabled');
       }
-      /* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
 
       if (removeUnusedDemoSocialConnector && filteredSocialSignInConnectorTargets) {
         // Remove unused demo social connectors, those that are not selected in onboarding SIE config.

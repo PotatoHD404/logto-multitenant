@@ -170,7 +170,12 @@ export default class Tenant implements TenantContext {
     app.use(koaSlonikErrorHandler());
     app.use(koaConnectorErrorHandler());
     app.use(koaCompress());
-    app.use(koaSecurityHeaders(Array.from([...Object.values(UserApps), ...Object.values(AdminApps)]), this.id));
+    app.use(
+      koaSecurityHeaders(
+        Array.from([...Object.values(UserApps), ...Object.values(AdminApps)]),
+        this.id
+      )
+    );
   }
 
   private setupOidcProvider(app: Koa, mountedApps: string[]): void {
@@ -231,11 +236,7 @@ export default class Tenant implements TenantContext {
     this.setupSignInExperienceRouting(app, mountedApps);
   }
 
-  private setupAdminTenantRouting(
-    app: Koa,
-    mountedApps: string[],
-    isCloud: boolean
-  ): void {
+  private setupAdminTenantRouting(app: Koa, mountedApps: string[], isCloud: boolean): void {
     // Mount `/me` APIs for admin tenant
     app.use(
       mount(

@@ -8,7 +8,6 @@ import type koaAuditLog from '#src/middleware/koa-audit-log.js';
 import { createMockLogContext } from '#src/test-utils/koa-audit-log.js';
 import { createMockProvider } from '#src/test-utils/oidc-provider.js';
 import { MockTenant } from '#src/test-utils/tenant.js';
-import type { LogtoConnector } from '#src/utils/connectors/types.js';
 import { createRequester } from '#src/utils/test-utils.js';
 
 import { interactionPrefix } from './const.js';
@@ -117,7 +116,7 @@ const tenantContext = new MockTenant(
       }
 
       // @ts-expect-error
-      return connector as LogtoConnector;
+      return connector;
     },
   },
   {

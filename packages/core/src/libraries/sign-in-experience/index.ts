@@ -84,7 +84,6 @@ export const createSignInExperienceLibrary = (
       const factory = ssoConnectorFactories[providerName];
       const { name, logo, logoDark } = factory;
 
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string is not a valid locale
       const providerNameInLocale = (isKeyOfI18nPhrases(locale, name) && name[locale]) || name.en;
 
       return {

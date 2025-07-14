@@ -201,7 +201,11 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
     }),
     koaTenantManagementAuth,
     async (ctx: ManagementApiRouterContext, next: Next) => {
-      const { limit, offset, disabled } = ctx.pagination as { limit: number; offset: number; disabled: boolean };
+      const { limit, offset, disabled } = ctx.pagination as {
+        limit: number;
+        offset: number;
+        disabled: boolean;
+      };
       const { auth } = ctx;
 
       assertThat(auth, new RequestError({ code: 'auth.unauthorized', status: 401 }));
@@ -446,7 +450,7 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         await tenantOrg.ensureTenantOrganization(newTenant.id, newTenant.name);
 
         // Assign the creating user as an admin of the new tenant
-        const userId = ctx.auth?.id;
+        const userId = ctx.auth.id;
         await tenantOrg.addUserToTenant(newTenant.id, userId, TenantRole.Admin);
       } catch (error) {
         // If organization creation or user assignment fails, log the error but don't block tenant creation

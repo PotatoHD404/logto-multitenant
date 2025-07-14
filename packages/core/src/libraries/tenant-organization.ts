@@ -5,14 +5,7 @@
  * that represent user tenants for member management.
  */
 
-import {
-  TenantRole,
-  adminTenantId,
-  getTenantRole,
-  OrganizationInvitationStatus,
-  getTenantOrganizationId,
-} from '@logto/schemas';
-import { generateStandardId } from '@logto/shared';
+import { TenantRole, adminTenantId, getTenantRole, getTenantOrganizationId } from '@logto/schemas';
 import { sql } from '@silverhand/slonik';
 
 import { type SearchOptions } from '#src/database/utils.js';

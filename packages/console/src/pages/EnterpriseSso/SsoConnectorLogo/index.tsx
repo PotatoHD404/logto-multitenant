@@ -35,7 +35,6 @@ const pickLogoForCurrentTheme = (
   );
   const builtInLogo = pickLogoForCurrentThemeHelper(isDarkMode, logo, logoDark);
 
-  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   return configuredLogo || builtInLogo;
 };
 

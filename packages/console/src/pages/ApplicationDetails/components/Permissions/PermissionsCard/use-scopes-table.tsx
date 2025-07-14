@@ -34,10 +34,7 @@ type ResourceScopeTableRowDataType = {
   resourceName: string;
 } & ApplicationUserConsentScopesResponse['resourceScopes'][number]['scopes'][number];
 
-export type ScopesTableRowDataType =
-  | UserScopeTableRowDataType
-  | OrganizationScopeTableRowDataType
-  | ResourceScopeTableRowDataType;
+export type ScopesTableRowDataType = UserScopeTableRowDataType | OrganizationScopeTableRowDataType;
 
 type ScopesTableRowGroupType = {
   key: string;

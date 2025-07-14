@@ -53,7 +53,7 @@ const userQueries = {
     identities: { google: { userId: 'googleId', details: {} } },
     mfaVerifications: [],
   }),
-  updateUserById: jest.fn(async (id: string, user: Partial<User>) => user as User),
+  updateUserById: jest.fn(async (id: string, user: Partial<User>) => user),
   hasActiveUsers: jest.fn().mockResolvedValue(true),
   hasUserWithEmail: jest.fn().mockResolvedValue(false),
   hasUserWithNormalizedPhone: jest.fn().mockResolvedValue(false),

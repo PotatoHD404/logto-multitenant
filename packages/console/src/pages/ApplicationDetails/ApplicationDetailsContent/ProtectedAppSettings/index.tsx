@@ -163,7 +163,6 @@ function ProtectedAppSettings({ data }: Props) {
                   {t('protected_app.form.errors.localhost')}
                 </Trans>
               ) : (
-                // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
                 errors.protectedAppMetadata?.origin?.message ||
                 (errors.protectedAppMetadata?.origin?.type === 'required' &&
                   t('protected_app.form.errors.url_required'))

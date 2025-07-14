@@ -101,7 +101,7 @@ function extractFromAuthContext(auth: AuthContext): string | undefined {
   if (!auth.audience) {
     return undefined;
   }
-  
+
   const audience = Array.isArray(auth.audience) ? auth.audience[0] : auth.audience;
   if (typeof audience === 'string' && audience.startsWith('urn:logto:organization:')) {
     const organizationId = getOrganizationIdFromUrn(audience);

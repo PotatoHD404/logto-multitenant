@@ -1,5 +1,6 @@
-import { generateStandardId } from '@logto/shared';
 import { OrganizationInvitationStatus, TenantRole } from '@logto/schemas';
+import { generateStandardId } from '@logto/shared';
+
 import RequestError from '#src/errors/RequestError/index.js';
 
 export const createInvitation = async (
@@ -79,4 +80,4 @@ export const getTenantInvitations = async (
       organizationRoles: invitation.organizationRoles,
     })),
   };
-}; 
+};

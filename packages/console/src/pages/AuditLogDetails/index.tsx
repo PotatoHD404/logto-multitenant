@@ -53,14 +53,12 @@ function AuditLogDetails() {
     conditional(
       hookId &&
         t('log_details.back_to', {
-          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
           name: hookData?.name || t('general.unnamed'),
         })
     ) ??
     conditional(
       appId &&
         t('log_details.back_to', {
-          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
           name: appData?.name || t('general.unnamed'),
         })
     ) ??

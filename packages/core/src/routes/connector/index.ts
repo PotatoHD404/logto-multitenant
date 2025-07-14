@@ -114,7 +114,6 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
         );
 
         const duplicateConnector = await getLogtoConnectorByTargetAndPlatform(
-          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
           metadata?.target || connectorFactory.metadata.target,
           connectorFactory.metadata.platform
         );

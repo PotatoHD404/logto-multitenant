@@ -19,16 +19,19 @@ const base64UrlToArrayBuffer = (base64url: string): ArrayBuffer => {
   const base64 = base64url.replaceAll('-', '+').replaceAll('_', '/');
   const binaryString = Buffer.from(base64, 'base64').toString('binary');
   const bytes = new Uint8Array(binaryString.length);
-  binaryString.split('').forEach((char, index) => {
+  for (const [index, char] of binaryString.split('').entries()) {
     bytes[index] = char.codePointAt(0) ?? 0;
-  });
+  }
   return bytes.buffer;
 };
 
 // Helper function to convert ArrayBuffer to base64url
 const arrayBufferToBase64Url = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
-  const binary = bytes.reduce((acc, byte) => acc + String.fromCodePoint(byte ?? 0), '');
+  const binary = bytes.reduce(
+    (accumulator, byte) => accumulator + String.fromCodePoint(byte ?? 0),
+    ''
+  );
   return Buffer.from(binary, 'binary')
     .toString('base64')
     .replaceAll('+', '-')

@@ -27,9 +27,9 @@ export const parseFactoryDetail = (
     providerType,
     logo,
     logoDark,
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- falsy value expected
+
     description: (isKeyOfI18nPhrases(locale, description) && description[locale]) || description.en,
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- falsy value expected
+
     name: (isKeyOfI18nPhrases(locale, name) && name[locale]) || name.en,
   };
 };
@@ -75,7 +75,7 @@ export const fetchConnectorProviderDetails = async (
 
   return {
     ...connector,
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- falsy value expected
+
     name: (isKeyOfI18nPhrases(locale, name) && name[locale]) || name.en,
     providerType,
     providerLogo: logo,

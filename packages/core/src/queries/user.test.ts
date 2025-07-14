@@ -70,7 +70,7 @@ describe('user query', () => {
       return createMockQueryResult([databaseValue]);
     });
 
-    await expect(findUserByUsername(mockUser.username!)).resolves.toEqual(databaseValue);
+    await expect(findUserByUsername(mockUser.username)).resolves.toEqual(databaseValue);
   });
 
   it('findUserByUsername (case insensitive)', async () => {
@@ -88,7 +88,7 @@ describe('user query', () => {
       return createMockQueryResult([databaseValue]);
     });
 
-    await expect(findUserByUsername(mockUser.username!)).resolves.toEqual(databaseValue);
+    await expect(findUserByUsername(mockUser.username)).resolves.toEqual(databaseValue);
   });
 
   it('findUserByEmail', async () => {
@@ -105,7 +105,7 @@ describe('user query', () => {
       return createMockQueryResult([databaseValue]);
     });
 
-    await expect(findUserByEmail(mockUser.primaryEmail!)).resolves.toEqual(databaseValue);
+    await expect(findUserByEmail(mockUser.primaryEmail)).resolves.toEqual(databaseValue);
   });
 
   it('findUserByPhone', async () => {
@@ -122,7 +122,7 @@ describe('user query', () => {
       return createMockQueryResult([databaseValue]);
     });
 
-    await expect(findUserByPhone(mockUser.primaryPhone!)).resolves.toEqual(databaseValue);
+    await expect(findUserByPhone(mockUser.primaryPhone)).resolves.toEqual(databaseValue);
   });
 
   it('findUserByIdentity', async () => {
@@ -160,7 +160,7 @@ describe('user query', () => {
       return createMockQueryResult([{ exists: true }]);
     });
 
-    await expect(hasUser(mockUser.username!)).resolves.toEqual(true);
+    await expect(hasUser(mockUser.username)).resolves.toEqual(true);
   });
 
   it('hasUser (case insensitive)', async () => {
@@ -180,7 +180,7 @@ describe('user query', () => {
       return createMockQueryResult([{ exists: true }]);
     });
 
-    await expect(hasUser(mockUser.username!)).resolves.toEqual(true);
+    await expect(hasUser(mockUser.username)).resolves.toEqual(true);
   });
 
   it('hasUserWithId', async () => {
@@ -218,7 +218,7 @@ describe('user query', () => {
       return createMockQueryResult([{ exists: true }]);
     });
 
-    await expect(hasUserWithEmail(mockUser.primaryEmail!)).resolves.toEqual(true);
+    await expect(hasUserWithEmail(mockUser.primaryEmail)).resolves.toEqual(true);
   });
 
   it('hasUserWithPhone', async () => {
@@ -237,7 +237,7 @@ describe('user query', () => {
       return createMockQueryResult([{ exists: true }]);
     });
 
-    await expect(hasUserWithPhone(mockUser.primaryPhone!)).resolves.toEqual(true);
+    await expect(hasUserWithPhone(mockUser.primaryPhone)).resolves.toEqual(true);
   });
 
   it('hasUserWithIdentity', async () => {

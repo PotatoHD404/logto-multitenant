@@ -31,11 +31,11 @@ const getEmailIdentifierFromVerificationRecord = (verificationRecord: Verificati
     }
     case VerificationType.Social: {
       const { socialUserInfo } = verificationRecord;
-      return socialUserInfo?.email;
+      return socialUserInfo.email;
     }
     case VerificationType.EnterpriseSso: {
       const { enterpriseSsoUserInfo } = verificationRecord;
-      return enterpriseSsoUserInfo?.email;
+      return enterpriseSsoUserInfo.email;
     }
     default: {
       break;
