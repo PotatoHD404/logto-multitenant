@@ -29,7 +29,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ghcr.io/logto-io/logto
+            ghcr.io/${{ github.repository }}
           # https://github.com/docker/metadata-action#typesemver
           tags: |
             type=semver,pattern={{version}}
@@ -76,7 +76,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ghcr.io/logto-io/logto
+            ghcr.io/${{ github.repository }}
           tags: |
             type=edge
 
