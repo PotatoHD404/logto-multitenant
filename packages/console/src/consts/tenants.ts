@@ -151,9 +151,14 @@ const getAdminTenantEndpoint = () => {
   // The backend's UrlSet checks ADMIN_ENDPOINT first, then constructs localhost with ADMIN_PORT or default port
   if (!isCloud) {
     const currentUrl = new URL(window.location.origin);
+    if (currentUrl.hostname === 'localhost') {
+      return new URL(`http://localhost:${adminPort}`);
+    }
+
+    return new URL(window.location.origin);
     // Use ADMIN_PORT if set, otherwise fall back to the same default as backend (3002)
-    const port = adminPort ? Number(adminPort) : 3002;
-    return new URL(`${currentUrl.protocol}//${currentUrl.hostname}:${port}`);
+    // const port = adminPort ? Number(adminPort) : 3002;
+    // return new URL(`${currentUrl.protocol}//${currentUrl.hostname}:${port}`);
   }
 
   // For cloud, use the auth subdomain
@@ -162,7 +167,7 @@ const getAdminTenantEndpoint = () => {
 
 export const adminTenantEndpoint = getAdminTenantEndpoint();
 
-export const mainTitle = isCloud ? 'Logto Cloud' : 'Logto Console';
+export const mainTitle = 'Logto Console';
 
 // Manually maintaining the list of regions to avoid unexpected changes. We may consider using an API in the future.
 export const availableRegions = Object.freeze([
