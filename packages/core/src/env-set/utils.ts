@@ -61,3 +61,33 @@ export const getTenantUrls = (id: string, globalValues: GlobalValues): URL[] => 
     )
   ).map((element) => new URL(element));
 };
+
+/**
+ * Get tenant URLs including custom domains from the database.
+ * This function extends getTenantUrls to include active custom domains.
+ */
+export const getTenantUrlsWithCustomDomains = async (
+  id: string,
+  globalValues: GlobalValues,
+  queries?: { domains: { findAllDomains: () => Promise<Array<{ domain: string; status: string }>> } }
+): Promise<URL[]> => {
+  const baseUrls = getTenantUrls(id, globalValues);
+  
+  // If no queries provided or not in cloud environment, return base URLs
+  if (!queries || !globalValues.isCloud) {
+    return baseUrls;
+  }
+
+  try {
+    const domains = await queries.domains.findAllDomains();
+    const activeCustomDomains = domains
+      .filter((domain) => domain.status === 'Active')
+      .map((domain) => new URL(`https://${domain.domain}`));
+
+    return deduplicate([...baseUrls, ...activeCustomDomains]);
+  } catch (error) {
+    // If there's an error fetching custom domains, fall back to base URLs
+    console.warn('Failed to fetch custom domains:', error);
+    return baseUrls;
+  }
+};

@@ -7,7 +7,7 @@ import { errors } from 'oidc-provider';
 import snakecaseKeys from 'snakecase-keys';
 
 import { EnvSet } from '#src/env-set/index.js';
-import { getTenantUrls } from '#src/env-set/utils.js';
+import { getTenantUrlsWithCustomDomains } from '#src/env-set/utils.js';
 import type Queries from '#src/tenants/Queries.js';
 
 import { getConstantClientMetadata } from './utils.js';
@@ -90,8 +90,24 @@ const transpileMetadata = (clientId: string, data: AllClientMetadata): AllClient
   };
 };
 
-const buildDemoAppClientMetadata = (envSet: EnvSet): AllClientMetadata => {
-  const urlStrings = getTenantUrls(envSet.tenantId, EnvSet.values).map(
+const buildDemoAppClientMetadata = async (
+  envSet: EnvSet,
+  queries?: Queries
+): Promise<AllClientMetadata> => {
+  // Convert Queries to the expected format for getTenantUrlsWithCustomDomains
+  const queriesAdapter = queries ? {
+    domains: {
+      findAllDomains: async () => {
+        const domains = await queries.domains.findAllDomains();
+        return domains.map(domain => ({
+          domain: domain.domain,
+          status: domain.status
+        }));
+      }
+    }
+  } : undefined;
+
+  const urlStrings = (await getTenantUrlsWithCustomDomains(envSet.tenantId, EnvSet.values, queriesAdapter)).map(
     (url) => appendPath(url, '/demo-app').href
   );
 
@@ -183,7 +199,7 @@ export default function postgresAdapter(
       upsert: reject,
       find: async (id) => {
         if (id === demoAppApplicationId) {
-          return buildDemoAppClientMetadata(envSet);
+          return buildDemoAppClientMetadata(envSet, queries);
         }
 
         const application = await tryThat(

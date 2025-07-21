@@ -10,10 +10,12 @@ import {
   InternalRole,
 } from '@logto/schemas';
 import { generateStandardId, generateStandardSecret } from '@logto/shared';
-import { conditional } from '@silverhand/essentials';
+import { conditional, appendPath } from '@silverhand/essentials';
 import { boolean, object, string, z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
+import { EnvSet } from '#src/env-set/index.js';
+import { getTenantUrlsWithCustomDomains } from '#src/env-set/utils.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import koaPagination from '#src/middleware/koa-pagination.js';
 import { buildOidcClientMetadata } from '#src/oidc/utils.js';
@@ -21,6 +23,7 @@ import assertThat from '#src/utils/assert-that.js';
 import { parseSearchParamsForSearch } from '#src/utils/search.js';
 
 import type { ManagementApiRouter, RouterInitArgs } from '../types.js';
+import type Queries from '#src/tenants/Queries.js';
 
 import applicationCustomDataRoutes from './application-custom-data.js';
 import { generateInternalSecret } from './application-secret.js';
@@ -31,25 +34,54 @@ const includesInternalAdminRole = (roles: Readonly<Array<{ role: Role }>>) =>
 
 const parseIsThirdPartQueryParam = (isThirdPartyQuery: 'true' | 'false' | undefined) => {
   if (isThirdPartyQuery === undefined) {
-    return;
+    return undefined;
   }
 
   return isThirdPartyQuery === 'true';
 };
 
 const hideOidcClientMetadataForSamlApp = (application: Application) => {
-  return {
-    ...application,
-    ...conditional(
-      application.type === ApplicationType.SAML && {
-        oidcClientMetadata: buildOidcClientMetadata(),
-      }
-    ),
-  };
+  if (application.type === ApplicationType.SAML && EnvSet.values.isDevFeaturesEnabled) {
+    const { oidcClientMetadata, ...rest } = application;
+    return rest;
+  }
+
+  return application;
 };
 
 const hideOidcClientMetadataForSamlApps = (applications: readonly Application[]) => {
   return applications.map((application) => hideOidcClientMetadataForSamlApp(application));
+};
+
+const buildDemoAppDataWithCustomDomains = async (
+  tenantId: string,
+  queries: Queries
+): Promise<Application> => {
+  const baseData = buildDemoAppDataForTenant(tenantId);
+  
+  // Get URLs with custom domains
+  const queriesAdapter = {
+    domains: {
+      findAllDomains: async () => {
+        const domains = await queries.domains.findAllDomains();
+        return domains.map(domain => ({
+          domain: domain.domain,
+          status: domain.status
+        }));
+      }
+    }
+  };
+
+  const urls = await getTenantUrlsWithCustomDomains(tenantId, EnvSet.values, queriesAdapter);
+  const redirectUris = urls.map(url => appendPath(url, '/demo-app').href);
+
+  return {
+    ...baseData,
+    oidcClientMetadata: {
+      redirectUris,
+      postLogoutRedirectUris: redirectUris,
+    },
+  };
 };
 
 const applicationTypeGuard = z.nativeEnum(ApplicationType);
@@ -244,7 +276,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
 
       // Somethings console needs to display demo app info. Build a fixed one for it.
       if (id === demoAppApplicationId) {
-        ctx.body = { ...buildDemoAppDataForTenant(tenantId), isAdmin: false };
+        ctx.body = { ...(await buildDemoAppDataWithCustomDomains(tenantId, queries)), isAdmin: false };
 
         return next();
       }
