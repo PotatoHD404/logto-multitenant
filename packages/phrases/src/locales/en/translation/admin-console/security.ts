@@ -113,7 +113,7 @@ const security = {
       modal_description_1:
         'An identifier was temporarily locked due to multiple failed sign-in/sign-up attempts. To protect security, access will automatically restore after the lockout duration.',
       modal_description_2:
-        ' Only unlock manually if you've confirmed the user's identity and ensured no unauthorized access attempts.',
+        " Only unlock manually if you've confirmed the user's identity and ensured no unauthorized access attempts.",
       placeholder: 'Enter identifiers (email address / phone number / username)',
       confirm_button_text: 'Unlock now',
       success_toast: 'Unlocked successfully',
