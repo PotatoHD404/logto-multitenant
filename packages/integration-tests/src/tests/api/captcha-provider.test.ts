@@ -47,6 +47,25 @@ describe('captcha provider', () => {
     });
   });
 
+  it('should update and get Yandex SmartCaptcha provider successfully', async () => {
+    await updateCaptchaProvider({
+      config: {
+        type: CaptchaType.YandexSmartCaptcha,
+        siteKey: 'yandex_site_key',
+        secretKey: 'yandex_secret_key',
+      },
+    });
+    const captchaProvider = await getCaptchaProvider();
+
+    expect(captchaProvider).toMatchObject({
+      config: {
+        type: CaptchaType.YandexSmartCaptcha,
+        siteKey: 'yandex_site_key',
+        secretKey: 'yandex_secret_key',
+      },
+    });
+  });
+
   it('should delete captcha provider successfully', async () => {
     await updateCaptchaProvider({
       config: {

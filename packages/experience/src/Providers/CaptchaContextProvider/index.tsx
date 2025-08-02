@@ -75,6 +75,32 @@ const CaptchaContextProvider = ({ children }: Props) => {
       });
     }
 
+    if (captchaConfig.type === CaptchaType.YandexSmartCaptcha) {
+      return new Promise<string | undefined>((resolve, reject) => {
+        if (!window.smartCaptcha || !widgetRef.current) {
+          resolve(undefined);
+          return;
+        }
+
+        // Clear the dom element first
+        // eslint-disable-next-line @silverhand/fp/no-mutation
+        widgetRef.current.innerHTML = '';
+
+        window.smartCaptcha.render(widgetRef.current, {
+          sitekey: captchaConfig.siteKey,
+          theme: theme === Theme.Light ? 'light' : 'dark',
+          callback: (token: string) => {
+            resolve(token);
+          },
+          'error-callback': (errorCode) => {
+            setToast(t('error.captcha_verification_failed'));
+            reject(new Error(`Yandex SmartCaptcha error: ${errorCode}`));
+          },
+          size: 'flexible',
+        });
+      });
+    }
+
     if (!window.grecaptcha?.enterprise) {
       return;
     }

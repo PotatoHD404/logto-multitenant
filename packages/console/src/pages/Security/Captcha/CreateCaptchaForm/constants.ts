@@ -2,6 +2,7 @@ import { CaptchaType } from '@logto/schemas';
 
 import recaptchaEnterprise from '@/assets/images/recaptcha.svg?react';
 import turnstile from '@/assets/images/turnstile.svg?react';
+import yandexSmartCaptcha from '@/assets/images/yandex-smart-captcha.svg?react';
 
 import { type CaptchaProviderMetadata } from './types';
 
@@ -73,6 +74,32 @@ reCAPTCHA Enterprise is a Google service that protects websites from fraud and a
 ${enableCaptchaReadme}
 `;
 
+const yandexSmartCaptchaReadme = `
+# Yandex SmartCaptcha
+
+Yandex SmartCaptcha is a CAPTCHA service that helps protect your website from spam and abuse. It provides a user-friendly experience with minimal interaction required from users. This guide will walk you through the process of setting up Yandex SmartCaptcha with Logto.
+
+## Prerequisites
+
+- A Yandex Cloud account
+
+## Setup
+
+1. Go to the [Yandex Cloud Console](https://console.cloud.yandex.com/) and select your account.
+2. Navigate to **SmartCaptcha** > **Create captcha**.
+3. Fill out the form with the following details:
+   - **Name**: Any name you want to give to the captcha
+   - **Domain**: Logto's endpoint domain, e.g. https://[tenant-id].logto.app
+   - **Type**: Choose the captcha type that suits your needs
+
+## Get the site key and secret key
+
+1. Navigate to the captcha you just created, and click **Settings**.
+2. Copy the **Site key** and **Secret key** from the configuration section.
+
+${enableCaptchaReadme}
+`;
+
 export const captchaProviders: CaptchaProviderMetadata[] = [
   {
     name: 'security.captcha_providers.recaptcha_enterprise.name',
@@ -106,6 +133,26 @@ export const captchaProviders: CaptchaProviderMetadata[] = [
     logoDark: turnstile,
     description: 'security.captcha_providers.turnstile.description',
     readme: turnstileReadme,
+    requiredFields: [
+      {
+        field: 'siteKey',
+        label: 'security.captcha_details.site_key',
+        placeholder: 'security.captcha_details.site_key',
+      },
+      {
+        field: 'secretKey',
+        label: 'security.captcha_details.secret_key',
+        placeholder: 'security.captcha_details.secret_key',
+      },
+    ],
+  },
+  {
+    name: 'security.captcha_providers.yandex_smart_captcha.name',
+    type: CaptchaType.YandexSmartCaptcha,
+    logo: yandexSmartCaptcha,
+    logoDark: yandexSmartCaptcha,
+    description: 'security.captcha_providers.yandex_smart_captcha.description',
+    readme: yandexSmartCaptchaReadme,
     requiredFields: [
       {
         field: 'siteKey',

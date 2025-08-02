@@ -3,6 +3,7 @@ import {
   type CaptchaProvider,
   type RecaptchaEnterpriseConfig,
   type TurnstileConfig,
+  type YandexSmartCaptchaConfig,
 } from '@logto/schemas';
 import ky from 'ky';
 import { z } from 'zod';
@@ -17,6 +18,12 @@ function isRecaptchaEnterprise(
 
 function isTurnstile(config: CaptchaProvider['config']): config is TurnstileConfig {
   return config.type === CaptchaType.Turnstile;
+}
+
+function isYandexSmartCaptcha(
+  config: CaptchaProvider['config']
+): config is YandexSmartCaptchaConfig {
+  return config.type === CaptchaType.YandexSmartCaptcha;
 }
 
 export class CaptchaValidator {
@@ -34,6 +41,10 @@ export class CaptchaValidator {
 
     if (isTurnstile(config)) {
       return this.verifyTurnstile(config, captchaToken);
+    }
+
+    if (isYandexSmartCaptcha(config)) {
+      return this.verifyYandexSmartCaptcha(config, captchaToken);
     }
 
     throw new Error('Invalid captcha provider');
@@ -121,6 +132,44 @@ export class CaptchaValidator {
       this.log.append({
         success: false,
         errorMessage: 'Failed to get the result from Google Recaptcha Enterprise',
+      });
+
+      return false;
+    }
+  }
+
+  private async verifyYandexSmartCaptcha(config: YandexSmartCaptchaConfig, captchaToken: string) {
+    try {
+      const result = await ky
+        .post('https://smartcaptcha.yandexcloud.net/validate', {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            secret: config.secretKey,
+            token: captchaToken,
+            ip: '', // Optional: can be added if client IP is available
+          }),
+        })
+        .json();
+
+      const responseGuard = z.object({
+        status: z.string(),
+        message: z.string().optional(),
+      });
+
+      const response = responseGuard.parse(result);
+
+      const success = response.status === 'ok';
+
+      this.log.append({
+        success,
+        message: response.message,
+      });
+
+      return success;
+    } catch {
+      this.log.append({
+        success: false,
+        errorMessage: 'Failed to get the result from Yandex SmartCaptcha',
       });
 
       return false;

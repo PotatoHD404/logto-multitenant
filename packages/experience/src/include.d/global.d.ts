@@ -39,5 +39,17 @@ declare global {
         }
       ) => void;
     };
+    smartCaptcha?: {
+      render: (
+        element: HTMLElement,
+        options: {
+          sitekey: string;
+          callback: (token: string) => void;
+          theme?: 'light' | 'dark';
+          'error-callback'?: (errorCode: string) => void;
+          size?: string;
+        }
+      ) => void;
+    };
   }
 }
