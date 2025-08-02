@@ -1,5 +1,5 @@
 ###### [STAGE] Build ######
-FROM node:22-alpine as builder
+FROM node:22-alpine AS builder
 WORKDIR /etc/logto
 ENV CI=true
 # No need for Docker build
@@ -27,7 +27,7 @@ RUN NODE_ENV=production pnpm i
 ### Clean up ###
 RUN rm -rf .scripts pnpm-*.yaml packages/cloud
 ###### [STAGE] Seal ######
-FROM node:22-alpine as app
+FROM node:22-alpine AS app
 WORKDIR /etc/logto
 COPY --from=builder /etc/logto .
 RUN mkdir -p /etc/logto/packages/cli/alteration-scripts && chmod g+w /etc/logto/packages/cli/alteration-scripts
