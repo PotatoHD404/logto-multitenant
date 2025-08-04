@@ -28,6 +28,37 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     return adminQueries.organizations;
   };
 
+  const createTenantOrganization = async (tenantId: string, tenantName?: string) => {
+    const organizationId = getTenantOrganizationId(tenantId);
+    const organizations = await getAdminOrganizations();
+    
+    try {
+      // Use the provided tenant name, or fall back to tenant ID as display name
+      const displayName = tenantName || tenantId;
+      
+      // Special case for admin tenant: use "Admin tenant" instead of "Tenant admin"
+      const organizationName = tenantId === adminTenantId ? 'Admin tenant' : `Tenant ${displayName}`;
+      
+      await organizations.insert({
+        id: organizationId,
+        tenantId: adminTenantId,
+        name: organizationName,
+        description: `Organization for tenant ${tenantId}`,
+      });
+      
+      console.log(`Successfully created organization ${organizationId}`);
+      return organizationId;
+    } catch (error) {
+      console.error(`Failed to create organization ${organizationId}:`, error);
+      throw new RequestError({ 
+        code: 'entity.create_failed', 
+        status: 500,
+        name: 'organization',
+        data: { tenantId, organizationId, error: error instanceof Error ? error.message : String(error) }
+      });
+    }
+  };
+
   const ensureTenantOrganization = async (tenantId: string, tenantName?: string) => {
     const organizationId = getTenantOrganizationId(tenantId);
     const organizations = await getAdminOrganizations();
@@ -37,38 +68,25 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
       return organizationId;
     } catch {
       // Organization doesn't exist, create it
-      try {
-        // Use the provided tenant name, or fall back to tenant ID as display name
-        const displayName = tenantName || tenantId;
-        
-        // Special case for admin tenant: use "Admin tenant" instead of "Tenant admin"
-        const organizationName = tenantId === adminTenantId ? 'Admin tenant' : `Tenant ${displayName}`;
-        
-        const organizations = await getAdminOrganizations();
-        await organizations.insert({
-          id: organizationId,
-          tenantId: adminTenantId,
-          name: organizationName,
-          description: `Organization for tenant ${tenantId}`,
-        });
-        
-        console.log(`Successfully created organization ${organizationId}`);
-        return organizationId;
-      } catch (error) {
-        console.error(`Failed to create organization ${organizationId}:`, error);
-        throw new RequestError({ 
-          code: 'entity.create_failed', 
-          status: 500,
-          name: 'organization',
-          data: { tenantId, organizationId, error: error instanceof Error ? error.message : String(error) }
-        });
-      }
+      return await createTenantOrganization(tenantId, tenantName);
     }
   };
 
   const addUserToTenant = async (tenantId: string, userId: string, role: TenantRole = TenantRole.Collaborator) => {
     const organizations = await getAdminOrganizations();
-    const organizationId = await ensureTenantOrganization(tenantId);
+    const organizationId = getTenantOrganizationId(tenantId);
+    
+    // Check if organization exists (don't create it)
+    try {
+      await organizations.findById(organizationId);
+    } catch {
+      throw new RequestError({ 
+        code: 'entity.not_found', 
+        status: 404,
+        name: 'organization',
+        data: { tenantId, organizationId }
+      });
+    }
     
     // Check if user is already a member
     const isMember = await organizations.relations.users.exists({
@@ -257,7 +275,15 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     }
 
     try {
-      const organizationId = await ensureTenantOrganization(tenantId);
+      const organizationId = getTenantOrganizationId(tenantId);
+      
+      // Check if organization exists (don't create it)
+      try {
+        await organizations.findById(organizationId);
+      } catch {
+        console.warn(`Organization ${organizationId} does not exist for tenant ${tenantId}, skipping admin user provisioning`);
+        return;
+      }
       
       // Get all existing admin users from the admin tenant
       const sharedPool = await EnvSet.sharedPool;
@@ -303,7 +329,19 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     search?: any
   ) => {
     const organizations = await getAdminOrganizations();
-    const organizationId = await ensureTenantOrganization(tenantId);
+    const organizationId = getTenantOrganizationId(tenantId);
+    
+    // Check if organization exists (don't create it)
+    try {
+      await organizations.findById(organizationId);
+    } catch {
+      throw new RequestError({ 
+        code: 'entity.not_found', 
+        status: 404,
+        name: 'organization',
+        data: { tenantId, organizationId }
+      });
+    }
     
     const [totalCount, members] = await organizations.relations.users.getUsersByOrganizationId(
       organizationId,
@@ -334,7 +372,19 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     inviterId: string
   ) => {
     const organizations = await getAdminOrganizations();
-    const organizationId = await ensureTenantOrganization(tenantId);
+    const organizationId = getTenantOrganizationId(tenantId);
+    
+    // Check if organization exists (don't create it)
+    try {
+      await organizations.findById(organizationId);
+    } catch {
+      throw new RequestError({ 
+        code: 'entity.not_found', 
+        status: 404,
+        name: 'organization',
+        data: { tenantId, organizationId }
+      });
+    }
     
     // Get role ID for the specified tenant role
     const roleId = role === TenantRole.Admin 
@@ -375,7 +425,19 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
     { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {}
   ) => {
     const organizations = await getAdminOrganizations();
-    const organizationId = await ensureTenantOrganization(tenantId);
+    const organizationId = getTenantOrganizationId(tenantId);
+    
+    // Check if organization exists (don't create it)
+    try {
+      await organizations.findById(organizationId);
+    } catch {
+      throw new RequestError({ 
+        code: 'entity.not_found', 
+        status: 404,
+        name: 'organization',
+        data: { tenantId, organizationId }
+      });
+    }
     
     // Use findEntities method with organizationId filter
     const invitations = await organizations.invitations.findEntities({
@@ -401,6 +463,7 @@ export const createTenantOrganizationLibrary = (queries: Queries) => {
   };
 
   return {
+    createTenantOrganization,
     ensureTenantOrganization,
     addUserToTenant,
     removeUserFromTenant,

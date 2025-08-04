@@ -404,19 +404,38 @@ export default function tenantRoutes<T extends ManagementApiRouter>(
         // Don't throw error as this shouldn't block tenant creation
       }
 
-      // Initialize tenant organization in the admin tenant
+      // Create tenant organization in the admin tenant
       // This creates an organization in the admin tenant that represents this tenant
       // for user management purposes
       try {
-        await tenantOrg.ensureTenantOrganization(newTenant.id, newTenant.name);
+        await tenantOrg.createTenantOrganization(newTenant.id, newTenant.name);
         
         // Assign the creating user as an admin of the new tenant
         const userId = ctx.auth.id;
         await tenantOrg.addUserToTenant(newTenant.id, userId, TenantRole.Admin);
+        console.log(`Successfully created tenant organization and assigned user ${userId} as admin for tenant ${newTenant.id}`);
+        
+        // Provision existing admin users to the new tenant (for OSS multi-tenant setups)
+        try {
+          await tenantOrg.provisionAdminUsersToNewTenant(newTenant.id);
+        } catch (error) {
+          // Don't fail tenant creation if admin user provisioning fails
+          console.warn(`Failed to provision admin users to tenant ${newTenant.id}:`, error);
+        }
       } catch (error) {
-        // If organization creation or user assignment fails, log the error but don't block tenant creation
-        // The organization and user assignment can be created later when needed
-        console.error(`Failed to initialize tenant organization or assign user for tenant ${newTenant.id}:`, error);
+        // If organization creation or user assignment fails, this is a critical error
+        // that should prevent tenant creation since the tenant would be unusable
+        console.error(`Failed to create tenant organization or assign user for tenant ${newTenant.id}:`, error);
+        throw new RequestError({ 
+          code: 'entity.create_failed', 
+          status: 500,
+          name: 'tenant',
+          data: { 
+            message: 'Failed to create tenant organization or assign creator as admin',
+            tenantId: newTenant.id,
+            error: error instanceof Error ? error.message : String(error)
+          }
+        });
       }
 
       ctx.status = 201;
